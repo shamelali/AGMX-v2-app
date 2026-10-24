@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="title desc">
+  <title id="title">AGMX feature image placeholder</title>
+  <desc id="desc">Placeholder illustration showing a cooperative AGM workflow.</desc>
+  <rect width="800" height="450" rx="20" fill="#F5F7FB"/>
+  <rect x="54" y="56" width="692" height="338" rx="18" fill="#fff" stroke="#E5E9F0" stroke-width="4"/>
+  <path d="M130 225h150m70 0h150m70 0h80" stroke="#0B5394" stroke-width="12" stroke-linecap="round" opacity=".28"/>
+  <g fill="#0B5394"><circle cx="130" cy="225" r="38"/><circle cx="350" cy="225" r="38"/><circle cx="570" cy="225" r="38"/></g>
+  <g fill="#fff" font-family="Arial,sans-serif" font-size="28" font-weight="700" text-anchor="middle"><text x="130" y="235">1</text><text x="350" y="235">2</text><text x="570" y="235">3</text></g>
+  <text x="400" y="115" fill="#0F172A" font-family="Arial,sans-serif" font-size="30" font-weight="700" text-anchor="middle">AGMX FEATURE IMAGE</text>
+  <text x="400" y="350" fill="#475569" font-family="Arial,sans-serif" font-size="22" text-anchor="middle">Replace after license review</text>
+</svg>

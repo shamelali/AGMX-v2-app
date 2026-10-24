@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AGMX · Luar Talian</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, sans-serif;
+      background: #F5F7FB; color: #0F172A;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100dvh; padding: 24px;
+    }
+    .card {
+      background: #fff; border-radius: 20px; padding: 48px 40px;
+      box-shadow: 0 12px 36px rgba(15,23,42,0.12);
+      text-align: center; max-width: 440px;
+    }
+    .icon {
+      width: 80px; height: 80px; background: #E3F0FA;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; font-size: 40px;
+    }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    p { font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #0B5394; color: #fff; border: none;
+      padding: 14px 28px; border-radius: 12px; font-size: 16px; font-weight: 700;
+      cursor: pointer; text-decoration: none; transition: background 0.15s;
+    }
+    .btn:hover { background: #084375; }
+    .btn:focus-visible { outline: 3px solid #D4A017; outline-offset: 2px; }
+    .hint { margin-top: 16px; font-size: 13px; color: #94A3B8; }
+  </style>
+</head>
+<body>
+  <div class="card" role="alert">
+    <div class="icon">📡</div>
+    <h1>Tiada Sambungan Internet</h1>
+    <p>AGMX memerlukan sambungan internet untuk berfungsi. Sila semak sambungan anda dan cuba semula.</p>
+    <button class="btn" onclick="location.reload()">Cuba Semula</button>
+    <div class="hint">Halaman ini akan dimuat semula secara automatik apabila sambungan dipulihkan.</div>
+  </div>
+</body>
+</html>

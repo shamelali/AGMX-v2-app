@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Penilaian AGM Percuma — dapatkan skor kerumitan, saranan pakej dan sebut harga untuk AGM koperasi anda dalam 60 saat. AGMX.">
+  <title>Penilaian AGM Percuma · AGMX</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Assessment-specific layout (reuses the AGMX design system tokens) */
+    body { background: var(--c-bg); }
+    .as-header { background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary)); color: #fff; padding: 18px 0; }
+    .as-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .as-brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 20px; }
+    .as-brand .ag-badge { width: 40px; height: 40px; border-radius: 12px; background: #fff; color: var(--c-primary); display: grid; place-items: center; font-size: 18px; font-weight: 800; }
+    .as-hero { background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary)); color: #fff; padding: 56px 0 64px; }
+    .as-hero h1 { font-size: clamp(26px, 4vw, 40px); font-weight: 800; letter-spacing: -0.5px; margin-bottom: 12px; }
+    .as-hero p { font-size: 16px; opacity: 0.9; max-width: 640px; line-height: 1.6; }
+    .as-hero .steps { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+    .as-hero .step-chip { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+    .as-main { margin-top: -28px; padding-bottom: 64px; }
+    .as-card { background: #fff; border: 1px solid var(--c-border); border-radius: 18px; box-shadow: var(--sh-md); padding: 28px; }
+    .as-card h2 { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+    .as-card .sub { font-size: 13px; color: var(--c-text-2); margin-bottom: 20px; }
+    .section-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--c-primary); background: var(--c-primary-100); padding: 5px 10px; border-radius: 999px; margin-bottom: 10px; }
+    .radio-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .radio-pill { position: relative; }
+    .radio-pill input { position: absolute; opacity: 0; pointer-events: none; }
+    .radio-pill span { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border: 1.5px solid var(--c-border-strong); border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--c-text-2); transition: all 0.15s; background: var(--c-surface); }
+    .radio-pill input:checked + span { border-color: var(--c-primary); background: var(--c-primary-100); color: var(--c-primary); }
+    .radio-pill input:focus-visible + span { outline: 3px solid rgba(11,83,148,0.25); outline-offset: 2px; }
+    .btn-primary { font-weight: 700; }
+    .result-hidden { display: none; }
+    .score-ring { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 8px; position: relative; }
+    .score-ring .score-num { font-size: 42px; font-weight: 800; color: var(--c-primary-700); }
+    .score-ring .score-max { font-size: 13px; color: var(--c-text-3); }
+    .factor-bar { height: 8px; border-radius: 999px; background: var(--c-divider); overflow: hidden; }
+    .factor-bar > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c-primary), var(--c-accent)); }
+    .pkg-card { border: 1.5px solid var(--c-border-strong); border-radius: 14px; padding: 18px; }
+    .pkg-card.recommended { border-color: var(--c-accent); background: var(--c-accent-100); box-shadow: 0 0 0 3px rgba(212,160,23,0.15); }
+    .pkg-price { font-size: 26px; font-weight: 800; color: var(--c-primary-700); }
+    .pkg-price small { font-size: 13px; font-weight: 600; color: var(--c-text-3); }
+    .lead-table td { font-size: 13px; }
+    .fine { font-size: 12px; color: var(--c-text-3); line-height: 1.6; margin-top: 14px; }
+    .pill-green { background: var(--c-success-100); color: #047857; }
+    .backend-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); }
+    .backend-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-warning); }
+    .backend-chip.live .dot { background: var(--c-success); box-shadow: 0 0 0 3px rgba(16,185,129,0.35); }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--c-primary-700); color: #fff; padding: 14px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--sh-lg); opacity: 0; transform: translateY(12px); transition: all 0.25s; z-index: 50; max-width: 340px; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 720px) { .as-card { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <header class="as-header">
+    <div class="wrap">
+      <div class="as-brand"><span class="ag-badge">AG</span> AGMX</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button type="button" id="lang-toggle" class="btn btn-ghost" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff;min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
+        <span class="backend-chip" id="backend-chip" title="Mod penyimpanan data"><span class="dot"></span><span id="backend-label">Backend…</span></span>
+        <a href="/" class="btn btn-ghost" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff">← Kembali ke Laman Utama</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="as-hero">
+    <div class="wrap">
+      <h1>Penilaian AGM Percuma</h1>
+      <p>Jawab 12 soalan ringkas — dapatkan <strong>Skor Kerumitan AGM</strong>, saranan pakej dan sebut harga dalam masa 60 saat. Tiada komitmen, tiada kad kredit.</p>
+      <div class="steps">
+        <span class="step-chip">1 · Maklumat koperasi</span>
+        <span class="step-chip">2 · Skor kerumitan</span>
+        <span class="step-chip">3 · Saranan pakej</span>
+        <span class="step-chip">4 · Sebut harga</span>
+      </div>
+    </div>
+  </section>
+
+  <main class="as-main">
+    <div class="wrap">
+      <div class="as-card" id="assessment-card">
+        <span class="section-tag">Penilaian Percuma</span>
+        <h2>Profil Koperasi Anda</h2>
+        <p class="sub">Maklumat ini hanya digunakan untuk mengira skor &amp; menyediakan sebut harga.</p>
+
+        <form id="assessment-form" novalidate>
+          <div class="form-row">
+            <div>
+              <label class="label" for="coop-name">Nama Koperasi *</label>
+              <input class="input" id="coop-name" type="text" placeholder="cth. Koperasi Pekerja Maju Berhad" required>
+            </div>
+            <div>
+              <label class="label" for="coop-reg">No. Pendaftaran</label>
+              <input class="input" id="coop-reg" type="text" placeholder="cth. KPM-142/2010">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label class="label" for="coop-state">Negeri *</label>
+              <select class="select" id="coop-state" required>
+                <option value="">— Pilih negeri —</option>
+                <option>Johor</option><option>Kedah</option><option>Kelantan</option>
+                <option>Kuala Lumpur</option><option>Melaka</option><option>Negeri Sembilan</option>
+                <option>Pahang</option><option>Perak</option><option>Perlis</option>
+                <option>Pulau Pinang</option><option>Sabah</option><option>Sarawak</option>
+                <option>Selangor</option><option>Terengganu</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="coop-members">Jumlah Ahli *</label>
+              <input class="input" id="coop-members" type="number" min="10" placeholder="cth. 1284" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label class="label" for="agm-date">Tarikh AGM</label>
+              <input class="input" id="agm-date" type="date">
+            </div>
+            <div>
+              <label class="label">Mode AGM *</label>
+              <div class="radio-row" role="radiogroup">
+                <label class="radio-pill"><input type="radio" name="mode" value="physical"><span>Fizikal</span></label>
+                <label class="radio-pill"><input type="radio" name="mode" value="online"><span>Dalam Talian</span></label>
+                <label class="radio-pill"><input type="radio" name="mode" value="hybrid" checked><span>Hibrid</span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label class="label" for="agm-attendance">Anggaran Kehadiran *</label>
+              <input class="input" id="agm-attendance" type="number" min="1" placeholder="cth. 403" required>
+            </div>
+            <div>
+              <label class="label" for="agm-candidates">Bilangan Calon Lembaga</label>
+              <input class="input" id="agm-candidates" type="number" min="0" placeholder="cth. 8">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label class="label" for="agm-motions">Bilangan Usul / Resolusi</label>
+              <input class="input" id="agm-motions" type="number" min="0" placeholder="cth. 12">
+            </div>
+            <div>
+              <label class="label" for="agm-process">Proses AGM Semasa *</label>
+              <select class="select" id="agm-process" required>
+                <option value="manual">Manual sepenuhnya (kertas)</option>
+                <option value="mixed" selected>Campuran manual + digital</option>
+                <option value="digital">Sudah digital</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label class="label">Perlu AGM Terurus (Managed AGM)? *</label>
+              <div class="radio-row" role="radiogroup">
+                <label class="radio-pill"><input type="radio" name="managed" value="yes" checked><span>Ya</span></label>
+                <label class="radio-pill"><input type="radio" name="managed" value="no"><span>Tidak</span></label>
+              </div>
+            </div>
+            <div>
+              <label class="label" for="contact-name">Nama Penuh (PIC) *</label>
+              <input class="input" id="contact-name" type="text" placeholder="cth. Pn. Aishah Rahman" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label class="label" for="contact-phone">Telefon / WhatsApp *</label>
+              <input class="input" id="contact-phone" type="tel" placeholder="cth. 012-3456789" required>
+            </div>
+            <div>
+              <label class="label" for="contact-email">Emel</label>
+              <input class="input" id="contact-email" type="email" placeholder="cth. aishah@kopemaju.my">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:6px">
+            Dapatkan Skor &amp; Sebut Harga →
+          </button>
+          <p class="fine">* Wajib diisi. Data anda dirahsiakan dan tidak dijual. Sebut harga disemak oleh pasukan AGMX sebelum pengesahan.</p>
+        </form>
+      </div>
+
+      <!-- ============ RESULT ============ -->
+      <div class="as-card result-hidden" id="result-card" style="margin-top:24px">
+        <span class="section-tag">Keputusan Penilaian</span>
+        <h2 id="result-coop"></h2>
+        <p class="sub" id="result-summary"></p>
+
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:24px" class="result-grid">
+          <div style="text-align:center">
+            <div class="score-ring" id="score-ring">
+              <div><div class="score-num" id="score-num">0</div><div class="score-max">/ 100 · Kerumitan</div></div>
+            </div>
+            <div id="score-label" class="badge" style="margin-top:4px">—</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--c-text-2)">Faktor Kerumitan</div>
+            <div id="factor-list"></div>
+          </div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--c-divider);margin:22px 0">
+
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--c-text-2)">Saranan Pakej AGM</div>
+        <div id="pkg-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px"></div>
+
+        <hr style="border:0;border-top:1px solid var(--c-divider);margin:22px 0">
+
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;color:var(--c-text-3);text-transform:uppercase;letter-spacing:0.6px;font-weight:700">Anggaran Pelaburan AGM</div>
+            <div style="font-size:30px;font-weight:800;color:var(--c-primary-700)" id="quote-amount">—</div>
+            <div style="font-size:13px;color:var(--c-text-2)" id="quote-annual"></div>
+          </div>
+          <div style="text-align:right">
+            <a href="#lead" class="btn btn-accent btn-lg" id="book-btn">Sahkan Minat — Hubungi Saya</a>
+            <div style="font-size:12px;color:var(--c-text-3);margin-top:8px">Pasukan AGMX akan hubungi dalam 24 jam bekerja.</div>
+          </div>
+        </div>
+
+        <p class="fine">Anggaran ini dijana secara automatik. Sebut harga muktamad &amp; kontrak AGM akan disediakan selepas konsultasi percuma dengan pasukan AGMX. Simulasi &amp; demonstrasi AI tidak termasuk dalam jaminan kontrak.</p>
+      </div>
+
+      <!-- ============ LEAD ============ -->
+      <div class="as-card result-hidden" id="lead-card" style="margin-top:24px">
+        <span class="section-tag">Pembangunan Jualan</span>
+        <h2>Permohonan Diterima ✓</h2>
+        <p class="sub" id="lead-thanks"></p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px" id="lead-summary"></div>
+        <div style="font-size:13px;font-weight:700;margin:20px 0 8px;color:var(--c-text-2)">Peringkat Pipeline</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span class="badge" style="background:var(--c-primary-100);color:var(--c-primary)">1 · Assessment Diterima</span>
+          <span class="badge" style="background:var(--c-warning-100);color:#92400E">2 · Hubungi dalam 24 jam</span>
+          <span class="badge">3 · Konsultasi Percuma</span>
+          <span class="badge">4 · Sebut Harga</span>
+          <span class="badge">5 · AGM Dijadualkan</span>
+        </div>
+        <a href="#" id="lead-cta" class="btn btn-accent btn-lg result-hidden" style="margin-top:18px;width:100%;justify-content:center">
+          Teruskan ke Sebut Harga &amp; Pembayaran →
+        </a>
+        <p class="fine" style="margin-top:8px"> Laluan kendiri (demo): terbitkan sebut harga, invois dan selesaikan pembayaran serta-merta — atau tunggu pasukan AGMX menghubungi anda.</p>
+      </div>
+
+      <!-- ============ LEAD PIPELINE (demo, localStorage) ============ -->
+      <div class="as-card" style="margin-top:24px">
+        <span class="section-tag">Demo — Pipeline Jualan</span>
+        <h2>Daftar Penilaian</h2>
+        <p class="sub">Setiap penilaian disimpan melalui <code>api.js</code> — mod lalai ialah localStorage pelayar ini; mod PocketBase diaktifkan dari <a href="leads.html">Lead Inbox</a> (rute pelayan dalam <code>pb_hooks/money_flow.pb.js</code>).</p>
+        <div id="lead-table-wrap"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <a href="leads.html" class="btn btn-ghost btn-sm">📊 Lead Inbox (Operasi)</a>
+          <a href="checkout.html" class="btn btn-ghost btn-sm">🧾 Aliran Pembayaran</a>
+        </div>
+        <p class="fine" style="margin-top:10px">Dalam mod demo, tiada data dihantar ke pelayan. Dalam pengeluaran, data dihantar ke PocketBase (koleksi <code>agm_assessments</code>) — skor dan harga dikira semula di pelayan, dan peti masuk lead hanya untuk operator yang log masuk.</p>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script src="api.js"></script>
+  <script src="assessment.js"></script>
+
+<script>
+(function () {
+  var MAP = {"__title__": "Free AGM Assessment · AGMX", "Penilaian AGM Percuma · AGMX": "Free AGM Assessment · AGMX", "Penilaian AGM Percuma": "Free AGM Assessment", "← Kembali ke Laman Utama": "← Back to Home", "Jawab 12 soalan ringkas — dapatkan": "Answer 12 quick questions — get your", "Skor Kerumitan AGM": "AGM Complexity Score", ", saranan pakej dan sebut harga dalam masa 60 saat. Tiada komitmen, tiada kad kredit.": ", package recommendation and quote in about 60 seconds. No commitment, no credit card.", "1 · Maklumat koperasi": "1 · Cooperative details", "2 · Skor kerumitan": "2 · Complexity score", "3 · Saranan pakej": "3 · Package recommendation", "4 · Sebut harga": "4 · Quote", "Penilaian Percuma": "Free Assessment", "Profil Koperasi Anda": "Your Cooperative Profile", "Maklumat ini hanya digunakan untuk mengira skor & menyediakan sebut harga.": "This information is only used to calculate your score & prepare a quote.", "Nama Koperasi *": "Cooperative Name *", "No. Pendaftaran": "Registration No.", "Negeri *": "State *", "— Pilih negeri —": "— Select state —", "Jumlah Ahli *": "Number of Members *", "Tarikh AGM": "AGM Date", "Mode AGM *": "AGM Format *", "Fizikal": "In person", "Dalam Talian": "Online", "Hibrid": "Hybrid", "Anggaran Kehadiran *": "Estimated Attendance *", "Bilangan Calon Lembaga": "Board Candidates", "Bilangan Usul / Resolusi": "Motions / Resolutions", "Proses AGM Semasa *": "Current AGM Process *", "Manual sepenuhnya (kertas)": "Fully manual (paper)", "Campuran manual + digital": "Mixed manual + digital", "Sudah digital": "Already digital", "Perlu AGM Terurus (Managed AGM)? *": "Need a Managed AGM? *", "Ya": "Yes", "Tidak": "No", "Nama Penuh (PIC) *": "Full Name (PIC) *", "Telefon / WhatsApp *": "Phone / WhatsApp *", "Emel": "Email", "Dapatkan Skor & Sebut Harga →": "Get Score & Quote →", "* Wajib diisi. Data anda dirahsiakan dan tidak dijual. Sebut harga disemak oleh pasukan AGMX sebelum pengesahan.": "* Required. Your data is kept confidential and never sold. Quotes are reviewed by the AGMX team before confirmation.", "Keputusan Penilaian": "Assessment Results", "/ 100 · Kerumitan": "/ 100 · Complexity", "Faktor Kerumitan": "Complexity Factors", "Saranan Pakej AGM": "Recommended AGM Package", "Anggaran Pelaburan AGM": "Estimated AGM Investment", "Sahkan Minat — Hubungi Saya": "Confirm Interest — Contact Me", "Pasukan AGMX akan hubungi dalam 24 jam bekerja.": "The AGMX team will contact you within 24 business hours.", "Anggaran ini dijana secara automatik. Sebut harga muktamad & kontrak AGM akan disediakan selepas konsultasi percuma dengan pasukan AGMX. Simulasi & demonstrasi AI tidak termasuk dalam jaminan kontrak.": "This estimate is generated automatically. The final quote & AGM contract are prepared after a free consultation with the AGMX team. AI simulations & demos are not covered by the contract guarantee.", "Pembangunan Jualan": "Sales Development", "Permohonan Diterima ✓": "Request Received ✓", "Peringkat Pipeline": "Pipeline Stage", "1 · Assessment Diterima": "1 · Assessment Received", "2 · Hubungi dalam 24 jam": "2 · Contact within 24 hours", "3 · Konsultasi Percuma": "3 · Free Consultation", "4 · Sebut Harga": "4 · Quote", "5 · AGM Dijadualkan": "5 · AGM Scheduled", "Teruskan ke Sebut Harga & Pembayaran →": "Continue to Quote & Payment →", "Laluan kendiri (demo): terbitkan sebut harga, invois dan selesaikan pembayaran serta-merta — atau tunggu pasukan AGMX menghubungi anda.": "Self-service (demo): generate a quote and invoice and complete payment immediately — or wait for the AGMX team to contact you.", "Demo — Pipeline Jualan": "Demo — Sales Pipeline", "Daftar Penilaian": "Assessment Register", "Setiap penilaian disimpan melalui": "Every assessment is stored via", "— mod lalai ialah localStorage pelayar ini; mod PocketBase diaktifkan dari": "— default mode is this browser's localStorage; PocketBase mode is enabled from", "(rute pelayan dalam": "(server route in", "📊 Lead Inbox (Operasi)": "📊 Lead Inbox (Operations)", "🧾 Aliran Pembayaran": "🧾 Payment Flow", "Dalam mod demo, tiada data dihantar ke pelayan. Dalam pengeluaran, data dihantar ke PocketBase (koleksi": "In demo mode, no data is sent to the server. In production, data is sent to PocketBase (collection", ") — skor dan harga dikira semula di pelayan, dan peti masuk lead hanya untuk operator yang log masuk.": ") — scores and prices are recomputed server-side, and the lead inbox is only for logged-in operators."};
+  var lang = "ms";
+  try {
+    var q = new URLSearchParams(location.search).get("lang");
+    lang = (q === "en" || q === "ms") ? q : ((localStorage.getItem("agmx-lang") === "en") ? "en" : "ms");
+  } catch (e) {}
+  if (lang === "en") {
+    if (MAP["__title__"]) document.title = MAP["__title__"];
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (w.nextNode()) nodes.push(w.currentNode);
+    nodes.forEach(function (n) {
+      if (n.parentElement && /^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) return;
+      var trim = n.nodeValue.trim();
+      if (trim && Object.prototype.hasOwnProperty.call(MAP, trim)) n.nodeValue = n.nodeValue.replace(trim, MAP[trim]);
+    });
+    document.documentElement.lang = "en";
+  }
+  var btn = document.getElementById("lang-toggle");
+  if (btn) {
+    btn.textContent = lang === "ms" ? "EN" : "BM";
+    btn.addEventListener("click", function () {
+      try { localStorage.setItem("agmx-lang", lang === "ms" ? "en" : "ms"); } catch (e) {}
+      var u = new URL(location.href);
+      if (lang === "ms") u.searchParams.set("lang", "en"); else u.searchParams.delete("lang");
+      location.href = u.toString();
+    });
+  }
+})();
+</script>
+</body>
+</html>

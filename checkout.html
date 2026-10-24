@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Sebut harga, invois dan pembayaran AGM — AGMX. Sahkan pakej AGM anda dan selesaikan pembayaran dengan selamat.">
+  <title>Pembayaran AGM · AGMX</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: var(--c-bg); }
+    .as-header { background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary)); color: #fff; padding: 18px 0; }
+    .as-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .as-brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 20px; }
+    .as-brand .ag-badge { width: 40px; height: 40px; border-radius: 12px; background: #fff; color: var(--c-primary); display: grid; place-items: center; font-size: 18px; font-weight: 800; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+    .as-main { padding: 40px 0 72px; }
+    .as-card { background: #fff; border: 1px solid var(--c-border); border-radius: 18px; box-shadow: var(--sh-md); padding: 28px; }
+    .as-card h2 { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+    .as-card .sub { font-size: 13px; color: var(--c-text-2); margin-bottom: 20px; }
+    .section-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--c-primary); background: var(--c-primary-100); padding: 5px 10px; border-radius: 999px; margin-bottom: 10px; }
+    .backend-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); }
+    .backend-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-warning); }
+    .backend-chip.live .dot { background: var(--c-success); box-shadow: 0 0 0 3px rgba(16,185,129,0.35); }
+
+    /* Stepper */
+    .stepper { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 22px; }
+    .step { flex: 1; min-width: 130px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fff; border: 1.5px solid var(--c-border); border-radius: 12px; font-size: 13px; font-weight: 600; color: var(--c-text-3); }
+    .step .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--c-divider); color: var(--c-text-2); font-weight: 800; font-size: 12.5px; flex-shrink: 0; }
+    .step.active { border-color: var(--c-primary); color: var(--c-primary); box-shadow: 0 0 0 3px rgba(11,83,148,0.08); }
+    .step.active .n { background: var(--c-primary); color: #fff; }
+    .step.done { border-color: var(--c-success); color: #047857; }
+    .step.done .n { background: var(--c-success); color: #fff; }
+
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .info-cell { background: var(--c-bg); border: 1px solid var(--c-border); border-radius: 12px; padding: 11px 13px; }
+    .info-cell .k { font-size: 10.5px; color: var(--c-text-3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+    .info-cell .v { font-size: 13.5px; font-weight: 700; margin-top: 2px; }
+
+    .quote-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .quote-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--c-text-3); padding: 8px 10px; border-bottom: 1.5px solid var(--c-border); }
+    .quote-table td { padding: 10px; border-bottom: 1px solid var(--c-divider); }
+    .quote-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .quote-table tfoot td { border-bottom: none; padding: 6px 10px; }
+    .quote-table tfoot .grand td { padding-top: 12px; font-size: 17px; font-weight: 800; color: var(--c-primary-700); }
+
+    .addon { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border: 1.5px solid var(--c-border); border-radius: 12px; cursor: pointer; transition: all 0.15s; background: var(--c-surface); }
+    .addon:hover { border-color: var(--c-border-strong); }
+    .addon input { margin-top: 3px; accent-color: var(--c-primary); width: 16px; height: 16px; }
+    .addon.on { border-color: var(--c-primary); background: var(--c-primary-100); }
+
+    .pay-method { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pay-pill { position: relative; flex: 1; min-width: 180px; }
+    .pay-pill input { position: absolute; opacity: 0; pointer-events: none; }
+    .pay-pill span { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1.5px solid var(--c-border-strong); border-radius: 12px; cursor: pointer; transition: all 0.15s; }
+    .pay-pill span b { font-size: 14px; }
+    .pay-pill span small { font-size: 12px; color: var(--c-text-2); line-height: 1.5; }
+    .pay-pill input:checked + span { border-color: var(--c-primary); background: var(--c-primary-100); box-shadow: 0 0 0 3px rgba(11,83,148,0.08); }
+    .pay-pill input:focus-visible + span { outline: 3px solid rgba(11,83,148,0.25); outline-offset: 2px; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: 22px; }
+    .fine { font-size: 12px; color: var(--c-text-3); line-height: 1.6; margin-top: 14px; }
+    .hidden { display: none; }
+
+    .stamp { display: inline-grid; place-items: center; width: 110px; height: 110px; border: 3.5px dashed var(--c-success); border-radius: 50%; color: #047857; font-weight: 800; font-size: 15px; letter-spacing: 1px; transform: rotate(-12deg); text-align: center; line-height: 1.3; margin: 6px auto; }
+    .audit-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--c-divider); font-size: 12.5px; }
+    .audit-item:last-child { border-bottom: none; }
+    .audit-item .t { color: var(--c-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--c-primary-100); border-top-color: var(--c-primary); animation: spin 0.9s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty { text-align: center; padding: 50px 20px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--c-primary-700); color: #fff; padding: 14px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--sh-lg); opacity: 0; transform: translateY(12px); transition: all 0.25s; z-index: 50; max-width: 340px; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media print {
+      .as-header, .stepper, .actions, .no-print, .toast { display: none !important; }
+      .as-card { box-shadow: none; border: 1px solid #ccc; }
+      body { background: #fff; }
+      .as-main { padding: 0; }
+    }
+    @media (max-width: 720px) { .as-card { padding: 18px; } .step { min-width: 100%; } }
+  </style>
+</head>
+<body>
+  <header class="as-header">
+    <div class="wrap">
+      <div class="as-brand"><span class="ag-badge">AG</span> AGMX</div>
+      <button type="button" id="lang-toggle" class="btn btn-ghost" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff;min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
+      <span class="backend-chip" id="backend-chip"><span class="dot"></span><span id="backend-label">Backend…</span></span>
+    </div>
+  </header>
+
+  <main class="as-main">
+    <div class="wrap">
+
+      <!-- Stepper -->
+      <div class="stepper" id="stepper">
+        <div class="step" data-step="1"><span class="n">1</span> Sebut Harga</div>
+        <div class="step" data-step="2"><span class="n">2</span> Invois</div>
+        <div class="step" data-step="3"><span class="n">3</span> Pembayaran</div>
+        <div class="step" data-step="4"><span class="n">4</span> Resit</div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="as-card hidden" id="empty-card">
+        <div class="empty">
+          <div style="font-size:40px;margin-bottom:10px">🧾</div>
+          <h2>Tiada Penilaian Dijumpai</h2>
+          <p class="sub" style="max-width:420px;margin:0 auto 18px">Mulakan dengan penilaian AGM percuma — skor kerumitan, saranan pakej dan sebut harga dijana dalam 60 saat.</p>
+          <a href="assessment.html" class="btn btn-primary btn-lg">Mula Penilaian Percuma →</a>
+        </div>
+      </div>
+
+      <!-- STEP 1: QUOTE -->
+      <div class="as-card hidden" id="quote-card">
+        <span class="section-tag">Langkah 1 · Sebut Harga</span>
+        <h2 id="q-title">Sebut Harga AGM</h2>
+        <p class="sub" id="q-sub">Semak pakej dan tambahan pilihan anda.</p>
+
+        <div class="info-grid" id="q-info"></div>
+
+        <div id="q-items-wrap">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--c-text-2)">Item Sebut Harga</div>
+          <div class="quote-table-wrap" style="overflow-x:auto">
+            <table class="quote-table" id="q-items">
+              <thead><tr><th>Keterangan</th><th class="num">Kuantiti</th><th class="num">Harga Unit</th><th class="num">Jumlah</th></tr></thead>
+              <tbody></tbody>
+              <tfoot></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div id="q-addons" style="margin-top:18px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--c-text-2)">Tambahan Pilihan</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px" id="addon-list"></div>
+        </div>
+
+        <div class="actions">
+          <div style="font-size:12px;color:var(--c-text-3)" id="q-valid"></div>
+          <button class="btn btn-primary btn-lg" id="q-continue">Terbitkan &amp; Terima Sebut Harga →</button>
+        </div>
+        <p class="fine">Sebut harga ini dijana daripada penilaian AGM anda dan sah selama 30 hari. Harga termasuk SST 8% seperti yang dinyatakan. Sebut harga muktamad disahkan oleh pasukan AGMX selepas konsultasi percuma.</p>
+      </div>
+
+      <!-- STEP 2: INVOICE -->
+      <div class="as-card hidden" id="invoice-card">
+        <span class="section-tag">Langkah 2 · Invois</span>
+        <h2 id="inv-title">Invois</h2>
+        <p class="sub">Invois rasmi telah diterbitkan berdasarkan sebut harga yang diterima.</p>
+
+        <div class="info-grid" id="inv-info"></div>
+
+        <div class="quote-table-wrap" style="overflow-x:auto">
+          <table class="quote-table" id="inv-items">
+            <thead><tr><th>Keterangan</th><th class="num">Kuantiti</th><th class="num">Harga Unit</th><th class="num">Jumlah</th></tr></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-ghost" id="inv-print">🖨 Cetak / Simpan Invois</button>
+          <button class="btn btn-primary btn-lg" id="inv-pay">Bayar Sekarang →</button>
+        </div>
+        <p class="fine">Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada <strong>Dibayar</strong> selepas pembayaran disahkan.</p>
+      </div>
+
+      <!-- STEP 3: PAYMENT -->
+      <div class="as-card hidden" id="pay-card">
+        <span class="section-tag">Langkah 3 · Pembayaran</span>
+        <h2>Pilih Kaedah Pembayaran</h2>
+        <p class="sub" id="pay-sub">Semua transaksi dilindungi TLS 1.3. AGMX tidak menyimpan maklumat kad anda.</p>
+
+        <div class="pay-method" role="radiogroup">
+          <label class="pay-pill">
+            <input type="radio" name="paymethod" value="fpx" checked>
+            <span><b>🏦 FPX — Perbankan Dalam Talian</b><small>Maybank2u, CIMB Clicks, Bank Islam, muat turun arahan… Pengesahan serta-merta.</small></span>
+          </label>
+          <label class="pay-pill">
+            <input type="radio" name="paymethod" value="card">
+            <span><b>💳 Kad Kredit / Debit</b><small>Visa / Mastercard. 3-D Secure dengan pengesahan bank anda.</small></span>
+          </label>
+          <label class="pay-pill">
+            <input type="radio" name="paymethod" value="bank_transfer">
+            <span><b>🏛 Pemindahan Bank (Manual)</b><small>Untuk koperasi yang perlu kelulusan lembaga. Disahkan dalam 1 hari bekerja.</small></span>
+          </label>
+          <label class="pay-pill">
+            <input type="radio" name="paymethod" value="billplz">
+            <span><b>🧾 Billplz</b><small>FPX / kad / e-wallet melalui gerbang berlesen. Pengesahan automatik.</small></span>
+          </label>
+        </div>
+
+        <div id="fpx-banks" style="margin-top:16px">
+          <label class="label" for="fpx-bank">Pilih Bank</label>
+          <select class="select" id="fpx-bank" style="max-width:340px">
+            <option>Maybank2u</option><option>CIMB Clicks</option><option>Bank Islam</option>
+            <option>Public Bank</option><option>RHB Now</option><option>AmOnline</option>
+            <option>Bank Muamalat</option><option>BSN</option>
+          </select>
+        </div>
+
+        <div id="bank-details" class="hidden" style="margin-top:16px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:12px;padding:16px">
+          <div style="font-size:13px;font-weight:800;margin-bottom:8px">Akaun Bank AGMX</div>
+          <div style="font-size:13.5px;line-height:2">
+            <strong>AGMX Technology Sdn Bhd</strong><br>
+            Maybank · <strong>5624 1122 3344</strong><br>
+            Rujukan: <strong id="bank-ref" style="font-variant-numeric:tabular-nums">—</strong>
+          </div>
+          <p class="fine" style="margin-top:8px">Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.</p>
+        </div>
+
+        <div class="actions">
+          <div style="font-size:13px;color:var(--c-text-2)">Jumlah Bayaran: <strong id="pay-amount" style="font-size:17px;color:var(--c-primary-700)">—</strong></div>
+          <button class="btn btn-accent btn-lg" id="pay-submit">Bayar Sekarang</button>
+        </div>
+        <p class="fine">⚠️ Demo: gateway pembayaran adalah simulasi. Dalam pengeluaran, AGMX berintegrasi dengan payment gateway bertauliah (FPX / Billplz / iPay88 / Stripe) dan pengesahan dilakukan pelayan-pihak.</p>
+      </div>
+
+      <!-- STEP 3b: PROCESSING -->
+      <div class="as-card hidden" id="processing-card" style="text-align:center">
+        <div class="spinner"></div>
+        <h2>Memproses Pembayaran…</h2>
+        <p class="sub" id="processing-sub">Sila jangan tutup tetingkap ini.</p>
+      </div>
+
+      <!-- STEP 4: RECEIPT -->
+      <div class="as-card hidden" id="receipt-card">
+        <span class="section-tag">Langkah 4 · Selesai</span>
+        <h2>Pembayaran Berjaya 🎉</h2>
+        <p class="sub" id="r-sub">Terima kasih! AGM koperasi anda kini dijadualkan untuk persediaan.</p>
+
+        <div class="stamp">DIBAYAR<br>✓</div>
+
+        <div class="info-grid" id="r-info"></div>
+
+        <div style="font-size:13px;font-weight:700;margin:6px 0 10px;color:var(--c-text-2)">Peringkat Seterusnya</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <span class="badge" style="background:var(--c-success-100);color:#047857">✓ 1 · Assessment</span>
+          <span class="badge" style="background:var(--c-success-100);color:#047857">✓ 2 · Sebut Harga</span>
+          <span class="badge" style="background:var(--c-success-100);color:#047857">✓ 3 · Pembayaran</span>
+          <span class="badge" style="background:var(--c-warning-100);color:#92400E">→ 4 · Persediaan AGM (48 jam)</span>
+          <span class="badge">5 · AGM Dijadualkan</span>
+        </div>
+        <p class="fine">Pengurus projek AGMX akan menghubungi <strong id="r-contact">—</strong> dalam 48 jam untuk persediaan AGM: import ahli, notis AGM 14 hari (Akta Koperasi 1993 · GP14), dan penerbitan dewan AGM.</p>
+
+        <div class="actions">
+          <button class="btn btn-ghost" id="r-print">🖨 Cetak Resit</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a href="app.html" class="btn btn-ghost">Lihat Demo Platform</a>
+            <a href="leads.html" class="btn btn-primary">Lead Inbox (Operasi) →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDIT TRAIL -->
+      <div class="as-card hidden no-print" id="audit-card" style="margin-top:24px">
+        <span class="section-tag">Jejak Audit</span>
+        <h2>Rekod Transaksi</h2>
+        <p class="sub">Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah <code>audit_events</code> append-only berantai-hash.</p>
+        <div id="audit-list"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script src="api.js"></script>
+  <script src="checkout.js"></script>
+
+<script>
+(function () {
+  var MAP = {"Sebut Harga": "Quote", "Invois": "Invoice", "Pembayaran": "Payment", "Resit": "Receipt", "Tiada Penilaian Dijumpai": "No Assessment Found", "Mulakan dengan penilaian AGM percuma — skor kerumitan, saranan pakej dan sebut harga dijana dalam 60 saat.": "Start with the free AGM assessment — complexity score, package recommendation and quote generated in 60 seconds.", "Mula Penilaian Percuma →": "Start Free Assessment →", "Langkah 1 · Sebut Harga": "Step 1 · Quote", "Sebut Harga AGM": "AGM Quote", "Semak pakej dan tambahan pilihan anda.": "Review your package and optional add-ons.", "Item Sebut Harga": "Quote Items", "Keterangan": "Description", "Kuantiti": "Qty", "Harga Unit": "Unit Price", "Jumlah": "Total", "Tambahan Pilihan": "Optional Add-ons", "Terbitkan & Terima Sebut Harga →": "Issue & Accept Quote →", "Sebut harga ini dijana daripada penilaian AGM anda dan sah selama 30 hari. Harga termasuk SST 8% seperti yang dinyatakan. Sebut harga muktamad disahkan oleh pasukan AGMX selepas konsultasi percuma.": "This quote is generated from your AGM assessment and is valid for 30 days. Prices include 8% SST where stated. The final quote is confirmed by the AGMX team after a free consultation.", "Langkah 2 · Invois": "Step 2 · Invoice", "Invois rasmi telah diterbitkan berdasarkan sebut harga yang diterima.": "An official invoice has been issued based on the accepted quote.", "🖨 Cetak / Simpan Invois": "🖨 Print / Save Invoice", "Bayar Sekarang →": "Pay Now →", "Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada <strong>Dibayar</strong> selepas pembayaran disahkan.": "Payment terms: NET 14 days. Your cooperative's status will be updated to <strong>Paid</strong> once payment is verified.", "Langkah 3 · Pembayaran": "Step 3 · Payment", "Pilih Kaedah Pembayaran": "Choose Payment Method", "Semua transaksi dilindungi TLS 1.3. AGMX tidak menyimpan maklumat kad anda.": "All transactions are protected by TLS 1.3. AGMX does not store your card details.", "🏦 FPX — Perbankan Dalam Talian": "🏦 FPX — Online Banking", "Maybank2u, CIMB Clicks, Bank Islam, muat turun arahan… Pengesahan serta-merta.": "Maybank2u, CIMB Clicks, Bank Islam and more. Instant confirmation.", "💳 Kad Kredit / Debit": "💳 Credit / Debit Card", "Visa / Mastercard. 3-D Secure dengan pengesahan bank anda.": "Visa / Mastercard. 3-D Secure with your bank's verification.", "🏛 Pemindahan Bank (Manual)": "🏛 Bank Transfer (Manual)", "Untuk koperasi yang perlu kelulusan lembaga. Disahkan dalam 1 hari bekerja.": "For cooperatives requiring board approval. Verified within 1 business day.", "FPX / kad / e-wallet melalui gerbang berlesen. Pengesahan automatik.": "FPX / cards / e-wallets via a licensed gateway. Automatic confirmation.", "Pilih Bank": "Select Bank", "Akaun Bank AGMX": "AGMX Bank Account", "Rujukan:": "Reference:", "Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.": "Please include the reference number above when transferring. We will verify within 1 business day.", "Jumlah Bayaran:": "Amount Due:", "⚠️ Demo: gateway pembayaran adalah simulasi. Dalam pengeluaran, AGMX berintegrasi dengan payment gateway bertauliah (FPX / Billplz / iPay88 / Stripe) dan pengesahan dilakukan pelayan-pihak.": "⚠️ Demo: the payment gateway is simulated. In production, AGMX integrates a licensed gateway (FPX / Billplz / iPay88 / Stripe) with server-side verification.", "Memproses Pembayaran…": "Processing Payment…", "Sila jangan tutup tetingkap ini.": "Please do not close this window.", "Langkah 4 · Selesai": "Step 4 · Done", "Pembayaran Berjaya 🎉": "Payment Successful 🎉", "Terima kasih! AGM koperasi anda kini dijadualkan untuk persediaan.": "Thank you! Your cooperative's AGM is now scheduled for preparation.", "DIBAYAR": "PAID", "Peringkat Seterusnya": "Next Steps", "✓ 2 · Sebut Harga": "✓ 2 · Quote", "✓ 3 · Pembayaran": "✓ 3 · Payment", "→ 4 · Persediaan AGM (48 jam)": "→ 4 · AGM Setup (48h)", "5 · AGM Dijadualkan": "5 · AGM Scheduled", "Pengurus projek AGMX akan menghubungi": "Your AGMX project manager will contact", "dalam 48 jam untuk persediaan AGM: import ahli, notis AGM 14 hari (Akta Koperasi 1993 · GP14), dan penerbitan dewan AGM.": "within 48 hours for AGM setup: member import, the 14-day AGM notice (Cooperative Act 1993 · GP14), and hall launch.", "🖨 Cetak Resit": "🖨 Print Receipt", "Lihat Demo Platform": "View Platform Demo", "Lead Inbox (Operasi) →": "Lead Inbox (Operations) →", "Jejak Audit": "Audit Trail", "Rekod Transaksi": "Transaction Records", "Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah <code>audit_events</code> append-only berantai-hash.": "Every action in the commercial flow is recorded — in production this is a hash-chained append-only <code>audit_events</code> log."};
+  var lang = "ms";
+  try {
+    var q = new URLSearchParams(location.search).get("lang");
+    lang = (q === "en" || q === "ms") ? q : ((localStorage.getItem("agmx-lang") === "en") ? "en" : "ms");
+  } catch (e) {}
+  if (lang === "en") {
+    document.title = "AGM Payment · AGMX";
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (w.nextNode()) nodes.push(w.currentNode);
+    nodes.forEach(function (n) {
+      if (n.parentElement && /^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) return;
+      var trim = n.nodeValue.trim();
+      if (trim && Object.prototype.hasOwnProperty.call(MAP, trim)) n.nodeValue = n.nodeValue.replace(trim, MAP[trim]);
+    });
+    document.documentElement.lang = "en";
+  }
+  var btn = document.getElementById("lang-toggle");
+  if (btn) {
+    btn.textContent = lang === "ms" ? "EN" : "BM";
+    btn.addEventListener("click", function () {
+      try { localStorage.setItem("agmx-lang", lang === "ms" ? "en" : "ms"); } catch (e) {}
+      var u = new URL(location.href);
+      if (lang === "ms") u.searchParams.set("lang", "en"); else u.searchParams.delete("lang");
+      location.href = u.toString();
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# Vercel deployment artifacts
+.vercel
+
+# Duplicate/legacy directory
+AGMX/
+
+# Worktrees created by ./worktree
+worktrees/
+
+# PocketBase local state + per-deployment config
+pb_data/
+pocketbase/pb_data/
+# Root-anchored: a bare "config.js" matches at any depth and would also
+# ignore api/config.js — the Vercel function that serves production config.
+/config.js
+/config.local.js
+
+# PocketBase server binary (unzip pocketbase_0.40.4 archive into bin/)
+bin/pocketbase
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Opencode skills (local only)
+.agents/
+
+# Large binary files
+*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Env
+.env
+.env.local
+*.pdf
+*.xlsx
+__pycache__/
+
+# Historical mbox patches superseded by the committed Sprint 2 files.
+# Preserved on the recovered-baseline tag.
+patches/
+
+# PocketBase auto-generated collection snapshots. collections.json +
+# tools/pb_migrate.py are the source of truth; PB writes these on every
+# collection change and they are regenerated, not authored.
+pb_migrations/
+.env*

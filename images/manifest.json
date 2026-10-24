@@ -1,0 +1,11 @@
+{
+  "source": "image.png",
+  "generated": "2026-09-27T07:30:00Z",
+  "formats": {
+    "master": "16-bit, 300 DPI, sRGB ICC, lossless PNG",
+    "web": "8-bit, 96 DPI, sRGB ICC, optimized PNG (1920x1080)",
+    "webp": "85% quality, lossy WebP",
+    "jpeg": "85% quality, progressive JPEG (4:2:0)"
+  },
+  "notes": "AVIF not supported by ImageMagick 6.9.12 - install libavif for AVIF support"
+}

@@ -1,0 +1,52 @@
+# The Vercel CLI does NOT honour .gitignore — it uploads everything not
+# listed here. That is how a gitignored config.js (with a live Billplz key
+# in its header comment) reached the public site: array-form rewrites run
+# AFTER the filesystem lookup, so an uploaded config.js shadowed the
+# /api/config.js function entirely.
+#
+# Keep this in sync with .gitignore. Anything server-side or machine-local
+# stays out of the static bundle.
+
+# Per-deployment config — must come from api/config.js + env vars instead.
+# Leading slash is load-bearing: gitignore-style patterns match at any depth,
+# so a bare "config.js" would also exclude api/config.js and delete the
+# very function that is meant to serve it.
+/config.js
+/config.local.js
+
+# Secrets
+.env
+.env.*
+.env.local
+
+# PocketBase backend (deployed separately to Fly.io)
+bin/
+pb_data/
+pocketbase/
+pb_hooks/
+pb_migrations/
+collections.json
+
+# Repo / tooling / docs — never part of the static site
+.git
+.github
+.vscode/
+.idea/
+vercel/
+worktrees/
+AGMX/
+patches/
+tools/
+node_modules/
+*.md
+Dockerfile
+.dockerignore
+fly.toml
+*.pdf
+*.xlsx
+__pycache__/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

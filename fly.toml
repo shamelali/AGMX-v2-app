@@ -1,0 +1,41 @@
+# AGMX PocketBase — Fly.io deployment
+# Usage: fly launch --no-deploy && fly deploy
+
+app = "agmx-pb"
+primary_region = "sin"  # Singapore — closest to Malaysia
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PB_ADMIN_EMAIL = "admin@agmx.test"
+  # Billplz gateway secrets (set via: fly secrets set -a agmx-pb <KEY>=<value>):
+  #   BILLPLZ_API_KEY          Secret key (HTTP Basic auth)
+  #   BILLPLZ_COLLECTION_ID    Collection that receives the bills
+  #   BILLPLZ_X_SIGNATURE      X-Signature key (HMAC) for webhook verification
+  #   BILLPLZ_CALLBACK_URL     https://agmx-pb.fly.dev/api/agmx/payment/callback
+  #   BILLPLZ_REDIRECT_URL     https://agmx-project.vercel.app/checkout.html
+  AGMX_OPERATOR_ORG = "agmx-ops"
+  AGMX_ALLOW_SIMULATED_PAYMENTS = "0"
+
+[http_service]
+  internal_port = 8090
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "pb_data"
+  destination = "/pb/pb_data"

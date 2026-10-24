@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Neutral member avatar placeholder</title>
+  <desc id="desc">Neutral blue avatar placeholder.</desc>
+  <circle cx="80" cy="80" r="78" fill="#E3F0FA" stroke="#0B5394" stroke-width="4"/>
+  <circle cx="80" cy="62" r="25" fill="#0B5394"/>
+  <path d="M35 132c7-29 24-43 45-43s38 14 45 43" fill="#0B5394"/>
+</svg>

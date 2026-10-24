@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="description" content="AGMX — platform AGM untuk koperasi Malaysia: penilaian, sebut harga, e-pengundian, pematuhan dan jejak audit. BM / EN.">
+  <meta name="theme-color" content="#2563EB">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="AGMX">
+  <meta property="og:title" content="AGMX · Sistem Operasi Tadbir Urus AGM">
+  <meta property="og:description" content="Platform AGM untuk koperasi Malaysia: penilaian, sebut harga, e-pengundian, pematuhan dan jejak audit.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://agmx-v2-app.vercel.app/">
+  <meta property="og:image" content="https://agmx-v2-app.vercel.app/assets/enterprise/01-hero-og-banner.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AGMX · Sistem Operasi Tadbir Urus AGM">
+  <meta name="twitter:description" content="Platform AGM untuk koperasi Malaysia: penilaian, sebut harga, e-pengundian dan pematuhan.">
+  <meta name="twitter:image" content="https://agmx-v2-app.vercel.app/assets/enterprise/01-hero-og-banner.png">
+  <title>AGMX · Sistem Operasi Tadbir Urus AGM</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563EB'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23EA580C'%3EAG%3C/text%3E%3C/svg%3E">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Theme initialization
+    (function() {
+      var theme = localStorage.getItem('theme') || 'light';
+      var senior = localStorage.getItem('seniorMode') === 'true';
+      var contrast = localStorage.getItem('highContrast') === 'true';
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.documentElement.classList.toggle('senior-mode', senior);
+      document.documentElement.classList.toggle('high-contrast', contrast);
+    })();
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Langkau ke kandungan utama</a>
+
+  <header class="hero">
+    <div class="container">
+      <nav class="nav-top" aria-label="Navigasi atas">
+        <div class="nav-brand">
+          <svg class="logo-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="#2563EB"/>
+            <text x="50%" y="54%" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif" font-weight="800" font-size="14" fill="#EA580C">AG</text>
+          </svg>
+          <span class="logo-text">AGMX</span>
+        </div>
+        <div class="nav-links" role="navigation" aria-label="Navigasi utama">
+          <a href="#features" class="nav-link">Ciri-ciri</a>
+          <a href="#pricing" class="nav-link">Harga</a>
+          <a href="#security" class="nav-link">Keselamatan</a>
+                </div>
+        <div class="nav-actions">
+          <button type="button" id="lang-toggle" class="btn btn-ghost" style="min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
+          <a href="app.html" class="btn btn-primary">Buka Aplikasi</a>
+          <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20ingin%20mendapatkan%20maklumat%20tentang%20pakej%20AGMX." target="_blank" rel="noopener noreferrer" class="btn btn-ghost">Hubungi Pasukan Jualan</a>
+        </div>
+      </nav>
+
+      <div class="hero-grid">
+        <div class="hero-text">
+          <span class="badge badge-accent">Platform Tadbir Urus untuk Koperasi Malaysia</span>
+          <h1>AGMX <span class="highlight">Sistem Tadbir Urus</span></h1>
+          <p class="hero-subtitle">Platform digital untuk koperasi mengurus AGM, pengundian, usul dan rekod mesyuarat dengan lebih tersusun, teratur dan mudah diaudit.</p>
+          <div class="hero-actions">
+            <a href="assessment.html" class="btn btn-primary btn-lg">Mulakan Penilaian Percuma</a>
+            <a href="app.html" class="btn btn-secondary btn-lg">Lihat Demo</a>
+          </div>
+          <div class="hero-trust">
+            <div class="trust-item">
+              <span class="trust-number">12</span>
+              <span class="trust-label">Soalan penilaian</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-number">4</span>
+              <span class="trust-label">Langkah aliran kerja</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-number">BM / EN</span>
+              <span class="trust-label">Dwibahasa</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-visual">
+        <div class="dashboard-preview">
+          <div class="preview-header">
+            <div class="window-controls">
+              <span class="dot close"></span>
+              <span class="dot minimize"></span>
+              <span class="dot maximize"></span>
+            </div>
+            <div class="preview-tabs">
+              <span class="tab active">Papan Pemuka</span>
+              <span class="tab">Ahli</span>
+              <span class="tab">AGM Langsung</span>
+              <span class="tab">Pengundian</span>
+            </div>
+          </div>
+          <div class="preview-content">
+            <div class="preview-sidebar">
+              <div class="sidebar-item active">Papan Pemuka</div>
+              <div class="sidebar-item">Ahli</div>
+              <div class="sidebar-item">AGM Langsung</div>
+              <div class="sidebar-item">Pengundian</div>
+              <div class="sidebar-item">Usul</div>
+              <div class="sidebar-item">Pematuhan</div>
+            </div>
+            <div class="preview-main">
+              <div class="preview-card">
+                <div class="card-header">Status Kuorum</div>
+                <div class="progress-ring" style="--progress: 78">78%</div>
+                <div class="progress-label">Kuorum Dicapai</div>
+              </div>
+              <div class="preview-card">
+                <div class="card-header">Usul Aktif</div>
+                <div class="motion-item">M-001: Pengisytiharan Dividen</div>
+                <div class="motion-item">M-002: Pilihan Raya Lembaga</div>
+                <div class="motion-item">M-003: Kelulusan Bajet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Fakta produk, bukan dakwaan pensijilan atau skala yang tidak disahkan -->
+  <section class="trust-bar" aria-label="Sorotan produk">
+    <div class="container">
+      <div class="trust-grid">
+        <div class="trust-item"><span class="trust-number">12</span><span class="trust-label">Soalan penilaian AGM</span></div>
+        <div class="trust-item"><span class="trust-number">4</span><span class="trust-label">Langkah aliran kerja</span></div>
+        <div class="trust-item"><span class="trust-number">31</span><span class="trust-label">Koleksi data berstruktur</span></div>
+        <div class="trust-item"><span class="trust-number">BM / EN</span><span class="trust-label">Pilihan bahasa</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works (concept in 4 steps) -->
+  <section class="how-section" aria-labelledby="how-heading">
+    <div class="container">
+      <header class="section-header">
+        <span class="section-label">Cara Ia Berfungsi</span>
+        <h2 id="how-heading">Daripada Penilaian kepada AGM Terurus dalam 4 Langkah</h2>
+        <p class="section-subtitle">Jawab 12 soalan, dapatkan sebut harga tetap, jalankan AGM dan simpan bukti audit.</p>
+      </header>
+      <div class="how-grid">
+        <article class="how-card"><div class="how-num">1</div><h3>Penilaian Percuma</h3><p>12 soalan tentang ahli, usul dan format mesyuarat. Anggaran masa 1–2 minit.</p></article>
+        <article class="how-card"><div class="how-num">2</div><h3>Sebut Harga Tetap</h3><p>Skor kerumitan 0–100 menentukan saranan pakej Essential / Professional / Enterprise.</p></article>
+        <article class="how-card"><div class="how-num">3</div><h3>Jalankan AGM</h3><p>Notis, pendaftaran, kuorum, pengundian langsung, usul dan resolusi dalam app.html.</p></article>
+        <article class="how-card"><div class="how-num">4</div><h3>Kekal Terkawal</h3><p>Minit, tindakan susulan, semakan Akta Koperasi dan jejak peti digital.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features-section" aria-labelledby="features-heading">
+    <div class="container">
+      <header class="section-header">
+        <span class="section-label">Keupayaan Platform</span>
+        <h2 id="features-heading">Platform Tadbir Urus untuk Koperasi</h2>
+        <p class="section-subtitle">Dibina untuk aliran kerja koperasi Malaysia — tersusun, mudah digunakan dan mudah diaudit.</p>
+      </header>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon primary" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <h3>Pematuhan Terbina Dalam</h3>
+          <p>Senarai semak Akta Koperasi 1993, GP14/GP14B dan UUK dengan semakan automatik dalam aliran kerja.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon accent" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <path d="M12 2a8 8 0 0 0-8 8c0 1.5.4 2.9 1.1 4.1L4 22l5-2.5c.9.3 1.9.5 3 .5a8 8 0 1 0 0-16z"/>
+              <circle cx="9" cy="10" r="1" fill="currentColor"/>
+              <circle cx="15" cy="10" r="1" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3>Copilot Tadbir Urus AI</h3>
+          <p>Agen khusus bagi tugas pengerusi, setiausaha, pematuhan dan pengurusan soalan — setiap output disemak manusia.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" style="background: var(--color-secondary); color: white;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <h3>E-Pengundian & Kertas Undi</h3>
+          <p>Undian sulit, pengesahan resit dan jejak audit kemasukan-tambahan (append-only).</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" style="background: var(--color-accent); color: white;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
+          <h3>AGMX LIVE</h3>
+          <p>AGM hibrid: video, kapsyen, giliran pembicara dan kawalan mesyuarat secara langsung.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <h3>Peti Bukti Digital</h3>
+          <p>Jejak audit, rantaian hash dan pakej bukti yang boleh dieksport untuk semakan.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" style="background: var(--color-accent); color: white;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <h3>Mesra Warga Emas</h3>
+          <p>Sasaran sentuh besar, fon 18px, kontras tinggi dan mesra pembaca skrin.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section id="pricing" class="pricing-section" aria-labelledby="pricing-heading">
+    <div class="container">
+      <header class="section-header">
+        <span class="section-label">Harga</span>
+        <h2 id="pricing-heading">Harga & Pakej</h2>
+        <p class="section-subtitle">Langganan tahunan (1 Jan – 31 Dis). Harga Founding 100 untuk langganan 2027 + akses percuma S4 2026. Semua tier termasuk teras tadbir urus penuh.</p>
+      </header>
+      <div class="pricing-grid">
+        <article class="pricing-card">
+          <div class="plan-badge">KECIL</div>
+          <h3>AGMX Small</h3>
+          <div class="price">RM 499<span>/tahun</span></div>
+          <p class="plan-desc">1–299 ahli · Harga Founding 100</p>
+          <ul class="features">
+            <li>Teras tadbir urus penuh</li>
+            <li>1 AGM setahun termasuk</li>
+            <li>Undian resolusi & pemilihan ALK</li>
+            <li>Pematuhan Akta/GP14/UUK</li>
+            <li>Setiausaha & Pematuhan AI</li>
+            <li>Peti Bukti Digital</li>
+            <li>Sokongan standard</li>
+          </ul>
+          <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20berminat%20dengan%20Founding%20100%20AGMX." target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-block">Join Founding 100</a>
+        </article>
+        <article class="pricing-card featured">
+          <div class="plan-badge popular">POPULAR</div>
+          <h3>AGMX Growth</h3>
+          <div class="price">RM 1,199<span>/tahun</span></div>
+          <p class="plan-desc">300–999 ahli · Harga Founding 100</p>
+          <ul class="features">
+            <li>Semua ciri Small</li>
+            <li>AGM tanpa had</li>
+            <li>Kapasiti LANGSUNG lebih tinggi</li>
+            <li>Copilot AI penuh</li>
+            <li>Mod kebolehcapaian</li>
+            <li>Import/Eksport CSV</li>
+            <li>Pek Mesyuarat Digital</li>
+            <li>Sokongan keutamaan</li>
+          </ul>
+          <a href="assessment.html" class="btn btn-accent btn-block">Start Free Assessment</a>
+        </article>
+        <article class="pricing-card">
+          <h3>AGMX Enterprise</h3>
+          <div class="price">RM 2,999<span>/tahun</span></div>
+          <p class="plan-desc">1,000+ ahli · Harga Founding 100 (bermula)</p>
+          <ul class="features">
+            <li>Semua ciri Growth</li>
+            <li>Kapasiti skala perusahaan</li>
+            <li>AI + RAG penuh</li>
+            <li>AGM Hibrid (LANGSUNG)</li>
+            <li>Integrasi API</li>
+            <li>Pelbagai bahasa (BM/EN/TA/ZH)</li>
+            <li>Pembimbingan permulaan</li>
+            <li>Sokongan perusahaan</li>
+          </ul>
+          <a href="assessment.html" class="btn btn-primary btn-block">Dapatkan Sebut Harga</a>
+        </article>
+        <article class="pricing-card">
+          <h3>Enterprise+</h3>
+          <div class="price">Tersuai</div>
+          <p class="plan-desc">10,000+ ahli / Berbilang koperasi</p>
+          <ul class="features">
+            <li>Semua ciri Enterprise</li>
+            <li>Penjenamaan white-label</li>
+            <li>Pengurus akaun khusus</li>
+            <li>Seni bina tersuai / DR</li>
+            <li>SLA operasi bertulis</li>
+            <li>Latihan tersuai</li>
+            <li>Integrasi sistem legasi</li>
+            <li>Terma komersial tersuai</li>
+          </ul>
+          <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20ingin%20bertanya%20tentang%20pakej%20Enterprise%2B." target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-block">Hubungi Pasukan Jualan</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ketelusan keselamatan: kawalan yang boleh disahkan, bukan dakwaan pensijilan -->
+  <section id="security" class="trust-section" aria-labelledby="security-heading">
+    <div class="container">
+      <header class="section-header">
+        <span class="section-label">Ketelusan</span>
+        <h2 id="security-heading">Keselamatan dan Pematuhan Boleh Disahkan</h2>
+        <p class="section-subtitle">AGMX membezakan fungsi siap dibina daripada kawalan yang masih perlu diuji. Sahkan konfigurasi, kontrak dan bukti ujian sebelum digunakan untuk mesyuarat rasmi.</p>
+      </header>
+      <div class="trust-grid">
+        <article class="trust-card">
+          <div class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Kawalan Akses</h3><p>Peranan pengguna, pengasingan data koperasi dan penguatkuasaan pihak pelayan diuji dalam suite regresi.</p>
+        </article>
+        <article class="trust-card">
+          <div class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+          <h3>Jejak Audit</h3><p>Rekod audit kemasukan-tambahan (append-only) dengan perlindungan penyulitan HMAC pada callback pembayaran.</p>
+        </article>
+        <article class="trust-card">
+          <div class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+          <h3>Rujukan Tadbir Urus</h3><p>Peraturan pematuhan Akta Koperasi 1993, GP14/GP14B dan UUK dibekalkan sebagai senarai semak — bukan nasihat undang-undang.</p>
+        </article>
+        <article class="trust-card">
+          <div class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 13h7"/></svg></div>
+          <h3>Pengendalian Data</h3><p>Penyimpanan fail selamat, dasar retensi dan proses permintaan data peribadi disempurnakan sebelum pelancaran penuh.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section" aria-labelledby="cta-heading">
+    <div class="container">
+      <div class="cta-card">
+        <div class="cta-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg> Founding 100 — Tempat Terhad</div>
+        <h2 id="cta-heading">Sedia Urus AGM dengan Lebih Teratur?</h2>
+        <p>Sertai Founding 100 — kunci harga 2027 dan nikmati akses percuma S4 2026.</p>
+        <div class="cta-actions">
+          <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20berminat%20dengan%20Founding%20100%20AGMX." target="_blank" rel="noopener noreferrer" class="btn btn-accent btn-lg">Join Founding 100</a>
+          <a href="app.html" class="btn btn-secondary btn-lg">Teroka Demo</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+              <rect width="32" height="32" rx="8" fill="#2563EB"/>
+              <text x="50%" y="54%" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif" font-weight="800" font-size="14" fill="#EA580C">AG</text>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <div class="b1">AGMX</div>
+            <div class="b2">Sistem Tadbir Urus</div>
+          </div>
+          <p>Sistem operasi AGM untuk koperasi Malaysia.</p>
+        </div>
+        <nav class="footer-nav">
+          <h4>Produk</h4>
+          <a href="#features">Ciri-ciri</a>
+          <a href="#pricing">Harga</a>
+          <a href="#security">Keselamatan</a>
+                </nav>
+        <nav class="footer-nav">
+          <h4>Syarikat</h4>
+          <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20ingin%20berhubung%20dengan%20pasukan%20anda." target="_blank" rel="noopener noreferrer">Hubungi Kami</a>
+          <a href="https://dutaintegra.my" target="_blank" rel="noopener noreferrer">Duta Integra</a>
+        </nav>
+        <nav class="footer-nav">
+          <h4>Pautan</h4>
+          <a href="assessment.html">Penilaian Percuma</a>
+          <a href="app.html">Demo Aplikasi</a>
+          <a href="https://dutaintegra.my/pdpa-starter-pack" target="_blank" rel="noopener noreferrer">Kit PDPA</a>
+        </nav>
+        <nav class="footer-nav">
+          <h4>Perundangan</h4>
+          <a href="privacy.html">Privasi</a>
+          <a href="terms.html">Terma</a>
+          <a href="#security">Pematuhan</a>
+        </nav>
+        <nav class="footer-nav">
+          <h4>Duta Integra</h4>
+          <a href="https://dutaintegra.my" target="_blank" rel="noopener noreferrer">Pengurusan IT &amp; Automasi AI</a>
+          <a href="https://dutaintegra.my/pdpa-starter-pack" target="_blank" rel="noopener noreferrer">Kit Permulaan PDPA</a>
+          <a href="https://wa.me/601154034051?text=Hi%20Duta%20Integra!%20I%27d%20like%20to%20ask%20about%20AGMX%20for%20my%20cooperative." target="_blank" rel="noopener noreferrer">Jualan WhatsApp</a>
+        </nav>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 AGMX. Hak cipta terpelihara. Dibina untuk koperasi Malaysia.</p>
+      </div>
+    </div>
+  </footer>
+
+<script>
+(function () {
+  var MAP = {"Langkau ke kandungan utama": "Skip to main content", "Ciri-ciri": "Features", "Harga": "Pricing", "Keselamatan": "Security", "Buka Aplikasi": "Launch App", "Hubungi Pasukan Jualan": "Contact Sales", "Platform Tadbir Urus untuk Koperasi Malaysia": "Governance platform for Malaysian cooperatives", "Sistem Tadbir Urus": "Governance OS", "Platform digital untuk koperasi mengurus AGM, pengundian, usul dan rekod mesyuarat dengan lebih tersusun, teratur dan mudah diaudit.": "A digital platform for cooperatives to manage AGMs, voting, motions and meeting records — structured and audit-ready.", "Mulakan Penilaian Percuma": "Start Free Assessment", "Lihat Demo": "Watch Demo", "Soalan penilaian": "Assessment questions", "Langkah aliran kerja": "Workflow steps", "Dwibahasa": "Bilingual", "Papan Pemuka": "Dashboard", "Ahli": "Members", "AGM Langsung": "AGM Live", "Pengundian": "Voting", "Usul": "Motions", "Pematuhan": "Compliance", "Status Kuorum": "Quorum Status", "Kuorum Dicapai": "Quorum Achieved", "Usul Aktif": "Active Motions", "M-001: Pengisytiharan Dividen": "M-001: Dividend Declaration", "M-002: Pilihan Raya Lembaga": "M-002: Board Election", "M-003: Kelulusan Bajet": "M-003: Budget Approval", "Soalan penilaian AGM": "AGM assessment questions", "Koleksi data berstruktur": "Structured data collections", "Pilihan bahasa": "Language options", "Cara Ia Berfungsi": "How It Works", "Daripada Penilaian kepada AGM Terurus dalam 4 Langkah": "From assessment to a managed AGM in 4 steps", "Jawab 12 soalan, dapatkan sebut harga tetap, jalankan AGM dan simpan bukti audit.": "Answer 12 questions, get a fixed quote, run the AGM and keep the audit trail.", "Penilaian Percuma": "Free Assessment", "12 soalan tentang ahli, usul dan format mesyuarat. Anggaran masa 1–2 minit.": "12 questions on members, motions and meeting format. About 1–2 minutes.", "Sebut Harga Tetap": "Fixed Quote", "Skor kerumitan 0–100 menentukan saranan pakej Essential / Professional / Enterprise.": "A 0–100 complexity score maps to the Essential / Professional / Enterprise package.", "Jalankan AGM": "Run the AGM", "Notis, pendaftaran, kuorum, pengundian langsung, usul dan resolusi dalam app.html.": "Notices, registration, quorum, live voting, motions and resolutions in app.html.", "Kekal Terkawal": "Stay Organised", "Minit, tindakan susulan, semakan Akta Koperasi dan jejak peti digital.": "Minutes, follow-up actions, Cooperative Act checks and the digital vault trail.", "Keupayaan Platform": "Platform Capabilities", "Platform Tadbir Urus untuk Koperasi": "Governance Platform for Cooperatives", "Dibina untuk aliran kerja koperasi Malaysia — tersusun, mudah digunakan dan mudah diaudit.": "Built for Malaysian cooperative workflows — structured, easy to use and audit-ready.", "Pematuhan Terbina Dalam": "Compliance Built In", "Senarai semak Akta Koperasi 1993, GP14/GP14B dan UUK dengan semakan automatik dalam aliran kerja.": "Cooperative Societies Act 1993, GP14/GP14B and by-law checklists with automated workflow checks.", "Copilot Tadbir Urus AI": "AI Governance Copilot", "Agen khusus bagi tugas pengerusi, setiausaha, pematuhan dan pengurusan soalan — setiap output disemak manusia.": "Specialised agents for chairperson, secretary, compliance and question management — every output is human-reviewed.", "E-Pengundian & Kertas Undi": "E-Voting & Ballots", "Undian sulit, pengesahan resit dan jejak audit kemasukan-tambahan (append-only).": "Secret ballots, receipt verification and append-only audit trail.", "AGM hibrid: video, kapsyen, giliran pembicara dan kawalan mesyuarat secara langsung.": "Hybrid AGM: video, captions, speaker queue and live meeting controls.", "Peti Bukti Digital": "Evidence Vault", "Jejak audit, rantaian hash dan pakej bukti yang boleh dieksport untuk semakan.": "Audit trail, hash chain and exportable evidence packages for review.", "Mesra Warga Emas": "Senior Friendly", "Sasaran sentuh besar, fon 18px, kontras tinggi dan mesra pembaca skrin.": "Large touch targets, 18px base font, high contrast and screen-reader friendly.", "Harga & Pakej": "Pricing & Packages", "Langganan tahunan (1 Jan – 31 Dis). Harga Founding 100 untuk langganan 2027 + akses percuma S4 2026. Semua tier termasuk teras tadbir urus penuh.": "Annual subscription (1 Jan – 31 Dec). Founding 100 pricing for the 2027 subscription + free Q4 2026 access. Every tier includes the full governance core.", "/tahun": "/year", "1–299 ahli · Harga Founding 100": "1–299 members · Founding 100 price", "300–999 ahli · Harga Founding 100": "300–999 members · Founding 100 price", "1,000+ ahli · Harga Founding 100 (bermula)": "1,000+ members · Founding 100 (from)", "10,000+ ahli / Berbilang koperasi": "10,000+ members / Multi-cooperative", "Teras tadbir urus penuh": "Full governance core", "1 AGM setahun termasuk": "1 AGM per year included", "Undian resolusi & pemilihan ALK": "Resolution voting & board elections", "Pematuhan Akta/GP14/UUK": "Act/GP14/by-law compliance", "Setiausaha & Pematuhan AI": "AI Secretary & Compliance", "Sokongan standard": "Standard support", "Semua ciri Small": "All Small features", "AGM tanpa had": "Unlimited AGMs", "Kapasiti LANGSUNG lebih tinggi": "Higher live capacity", "Copilot AI penuh": "Full AI copilot", "Mod kebolehcapaian": "Accessibility mode", "Import/Eksport CSV": "CSV Import/Export", "Pek Mesyuarat Digital": "Digital Meeting Pack", "Sokongan keutamaan": "Priority support", "Semua ciri Growth": "All Growth features", "Kapasiti skala perusahaan": "Enterprise-scale capacity", "AI + RAG penuh": "Full AI + RAG", "AGM Hibrid (LANGSUNG)": "Hybrid AGM (LIVE)", "Integrasi API": "API Integration", "Pelbagai bahasa (BM/EN/TA/ZH)": "Multi-language (BM/EN/TA/ZH)", "Pembimbingan permulaan": "Guided onboarding", "Sokongan perusahaan": "Enterprise support", "Semua ciri Enterprise": "All Enterprise features", "Penjenamaan white-label": "White-label branding", "Pengurus akaun khusus": "Dedicated account manager", "Seni bina tersuai / DR": "Custom architecture / DR", "SLA operasi bertulis": "Written operational SLA", "Latihan tersuai": "Custom training", "Integrasi sistem legasi": "Legacy system integration", "Terma komersial tersuai": "Custom commercial terms", "Tersuai": "Custom", "Dapatkan Sebut Harga": "Get Quote", "Founding 100 — Tempat Terhad": "Founding 100 — Limited places", "Sedia Urus AGM dengan Lebih Teratur?": "Ready to run your AGM more smoothly?", "Sertai Founding 100 — kunci harga 2027 dan nikmati akses percuma S4 2026.": "Join the Founding 100 — lock 2027 pricing and get free Q4 2026 access.", "Teroka Demo": "Explore Demo", "Sistem operasi AGM untuk koperasi Malaysia.": "An AGM operating system for Malaysian cooperatives.", "Produk": "Product", "Pengurusan IT & Automasi AI": "Managed IT & AI Automation", "Kit Permulaan PDPA": "PDPA Starter Pack", "Jualan WhatsApp": "WhatsApp Sales", "© 2026 AGMX. Hak cipta terpelihara. Dibina untuk koperasi Malaysia.": "© 2026 AGMX. All rights reserved. Built for Malaysian cooperatives.", "Ketelusan": "Transparency", "Keselamatan dan Pematuhan Boleh Disahkan": "Security and Compliance You Can Verify", "AGMX membezakan fungsi siap dibina daripada kawalan yang masih perlu diuji. Sahkan konfigurasi, kontrak dan bukti ujian sebelum digunakan untuk mesyuarat rasmi.": "AGMX separates shipped features from controls still under test. Verify configuration, contracts and test evidence before using it for official meetings.", "Kawalan Akses": "Access Controls", "Peranan pengguna, pengasingan data koperasi dan penguatkuasaan pihak pelayan diuji dalam suite regresi.": "User roles, cooperative data isolation and server-side enforcement are covered by our regression suite.", "Jejak Audit": "Audit Trail", "Rekod audit kemasukan-tambahan (append-only) dengan perlindungan penyulitan HMAC pada callback pembayaran.": "Append-only audit records with HMAC signature protection on payment callbacks.", "Rujukan Tadbir Urus": "Governance References", "Peraturan pematuhan Akta Koperasi 1993, GP14/GP14B dan UUK dibekalkan sebagai senarai semak — bukan nasihat undang-undang.": "Cooperative Societies Act 1993, GP14/GP14B and by-law rules are provided as checklists — not legal advice.", "Pengendalian Data": "Data Handling", "Penyimpanan fail selamat, dasar retensi dan proses permintaan data peribadi disempurnakan sebelum pelancaran penuh.": "Secure file storage, retention policy and personal-data request processes are being finalised before full launch.", "Syarikat": "Company", "Hubungi Kami": "Contact Us", "Pautan": "Links", "Demo Aplikasi": "App Demo", "Kit PDPA": "PDPA Kit", "Perundangan": "Legal", "Privasi": "Privacy", "Terma": "Terms", "KECIL": "SMALL", "Berbilang koperasi": "Multi-cooperative"};
+  var TITLE_EN = "AGMX · AGM Governance Operating System";
+  var lang = "ms";
+  try {
+    var q = new URLSearchParams(location.search).get("lang");
+    lang = (q === "en" || q === "ms") ? q : ((localStorage.getItem("agmx-lang") === "en") ? "en" : "ms");
+  } catch (e) {}
+  if (lang === "en") {
+    document.title = TITLE_EN;
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (w.nextNode()) nodes.push(w.currentNode);
+    nodes.forEach(function (n) {
+      if (n.parentElement && /^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) return;
+      var trim = n.nodeValue.trim();
+      if (trim && Object.prototype.hasOwnProperty.call(MAP, trim)) n.nodeValue = n.nodeValue.replace(trim, MAP[trim]);
+    });
+    document.documentElement.lang = "en";
+  }
+  var btn = document.getElementById("lang-toggle");
+  if (btn) {
+    btn.textContent = lang === "ms" ? "EN" : "BM";
+    btn.addEventListener("click", function () {
+      try { localStorage.setItem("agmx-lang", lang === "ms" ? "en" : "ms"); } catch (e) {}
+      var u = new URL(location.href);
+      if (lang === "ms") u.searchParams.set("lang", "en"); else u.searchParams.delete("lang");
+      location.href = u.toString();
+    });
+  }
+})();
+</script>
+</body>
+</html>

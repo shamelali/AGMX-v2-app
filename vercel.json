@@ -1,0 +1,56 @@
+{
+  "rewrites": [
+    { "source": "/config.js", "destination": "/api/config.js" },
+    { "source": "/app", "destination": "/app.html" },
+    { "source": "/assessment", "destination": "/assessment.html" },
+    { "source": "/checkout", "destination": "/checkout.html" },
+    { "source": "/leads", "destination": "/leads.html" },
+    { "source": "/404", "destination": "/404.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; style-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.openai.com https://integrate.api.nvidia.com https://www.billplz-sandbox.com https://api.hitpay.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" }
+      ]
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "NEXT_PUBLIC_LLM_PROVIDER": "@llm_provider",
+    "NEXT_PUBLIC_OPENAI_EMBEDDING_MODEL": "@openai_embedding_model",
+    "NEXT_PUBLIC_OPENAI_CHAT_MODEL": "@openai_chat_model",
+    "NVIDIA_NIM_API_KEY": "@nvidia_nim_api_key",
+    "NVIDIA_NIM_BASE_URL": "@nvidia_nim_base_url",
+    "NVIDIA_NIM_EMBEDDING_MODEL": "@nvidia_nim_embedding_model",
+    "NVIDIA_NIM_CHAT_MODEL": "@nvidia_nim_chat_model",
+    "NVIDIA_NIM_EMBEDDING_DIMS": "@nvidia_nim_embedding_dims",
+    "NEXT_PUBLIC_NVIDIA_NIM_BASE_URL": "@nvidia_nim_base_url",
+    "NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_MODEL": "@nvidia_nim_embedding_model",
+    "NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL": "@nvidia_nim_chat_model",
+    "NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS": "@nvidia_nim_embedding_dims",
+    "BILLPLZ_API_KEY": "@billplz_api_key",
+    "BILLPLZ_COLLECTION_ID": "@billplz_collection_id",
+    "HITPAY_API_KEY": "@hitpay_api_key",
+    "HITPAY_SALT": "@hitpay_salt",
+    "NEXT_PUBLIC_APP_URL": "@app_url",
+    "NEXT_PUBLIC_DEMO_MODE": "@demo_mode",
+    "NEXT_PUBLIC_KNOWLEDGE_RAG": "@knowledge_rag",
+    "NEXT_PUBLIC_REALTIME": "@realtime"
+  }
+}
