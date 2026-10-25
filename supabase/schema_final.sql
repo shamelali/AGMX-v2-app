@@ -21,13 +21,28 @@ $$;
 
 create or replace function public.to_base36(n bigint)
 returns text language sql immutable as $$
-  select case when n = 0 then '0' else (
-    select string_agg(chr(c + case when c < 10 then 48 else 55 end), '' order by pos desc)
-    from (
-      select (n / (36^p)) % 36 as c, p as pos
-      from generate_series(0, floor(log(n) / log(36))::int) p
-    ) s
-  ) end;
+  select case
+    when n = 0 then '0'
+    else (
+      select string_agg(
+        chr(c + case when c < 10 then 48 else 55 end),
+        ''
+        order by pos desc
+      )
+      from (
+        select
+          mod(
+            div(n::numeric, power(36::numeric, p::numeric)),
+            36::numeric
+          )::int as c,
+          p as pos
+        from generate_series(
+          0,
+          floor(log(n::numeric) / log(36::numeric))::int
+        ) as p
+      ) as digits
+    )
+  end;
 $$;
 
 -- ------------------------------------------------------------
@@ -712,7 +727,20 @@ grant all on all functions in schema public to service_role;
 -- ------------------------------------------------------------
 -- REALTIME: EXCLUDE votes FROM PUBLICATION (ballot secrecy)
 -- ------------------------------------------------------------
--- Run this AFTER schema creation in Supabase Dashboard → Database → Replication
--- ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.votes;
--- Then add only tables that should be realtime:
--- ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance, public.quorum_snapshots, public.motions, public.questions;
+-- Idempotent: safe to run multiple times
+DO $$
+BEGIN
+  -- Remove votes from realtime (ballot secrecy) - safe if not present
+  BEGIN
+    ALTER PUBLICATION supabase_realtime DROP TABLE public.votes;
+  EXCEPTION WHEN undefined_table OR undefined_object THEN
+    -- Table not in publication, continue
+  END;
+
+  -- Add realtime tables (safe if already present)
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance, public.quorum_snapshots, public.motions, public.questions;
+  EXCEPTION WHEN duplicate_table OR duplicate_object THEN
+    -- Tables already in publication, continue
+  END;
+END $$;
