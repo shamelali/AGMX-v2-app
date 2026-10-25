@@ -16,7 +16,7 @@ create extension if not exists "vector";
 -- ------------------------------------------------------------
 create or replace function public.generate_ref(prefix text)
 returns text language sql volatile as $$
-  select prefix || '-' || to_base36(extract(epoch from now())::bigint) || '-' || upper(substring(md5(random()::text) from 1 for 6));
+  select $1 || '-' || to_base36(extract(epoch from now())::bigint) || '-' || upper(substring(md5(random()::text) from 1 for 6));
 $$;
 
 create or replace function public.to_base36(n bigint)
