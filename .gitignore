@@ -51,3 +51,6 @@ patches/
 # collection change and they are regenerated, not authored.
 pb_migrations/
 .env*
+.git
+node_modules
+dist
