@@ -109,7 +109,7 @@ supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 
 # Deploy functions
-supabase functions deploy money-flow
+supabase functions deploy money-flow --no-verify-jwt   # gateway webhooks (Billplz/HitPay) cannot send a Supabase JWT
 supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
 
@@ -119,8 +119,10 @@ supabase secrets set NVIDIA_NIM_API_KEY=nvapi-...       # If using NVIDIA NIM
 supabase secrets set LLM_PROVIDER=nvidia                # If using NVIDIA NIM
 supabase secrets set BILLPLZ_API_KEY=...
 supabase secrets set BILLPLZ_COLLECTION_ID=...
+supabase secrets set BILLPLZ_X_SIGNATURE=...            # X Signature key (NOT the API Secret Key)
 supabase secrets set HITPAY_API_KEY=...
-supabase secrets set HITPAY_SALT=...
+supabase secrets set HITPAY_SALT=...                    # Per-webhook salt (Dashboard → Developers → Webhooks)
+supabase secrets set HITPAY_API_URL=https://api.sandbox.hit-pay.com   # Production: https://api.hit-pay.com
 ```
 
 ### 6. Vercel Deployment
@@ -164,12 +166,14 @@ NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL=meta/llama-3.1-70b-instruct
 NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS=1024
 ```
 
-**Payments (Optional):**
+**Payments (Optional):** *(set via `supabase secrets set` on Supabase — the gateway code runs in Edge Functions, not Vercel)*
 ```
-BILLPLZ_API_KEY=...                        # Server-only
-BILLPLZ_COLLECTION_ID=...                  # Server-only
-HITPAY_API_KEY=...                         # Server-only
-HITPAY_SALT=...                            # Server-only
+BILLPLZ_API_KEY=...                        # Server-only (Supabase secret)
+BILLPLZ_COLLECTION_ID=...                  # Server-only (Supabase secret)
+BILLPLZ_X_SIGNATURE=...                    # Server-only — X Signature callback key, NOT the API Secret Key
+HITPAY_API_KEY=...                         # Server-only (Supabase secret)
+HITPAY_SALT=...                            # Server-only — per-webhook salt from Developers → Webhooks
+HITPAY_API_URL=https://api.sandbox.hit-pay.com   # Production: https://api.hit-pay.com
 ```
 
 **App Config:**

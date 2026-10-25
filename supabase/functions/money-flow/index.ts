@@ -21,7 +21,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 const BILLPLZ_API_KEY = Deno.env.get("BILLPLZ_API_KEY") || ""
 const BILLPLZ_COLLECTION_ID = Deno.env.get("BILLPLZ_COLLECTION_ID") || ""
 const HITPAY_API_KEY = Deno.env.get("HITPAY_API_KEY") || ""
+// Per-webhook salt from Dashboard → Developers → Webhooks (NOT the API-key salt)
 const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
+// Sandbox: https://api.sandbox.hit-pay.com — Production: https://api.hit-pay.com
+const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
+// Billplz X Signature key. SEPARATE credential from BILLPLZ_API_KEY (see tools/CHECKS.md #13)
+const BILLPLZ_X_SIGNATURE = Deno.env.get("BILLPLZ_X_SIGNATURE") || ""
 const APP_URL = Deno.env.get("APP_URL") || "https://agmx-v2-app.vercel.app"
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -159,30 +164,40 @@ async function createBillplzBill(invoiceId: string, amount: number, description:
 }
 
 // ---- HitPay Integration ----
+// Docs: https://docs.hitpayapp.com/apis/guide/online-payments
+// Auth: X-BUSINESS-API-KEY header (passing api_key in the body is legacy).
+// Webhooks: register in Dashboard → Developers → Webhook Endpoints and
+// subscribe to payment_request.completed — the per-request `webhook` field
+// is deprecated by HitPay.
+// Payment methods follow those enabled on the account (Settings → Payment
+// Methods); passing unknown codes (e.g. "duitnow") is rejected with 422.
 async function createHitPayPayment(invoiceId: string, amount: number, description: string, email: string, returnUrl: string) {
   if (!HITPAY_API_KEY || !HITPAY_SALT) {
     throw new Error("HitPay not configured")
   }
-  const body = {
-    api_key: HITPAY_API_KEY,
+  const body = new URLSearchParams({
     amount: amount.toFixed(2),
     currency: "MYR",
-    description,
+    purpose: description,
     email,
-    redirect_url: returnUrl,
-    webhook_url: `${APP_URL}/functions/v1/money-flow/payment/confirm?gateway=hitpay`,
     reference_number: invoiceId,
-  }
-  const resp = await fetch("https://api.hitpay.io/v1/payment-requests", {
+    redirect_url: returnUrl,
+    send_sms: "false", // SMS costs money in production; email receipt is free
+  })
+  const resp = await fetch(`${HITPAY_API_URL}/v1/payment-requests`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "X-BUSINESS-API-KEY": HITPAY_API_KEY,
+      "X-Requested-With": "XMLHttpRequest",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
   })
   if (!resp.ok) {
     const err = await resp.text()
     throw new Error(`HitPay error: ${err}`)
   }
-  return resp.json()
+  return resp.json() // { id, url: hosted checkout, redirect_url: our returnUrl, ... }
 }
 
 // ---- Audit Logging ----
@@ -471,7 +486,9 @@ async function handlePaymentIntent(req: Request) {
       user.email || "",
       returnUrl
     )
-    paymentUrl = payment.redirect_url
+    // `url` is the HitPay hosted checkout; `redirect_url` is only our own
+    // return URL echoed back — sending the payer there would skip payment.
+    paymentUrl = payment.url
     gatewayRef = payment.id
   } else {
     // Bank transfer - manual
@@ -484,7 +501,9 @@ async function handlePaymentIntent(req: Request) {
       invoice_id: input.invoiceId,
       organization_id: invoice.organization_id,
       method: input.method,
-      reference: paymentRef,
+      // Gateway reference when available (legacy semantics: reference holds
+      // the Billplz bill / HitPay payment-request id); PAY ref for bank transfer
+      reference: gatewayRef || paymentRef,
       amount: invoice.amount,
       status: "pending",
     })
@@ -506,44 +525,121 @@ async function handlePaymentIntent(req: Request) {
   })
 }
 
+// ---- Webhook signature helpers ----
+// Constant-time comparison so signature checks don't leak timing info.
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+async function hmacSha256Hex(key: string, message: string): Promise<string> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  )
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message))
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("")
+}
+
+// Billplz X-Signature scheme (must mirror tools/verify_billplz_callback.py):
+// drop x_signature, sort remaining keys ascending, concatenate key+value with
+// no separator, join pairs with '|', HMAC-SHA256 lowercase hex.
+async function billplzSignature(params: Record<string, string>, key: string): Promise<string> {
+  const pairs = Object.keys(params)
+    .filter(k => k !== "x_signature")
+    .sort()
+    .map(k => k + params[k])
+    .join("|")
+  return hmacSha256Hex(key, pairs)
+}
+
 async function handlePaymentConfirm(req: Request) {
   const url = new URL(req.url)
   const gateway = url.searchParams.get("gateway") || "billplz"
-  const body = await req.json()
+  const raw = await req.text()
 
+  // Billplz form-encodes its callback; HitPay sends a JSON body.
+  let params: Record<string, any> = {}
+  const contentType = req.headers.get("content-type") || ""
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    params = Object.fromEntries(new URLSearchParams(raw))
+  } else {
+    params = JSON.parse(raw)
+  }
+
+  // Verify signatures BEFORE trusting anything. Fail closed when the signing
+  // key is not configured — a wrong-but-consistent key looks correct in every
+  // negative test and only fails on a real payment (tools/CHECKS.md #13).
+  if (gateway === "billplz") {
+    if (!BILLPLZ_X_SIGNATURE) return errorResponse("BILLPLZ_X_SIGNATURE not configured", 500)
+    const expected = await billplzSignature(params, BILLPLZ_X_SIGNATURE)
+    if (!safeEqual(expected, String(params.x_signature || ""))) {
+      return errorResponse("Invalid x_signature", 403)
+    }
+  } else if (gateway === "hitpay") {
+    if (!HITPAY_SALT) return errorResponse("HITPAY_SALT not configured", 500)
+    // HitPay event webhooks: HMAC-SHA256 of the RAW body using the per-webhook
+    // salt, sent in the Hitpay-Signature header.
+    const expected = await hmacSha256Hex(HITPAY_SALT, raw)
+    if (!safeEqual(expected, req.headers.get("hitpay-signature") || "")) {
+      return errorResponse("Invalid Hitpay-Signature", 403)
+    }
+  } else {
+    return errorResponse("Unknown gateway", 400)
+  }
+
+  // This app routes fpx → Billplz and card → HitPay (see handlePaymentIntent).
+  const method = gateway === "billplz" ? "fpx" : "card"
   let invoiceId = ""
   let gatewayRef = ""
+  let txnId = ""
   let status = "pending"
   let paidAt = new Date().toISOString()
 
   if (gateway === "billplz") {
-    // Billplz callback: { id, paid, paid_at, x_signature }
-    invoiceId = body.reference_1
-    gatewayRef = body.id
-    status = body.paid ? "succeeded" : "failed"
-    paidAt = body.paid_at ? new Date(body.paid_at).toISOString() : new Date().toISOString()
-    // TODO: Verify x_signature with BILLPLZ_API_KEY
-  } else if (gateway === "hitpay") {
-    // HitPay webhook: { reference_number, status, transaction_id }
-    invoiceId = body.reference_number
-    gatewayRef = body.transaction_id
-    status = body.status === "completed" ? "succeeded" : "failed"
+    // Callback params: { id, paid, state, transaction_id, reference_1, paid_at, ... }
+    invoiceId = params.reference_1
+    gatewayRef = params.id
+    txnId = params.transaction_id || ""
+    status = String(params.paid) === "true" ? "succeeded" : "failed"
+    if (params.paid_at) paidAt = new Date(params.paid_at).toISOString()
+  } else {
+    // payment_request.completed payload: the full payment request object —
+    // { id, reference_number, status, payments: [{ id, status, ... }] }
+    invoiceId = params.reference_number
+    gatewayRef = params.id
+    txnId = params.payments?.[0]?.id || ""
+    status = params.status === "completed" ? "succeeded" : "failed"
   }
 
   if (!invoiceId) return errorResponse("Missing invoice reference", 400)
 
-  // Update payment
-  const { data: payment } = await supabase
+  // Gateways retry; settle a payment only once (idempotency).
+  const { data: existing } = await supabase
     .from("payments")
-    .update({
+    .select("id, status, organization_id, amount")
+    .eq("invoice_id", invoiceId)
+    .eq("method", method)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existing?.status === "succeeded") {
+    return successResponse({ success: true, status: "duplicate" })
+  }
+
+  if (existing) {
+    await supabase.from("payments").update({
       status,
       paid_at: status === "succeeded" ? paidAt : null,
       reference: gatewayRef,
-    })
-    .eq("invoice_id", invoiceId)
-    .eq("reference", gatewayRef)
-    .select()
-    .single()
+    }).eq("id", existing.id)
+  }
 
   // Update invoice
   if (status === "succeeded") {
@@ -554,12 +650,13 @@ async function handlePaymentConfirm(req: Request) {
   }
 
   // Audit
-  if (payment) {
-    await auditLog(payment.organization_id, "00000000-0000-0000-0000-000000000000", "payment.confirmed", "payment", payment.id, {
+  if (existing) {
+    await auditLog(existing.organization_id, "00000000-0000-0000-0000-000000000000", "payment.confirmed", "payment", existing.id, {
       gateway,
       gatewayRef,
+      txnId,
       status,
-      amount: payment.amount,
+      amount: existing.amount,
     })
   }
 
