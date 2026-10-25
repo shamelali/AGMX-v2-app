@@ -1,12 +1,17 @@
 # AGMX — Todo (Immediate Next Actions)
 
+> **⏱️ Timebox rule (Slow Burn, 10%).** AGMX gets **max 2 hours per week**,
+> in one scheduled block — it does not touch DutaOS revenue hours. Work the
+> list top-down; when the block ends, stop. No guilt, no spill-over.
+
 ## This Week
 
+- [ ] 🔐 **Rotate Billplz API key + portal password** (was exposed — audits
+      of both repos' trees and git history are clean now, but rotate anyway
+      since the old value is burned; needs Billplz portal login)
 - [ ] Deploy the Vercel fix to production
 - [ ] Run production smoke-test matrix (all 6 URLs)
 - [ ] Freeze current UI as V1 baseline
-- [ ] Rotate Billplz API key (was exposed)
-- [ ] Rotate Billplz portal password (was in plaintext)
 
 ## This Sprint (Sprint 1 — Get Paid)
 
