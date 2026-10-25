@@ -2,6 +2,7 @@
 -- AGMX V2 — Production Database Schema (Supabase / PostgreSQL)
 -- Fixed: table ordering, RLS policies, append-only, security, rerun-safe
 -- Column-level protections, Realtime vote secrecy, minimal grants
+-- Trigger order fixed, GRANT INSERT on votes added
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -30,9 +31,8 @@ returns text language sql immutable as $$
 $$;
 
 -- ------------------------------------------------------------
--- COLUMN PROTECTION TRIGGERS
+-- COLUMN PROTECTION TRIGGER FUNCTION (defined early, trigger created after table)
 -- ------------------------------------------------------------
--- Prevent users from updating their own role/organization_id
 create or replace function public.profiles_protect_privileged_columns()
 returns trigger language plpgsql as $$
 begin
@@ -44,11 +44,6 @@ begin
   end if;
   return new;
 end $$;
-
-drop trigger if exists profiles_protect_privileged on public.profiles;
-create trigger profiles_protect_privileged
-before update on public.profiles
-for each row execute function public.profiles_protect_privileged_columns();
 
 -- ------------------------------------------------------------
 -- IDENTITY & TENANCY
@@ -79,6 +74,12 @@ create table if not exists public.profiles (
   theme           text not null default 'default',
   created_at      timestamptz not null default now()
 );
+
+-- Trigger to protect privileged columns (created AFTER profiles table exists)
+drop trigger if exists profiles_protect_privileged on public.profiles;
+create trigger profiles_protect_privileged
+before update on public.profiles
+for each row execute function public.profiles_protect_privileged_columns();
 
 create table if not exists public.members (
   id              uuid primary key default gen_random_uuid(),
@@ -474,6 +475,7 @@ create index if not exists idx_attendance_agm on public.attendance(agm_id);
 create index if not exists idx_audit_org on public.audit_events(organization_id, occurred_at desc);
 create index if not exists idx_assessments_status on public.agm_assessments(status);
 create index if not exists idx_leads_created on public.agm_assessments(created_at desc);
+create index if not exists idx_notice_recips_org on public.notice_recipients(organization_id);
 
 -- ------------------------------------------------------------
 -- ROW-LEVEL SECURITY
@@ -653,7 +655,7 @@ begin
   execute 'drop policy if exists fed_orgs_org on public.federation_organizations';
   execute 'create policy fed_orgs_org on public.federation_organizations for all using (organization_id = public.current_org_id()) with check (organization_id = public.current_org_id())';
 
-  -- votes: org isolation, append-only. NO SELECT for individual votes (ballot secrecy)
+  -- votes: org isolation, append-only, ballot secrecy (no SELECT)
   execute 'drop policy if exists votes_read on public.votes';
   execute 'create policy votes_read on public.votes for select using (false)';  -- No direct reads
   execute 'drop policy if exists votes_insert on public.votes';
@@ -698,6 +700,9 @@ grant insert, update on public.documents, public.audit_events to authenticated;
 grant insert, update on public.partners, public.partner_organizations, public.federations, public.federation_organizations to authenticated;
 grant insert, update on public.organization_members to authenticated;
 grant insert, update on public.profiles to authenticated;
+
+-- votes: INSERT needed for authenticated clients to vote directly
+grant insert on public.votes to authenticated;
 
 -- Service role gets everything
 grant all on all tables in schema public to service_role;
