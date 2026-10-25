@@ -678,6 +678,47 @@ begin
 end $$;
 
 -- ------------------------------------------------------------
+-- RATE LIMITING TABLE & RPC
+-- ------------------------------------------------------------
+create table if not exists public.rate_limit (
+  ip text primary key,
+  request_count int not null default 1,
+  window_start timestamptz not null default now()
+);
+
+create index if not exists idx_rate_limit_window on public.rate_limit (window_start);
+
+alter table public.rate_limit enable row level security;
+
+create policy rate_limit_service_only on public.rate_limit
+  for all using (auth.role() = 'service_role');
+
+create or replace function public.check_rate_limit(
+  p_ip text,
+  p_limit int default 60,
+  p_window interval default '1 minute'
+)
+returns boolean language plpgsql security definer as $$
+declare
+  v_count int;
+  v_window_start timestamptz;
+begin
+  -- Clean old entries
+  delete from public.rate_limit
+  where window_start < now() - p_window;
+
+  -- Upsert counter
+  insert into public.rate_limit (ip, request_count, window_start)
+  values (p_ip, 1, now())
+  on conflict (ip) do update set
+    request_count = rate_limit.request_count + 1
+  returning request_count into v_count;
+
+  return v_count <= p_limit;
+end;
+$$;
+
+-- ------------------------------------------------------------
 -- APPEND-ONLY TRIGGERS
 -- ------------------------------------------------------------
 create or replace function public.raise_append_only()
@@ -718,6 +759,9 @@ grant insert, update on public.profiles to authenticated;
 
 -- votes: INSERT needed for authenticated clients to vote directly
 grant insert on public.votes to authenticated;
+
+-- rate_limit: no client access (service_role only via RPC)
+-- grant select, insert on public.rate_limit to authenticated; -- NOT GRANTED
 
 -- Service role gets everything
 grant all on all tables in schema public to service_role;

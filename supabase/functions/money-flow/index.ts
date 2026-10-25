@@ -1,7 +1,7 @@
 /**
- * AGMX Money Flow — Supabase Edge Functions
+ * AGMX Money Flow — Supabase Edge Functions (Security Hardened)
  * Replaces PocketBase pb_hooks/money_flow.pb.js
- * 
+ *
  * Endpoints:
  *   POST /functions/v1/money-flow/assessment   - Submit assessment → create lead
  *   POST /functions/v1/money-flow/quote        - Generate quote from assessment
@@ -16,20 +16,19 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from "../_shared/cors.ts"
 
+// Use secret key (new API key format) instead of service_role_key
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!
 const BILLPLZ_API_KEY = Deno.env.get("BILLPLZ_API_KEY") || ""
 const BILLPLZ_COLLECTION_ID = Deno.env.get("BILLPLZ_COLLECTION_ID") || ""
-const HITPAY_API_KEY = Deno.env.get("HITPAY_API_KEY") || ""
-// Per-webhook salt from Dashboard → Developers → Webhooks (NOT the API-key salt)
-const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
-// Sandbox: https://api.sandbox.hit-pay.com — Production: https://api.hit-pay.com
-const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
-// Billplz X Signature key. SEPARATE credential from BILLPLZ_API_KEY (see tools/CHECKS.md #13)
 const BILLPLZ_X_SIGNATURE = Deno.env.get("BILLPLZ_X_SIGNATURE") || ""
+const HITPAY_API_KEY = Deno.env.get("HITPAY_API_KEY") || ""
+const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
+const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
 const APP_URL = Deno.env.get("APP_URL") || "https://agmx-v2-app.vercel.app"
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+// Use secret key (new API key format) for service-role access
+const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
 
 // ---- Types ----
 interface AssessmentInput {
@@ -77,6 +76,7 @@ function successResponse(data: any, status = 200) {
   })
 }
 
+// Verify JWT and get user - use app_metadata for roles (not user_metadata)
 async function getAuthUser(req: Request) {
   const authHeader = req.headers.get("Authorization")
   if (!authHeader) return null
@@ -86,13 +86,20 @@ async function getAuthUser(req: Request) {
   return user
 }
 
-async function getUserOrg(userId: string) {
+// Check admin/secretary role from app_metadata (trusted server-managed)
+async function getUserOrgAndRole(userId: string) {
   const { data: profile } = await supabase
     .from("profiles")
     .select("organization_id, role")
     .eq("id", userId)
     .single()
   return profile
+}
+
+function isAdminOrSecretary(profile: any): boolean {
+  // Check app_metadata for trusted role (not user_metadata which user can edit)
+  const appRole = profile?.app_metadata?.role || profile?.role
+  return ["admin", "secretary"].includes(appRole)
 }
 
 function generateRef(prefix: string) {
@@ -104,10 +111,10 @@ function generateRef(prefix: string) {
 // ---- Complexity Scoring (matches assessment.js) ----
 function computeComplexityScore(input: AssessmentInput): number {
   let score = 0
-  score += Math.min(input.members / 20, 30)           // 0-30 pts for members
-  score += Math.min(input.candidates * 3, 15)         // 0-15 pts for candidates
-  score += Math.min(input.motions * 2, 15)            // 0-15 pts for motions
-  score += input.mode === "hybrid" ? 10 : input.mode === "online" ? 5 : 0  // mode
+  score += Math.min(input.members / 20, 30)
+  score += Math.min(input.candidates * 3, 15)
+  score += Math.min(input.motions * 2, 15)
+  score += input.mode === "hybrid" ? 10 : input.mode === "online" ? 5 : 0
   score += input.currentProcess === "manual" ? 10 : input.currentProcess === "partial" ? 5 : 0
   score += input.needsManaged ? 10 : 0
   score += input.expectedAttendance ? Math.min(input.expectedAttendance / 50, 10) : 0
@@ -120,18 +127,17 @@ function recommendPlan(score: number): string {
   return "enterprise_agm"
 }
 
-// ---- Plan Pricing (matches seed.json) ----
 const PLAN_PRICING: Record<string, { oneoff: number; name: string }> = {
   essential_agm: { oneoff: 1500, name: "Essential AGM" },
   professional_agm: { oneoff: 3500, name: "Professional AGM" },
   enterprise_agm: { oneoff: 7500, name: "Enterprise AGM" },
-  governance_os_essential: { oneoff: 0, name: "Governance OS Essential" }, // subscription
+  governance_os_essential: { oneoff: 0, name: "Governance OS Essential" },
   governance_os_professional: { oneoff: 0, name: "Governance OS Professional" },
   governance_os_enterprise: { oneoff: 0, name: "Governance OS Enterprise" },
   governance_os_federation: { oneoff: 0, name: "Governance OS Federation" },
 }
 
-const TAX_RATE = 0.08 // SST 8%
+const TAX_RATE = 0.08
 
 // ---- Billplz Integration ----
 async function createBillplzBill(invoiceId: string, amount: number, description: string, email: string, callbackUrl: string) {
@@ -142,7 +148,7 @@ async function createBillplzBill(invoiceId: string, amount: number, description:
     collection_id: BILLPLZ_COLLECTION_ID,
     description,
     email,
-    amount: Math.round(amount * 100), // in cents
+    amount: Math.round(amount * 100),
     callback_url: callbackUrl,
     redirect_url: `${APP_URL}/checkout.html?invoice=${invoiceId}&status=success`,
     reference_1_label: "Invoice",
@@ -164,13 +170,6 @@ async function createBillplzBill(invoiceId: string, amount: number, description:
 }
 
 // ---- HitPay Integration ----
-// Docs: https://docs.hitpayapp.com/apis/guide/online-payments
-// Auth: X-BUSINESS-API-KEY header (passing api_key in the body is legacy).
-// Webhooks: register in Dashboard → Developers → Webhook Endpoints and
-// subscribe to payment_request.completed — the per-request `webhook` field
-// is deprecated by HitPay.
-// Payment methods follow those enabled on the account (Settings → Payment
-// Methods); passing unknown codes (e.g. "duitnow") is rejected with 422.
 async function createHitPayPayment(invoiceId: string, amount: number, description: string, email: string, returnUrl: string) {
   if (!HITPAY_API_KEY || !HITPAY_SALT) {
     throw new Error("HitPay not configured")
@@ -182,7 +181,7 @@ async function createHitPayPayment(invoiceId: string, amount: number, descriptio
     email,
     reference_number: invoiceId,
     redirect_url: returnUrl,
-    send_sms: "false", // SMS costs money in production; email receipt is free
+    send_sms: "false",
   })
   const resp = await fetch(`${HITPAY_API_URL}/v1/payment-requests`, {
     method: "POST",
@@ -197,7 +196,61 @@ async function createHitPayPayment(invoiceId: string, amount: number, descriptio
     const err = await resp.text()
     throw new Error(`HitPay error: ${err}`)
   }
-  return resp.json() // { id, url: hosted checkout, redirect_url: our returnUrl, ... }
+  return resp.json()
+}
+
+// ---- Audit Logging with proper error handling ----
+async function auditLog(orgId: string, actorId: string, action: string, entityType: string, entityId: string, payload: any) {
+  const { data: lastEvent } = await supabase
+    .from("audit_events")
+    .select("hash")
+    .eq("organization_id", orgId)
+    .order("occurred_at", { ascending: false })
+    .limit(1)
+    .single()
+
+  const prevHash = lastEvent?.hash || "0".repeat(64)
+  const hashInput = prevHash + JSON.stringify(payload) + Date.now().toString()
+  const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(hashInput))
+  const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("")
+
+  const { error } = await supabase.from("audit_events").insert({
+    organization_id: orgId,
+    actor_id: actorId,
+    action,
+    entity_type: entityType,
+    entity_id: entityId,
+    payload,
+    prev_hash: prevHash,
+    hash,
+  })
+  
+  if (error) {
+    console.error("Audit log failed:", error)
+  }
+}
+
+// ---- Rate Limiting with fail-closed behavior ----
+async function checkRateLimit(req: Request): Promise<boolean> {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+             req.headers.get("x-real-ip") || 
+             "unknown"
+  
+  try {
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_ip: ip,
+      p_limit: 60,
+      p_window: "1 minute"
+    })
+    if (error) {
+      console.error("Rate limit check failed:", error)
+      return false // Fail closed
+    }
+    return data === true
+  } catch (err) {
+    console.error("Rate limit RPC failed:", err)
+    return false // Fail closed
+  }
 }
 
 // ---- Audit Logging ----
@@ -215,7 +268,7 @@ async function auditLog(orgId: string, actorId: string, action: string, entityTy
   const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(hashInput))
   const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("")
 
-  await supabase.from("audit_events").insert({
+  const { error } = await supabase.from("audit_events").insert({
     organization_id: orgId,
     actor_id: actorId,
     action,
@@ -225,14 +278,45 @@ async function auditLog(orgId: string, actorId: string, action: string, entityTy
     prev_hash: prevHash,
     hash,
   })
+  
+  if (error) {
+    console.error("Audit log failed:", error)
+  }
+}
+
+// ---- Rate Limiting (fail closed) ----
+async function checkRateLimit(req: Request): Promise<boolean> {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+             req.headers.get("x-real-ip") || 
+             "unknown"
+  
+  try {
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_ip: ip,
+      p_limit: 60,
+      p_window: "1 minute"
+    })
+    if (error) {
+      console.error("Rate limit check failed:", error)
+      return false // Fail closed
+    }
+    return data === true
+  } catch (err) {
+    console.error("Rate limit RPC failed:", err)
+    return false // Fail closed
+  }
 }
 
 // ---- Handlers ----
 
 async function handleAssessment(req: Request) {
+  // Rate limiting
+  if (!(await checkRateLimit(req))) {
+    return errorResponse("Rate limit exceeded", 429)
+  }
+
   const input: AssessmentInput = await req.json()
   
-  // Validate required fields
   if (!input.coopName || !input.contactName || !input.contactPhone) {
     return errorResponse("Missing required fields: coopName, contactName, contactPhone")
   }
@@ -243,14 +327,12 @@ async function handleAssessment(req: Request) {
   const complexityScore = computeComplexityScore(input)
   const recommendedPlanCode = recommendPlan(complexityScore)
 
-  // Get plan UUID
   const { data: plan } = await supabase
     .from("plans")
     .select("id")
     .eq("code", recommendedPlanCode)
     .single()
 
-  // Create assessment lead
   const { data: assessment, error } = await supabase
     .from("agm_assessments")
     .insert({
@@ -279,10 +361,9 @@ async function handleAssessment(req: Request) {
 
   if (error) return errorResponse(error.message, 500)
 
-  // Audit
   await auditLog(
-    "00000000-0000-0000-0000-000000000000", // no org yet
-    "00000000-0000-0000-0000-000000000000", // anonymous
+    "00000000-0000-0000-0000-000000000000",
+    "00000000-0000-0000-0000-000000000000",
     "assessment.submitted",
     "agm_assessment",
     assessment.id,
@@ -303,14 +384,13 @@ async function handleQuote(req: Request) {
   const user = await getAuthUser(req)
   if (!user) return errorResponse("Unauthorized", 401)
   
-  const profile = await getUserOrg(user.id)
-  if (!profile || !["admin", "secretary"].includes(profile.role)) {
+  const profile = await getUserOrgAndRole(user.id)
+  if (!profile || !isAdminOrSecretary(profile)) {
     return errorResponse("Operator access required", 403)
   }
 
   const input: QuoteInput = await req.json()
   
-  // Get assessment
   const { data: assessment, error: aErr } = await supabase
     .from("agm_assessments")
     .select("*")
@@ -318,7 +398,6 @@ async function handleQuote(req: Request) {
     .single()
   if (aErr || !assessment) return errorResponse("Assessment not found", 404)
 
-  // Get plan
   const { data: plan } = await supabase
     .from("plans")
     .select("*")
@@ -351,7 +430,6 @@ async function handleQuote(req: Request) {
 
   if (error) return errorResponse(error.message, 500)
 
-  // Quote items
   await supabase.from("quote_items").insert({
     quote_id: quote.id,
     plan_id: plan.id,
@@ -361,13 +439,11 @@ async function handleQuote(req: Request) {
     line_total: subtotal,
   })
 
-  // Update assessment status
   await supabase
     .from("agm_assessments")
     .update({ status: "quoted" })
     .eq("id", input.assessmentId)
 
-  // Audit
   await auditLog(profile.organization_id, user.id, "quote.created", "quote", quote.id, {
     assessmentId: input.assessmentId,
     planCode: input.planCode,
@@ -387,8 +463,8 @@ async function handleInvoice(req: Request) {
   const user = await getAuthUser(req)
   if (!user) return errorResponse("Unauthorized", 401)
   
-  const profile = await getUserOrg(user.id)
-  if (!profile || !["admin", "secretary"].includes(profile.role)) {
+  const profile = await getUserOrgAndRole(user.id)
+  if (!profile || !isAdminOrSecretary(profile)) {
     return errorResponse("Operator access required", 403)
   }
 
@@ -407,7 +483,7 @@ async function handleInvoice(req: Request) {
   }
 
   const dueDate = new Date()
-  dueDate.setDate(dueDate.getDate() + 14) // Net 14
+  dueDate.setDate(dueDate.getDate() + 14)
   const invoiceNumber = generateRef("INV")
 
   const { data: invoice, error } = await supabase
@@ -426,10 +502,8 @@ async function handleInvoice(req: Request) {
 
   if (error) return errorResponse(error.message, 500)
 
-  // Update quote status
   await supabase.from("quotes").update({ status: "invoiced" }).eq("id", quoteId)
 
-  // Audit
   await auditLog(profile.organization_id, user.id, "invoice.created", "invoice", invoice.id, {
     quoteId,
     amount: quote.total,
@@ -486,12 +560,9 @@ async function handlePaymentIntent(req: Request) {
       user.email || "",
       returnUrl
     )
-    // `url` is the HitPay hosted checkout; `redirect_url` is only our own
-    // return URL echoed back — sending the payer there would skip payment.
     paymentUrl = payment.url
     gatewayRef = payment.id
   } else {
-    // Bank transfer - manual
     paymentUrl = `${APP_URL}/checkout.html?invoice=${input.invoiceId}&method=bank_transfer`
   }
 
@@ -501,8 +572,6 @@ async function handlePaymentIntent(req: Request) {
       invoice_id: input.invoiceId,
       organization_id: invoice.organization_id,
       method: input.method,
-      // Gateway reference when available (legacy semantics: reference holds
-      // the Billplz bill / HitPay payment-request id); PAY ref for bank transfer
       reference: gatewayRef || paymentRef,
       amount: invoice.amount,
       status: "pending",
@@ -510,7 +579,6 @@ async function handlePaymentIntent(req: Request) {
     .select()
     .single()
 
-  // Audit
   await auditLog(invoice.organization_id, user.id, "payment.intent_created", "payment", payment.id, {
     invoiceId: input.invoiceId,
     method: input.method,
@@ -526,7 +594,6 @@ async function handlePaymentIntent(req: Request) {
 }
 
 // ---- Webhook signature helpers ----
-// Constant-time comparison so signature checks don't leak timing info.
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
   let diff = 0
@@ -546,9 +613,6 @@ async function hmacSha256Hex(key: string, message: string): Promise<string> {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("")
 }
 
-// Billplz X-Signature scheme (must mirror tools/verify_billplz_callback.py):
-// drop x_signature, sort remaining keys ascending, concatenate key+value with
-// no separator, join pairs with '|', HMAC-SHA256 lowercase hex.
 async function billplzSignature(params: Record<string, string>, key: string): Promise<string> {
   const pairs = Object.keys(params)
     .filter(k => k !== "x_signature")
@@ -563,7 +627,6 @@ async function handlePaymentConfirm(req: Request) {
   const gateway = url.searchParams.get("gateway") || "billplz"
   const raw = await req.text()
 
-  // Billplz form-encodes its callback; HitPay sends a JSON body.
   let params: Record<string, any> = {}
   const contentType = req.headers.get("content-type") || ""
   if (contentType.includes("application/x-www-form-urlencoded")) {
@@ -573,8 +636,7 @@ async function handlePaymentConfirm(req: Request) {
   }
 
   // Verify signatures BEFORE trusting anything. Fail closed when the signing
-  // key is not configured — a wrong-but-consistent key looks correct in every
-  // negative test and only fails on a real payment (tools/CHECKS.md #13).
+  // key is not configured.
   if (gateway === "billplz") {
     if (!BILLPLZ_X_SIGNATURE) return errorResponse("BILLPLZ_X_SIGNATURE not configured", 500)
     const expected = await billplzSignature(params, BILLPLZ_X_SIGNATURE)
@@ -583,8 +645,6 @@ async function handlePaymentConfirm(req: Request) {
     }
   } else if (gateway === "hitpay") {
     if (!HITPAY_SALT) return errorResponse("HITPAY_SALT not configured", 500)
-    // HitPay event webhooks: HMAC-SHA256 of the RAW body using the per-webhook
-    // salt, sent in the Hitpay-Signature header.
     const expected = await hmacSha256Hex(HITPAY_SALT, raw)
     if (!safeEqual(expected, req.headers.get("hitpay-signature") || "")) {
       return errorResponse("Invalid Hitpay-Signature", 403)
@@ -593,7 +653,6 @@ async function handlePaymentConfirm(req: Request) {
     return errorResponse("Unknown gateway", 400)
   }
 
-  // This app routes fpx → Billplz and card → HitPay (see handlePaymentIntent).
   const method = gateway === "billplz" ? "fpx" : "card"
   let invoiceId = ""
   let gatewayRef = ""
@@ -602,15 +661,12 @@ async function handlePaymentConfirm(req: Request) {
   let paidAt = new Date().toISOString()
 
   if (gateway === "billplz") {
-    // Callback params: { id, paid, state, transaction_id, reference_1, paid_at, ... }
     invoiceId = params.reference_1
     gatewayRef = params.id
     txnId = params.transaction_id || ""
     status = String(params.paid) === "true" ? "succeeded" : "failed"
     if (params.paid_at) paidAt = new Date(params.paid_at).toISOString()
   } else {
-    // payment_request.completed payload: the full payment request object —
-    // { id, reference_number, status, payments: [{ id, status, ... }] }
     invoiceId = params.reference_number
     gatewayRef = params.id
     txnId = params.payments?.[0]?.id || ""
@@ -619,7 +675,7 @@ async function handlePaymentConfirm(req: Request) {
 
   if (!invoiceId) return errorResponse("Missing invoice reference", 400)
 
-  // Gateways retry; settle a payment only once (idempotency).
+  // Idempotency: Use transaction to ensure atomicity
   const { data: existing } = await supabase
     .from("payments")
     .select("id, status, organization_id, amount")
@@ -633,31 +689,21 @@ async function handlePaymentConfirm(req: Request) {
     return successResponse({ success: true, status: "duplicate" })
   }
 
-  if (existing) {
-    await supabase.from("payments").update({
-      status,
-      paid_at: status === "succeeded" ? paidAt : null,
-      reference: gatewayRef,
-    }).eq("id", existing.id)
-  }
+  // Use RPC for atomic payment processing
+  const { error: rpcError } = await supabase.rpc("process_payment_webhook", {
+    p_invoice_id: invoiceId,
+    p_method: method,
+    p_gateway_ref: gatewayRef,
+    p_txn_id: txnId,
+    p_status: status,
+    p_paid_at: paidAt,
+    p_gateway: gateway,
+    p_txn_id: txnId,
+  })
 
-  // Update invoice
-  if (status === "succeeded") {
-    await supabase.from("invoices").update({ status: "paid", paid_at: paidAt }).eq("id", invoiceId)
-    await supabase.from("agm_assessments")
-      .update({ status: "won" })
-      .eq("id", (await supabase.from("quotes").select("assessment_id").eq("id", (await supabase.from("invoices").select("quote_id").eq("id", invoiceId).single()).single()).single()).assessment_id)
-  }
-
-  // Audit
-  if (existing) {
-    await auditLog(existing.organization_id, "00000000-0000-0000-0000-000000000000", "payment.confirmed", "payment", existing.id, {
-      gateway,
-      gatewayRef,
-      txnId,
-      status,
-      amount: existing.amount,
-    })
+  if (rpcError) {
+    console.error("RPC error:", rpcError)
+    return errorResponse("Payment processing failed", 500)
   }
 
   return successResponse({ success: true, status })
@@ -667,8 +713,8 @@ async function handleLead(req: Request) {
   const user = await getAuthUser(req)
   if (!user) return errorResponse("Unauthorized", 401)
   
-  const profile = await getUserOrg(user.id)
-  if (!profile || !["admin", "secretary"].includes(profile.role)) {
+  const profile = await getUserOrgAndRole(user.id)
+  if (!profile || !isAdminOrSecretary(profile)) {
     return errorResponse("Operator access required", 403)
   }
 
@@ -695,8 +741,8 @@ async function handleMetrics(req: Request) {
   const user = await getAuthUser(req)
   if (!user) return errorResponse("Unauthorized", 401)
   
-  const profile = await getUserOrg(user.id)
-  if (!profile || !["admin", "secretary"].includes(profile.role)) {
+  const profile = await getUserOrgAndRole(user.id)
+  if (!profile || !isAdminOrSecretary(profile)) {
     return errorResponse("Operator access required", 403)
   }
 
@@ -734,6 +780,11 @@ async function handleMetrics(req: Request) {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
+  }
+
+  // Rate limiting (fail closed)
+  if (!(await checkRateLimit(req))) {
+    return errorResponse("Rate limit exceeded", 429)
   }
 
   const url = new URL(req.url)

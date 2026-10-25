@@ -12,9 +12,9 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts"
 import { getEmbedding, chatCompletion } from "../_shared/llm.ts"
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
 
 interface QueryRequest {
   question: string
@@ -29,6 +29,46 @@ interface SearchResult {
   page: number | null
   similarity: number
   assertions: any[]
+}
+
+async function getAuthUser(req: Request) {
+  const authHeader = req.headers.get("Authorization")
+  if (!authHeader) return null
+  const token = authHeader.replace("Bearer ", "")
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return null
+  return user
+}
+
+async function getUserOrg(userId: string) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", userId)
+    .single()
+  return profile
+}
+
+async function checkRateLimit(req: Request): Promise<boolean> {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+             req.headers.get("x-real-ip") || 
+             "unknown"
+  
+  try {
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_ip: ip,
+      p_limit: 30,
+      p_window: "1 minute"
+    })
+    if (error) {
+      console.error("Rate limit check failed:", error)
+      return false // Fail closed
+    }
+    return data === true
+  } catch (err) {
+    console.error("Rate limit RPC failed:", err)
+    return false // Fail closed
+  }
 }
 
 async function searchKnowledge(orgId: string, embedding: number[], limit = 8): Promise<SearchResult[]> {
@@ -51,7 +91,6 @@ async function generateAnswer(question: string, results: SearchResult[]) {
     }
   }
 
-  // Prepare context for LLM
   const context = results.map((r, i) => 
     `[${i + 1}] ${r.title || "Untitled"} (page ${r.page || "N/A"}):\n${r.content.slice(0, 2000)}`
   ).join("\n\n---\n\n")
@@ -106,6 +145,14 @@ serve(async (req) => {
     })
   }
 
+  // Rate limiting (fail closed)
+  if (!(await checkRateLimit(req))) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    })
+  }
+
   try {
     const { question, organization_id }: QueryRequest = await req.json()
 
@@ -124,11 +171,7 @@ serve(async (req) => {
         const token = authHeader.replace("Bearer ", "")
         const { data: { user } } = await supabase.auth.getUser(token)
         if (user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("organization_id")
-            .eq("id", user.id)
-            .single()
+          const profile = await getUserOrg(user.id)
           orgId = profile?.organization_id
         }
       }

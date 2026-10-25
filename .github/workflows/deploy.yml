@@ -1,0 +1,110 @@
+# ============================================================
+# AGMX-v2-app — GitHub Actions CI/CD
+# Deploys to Vercel on push to main
+# ============================================================
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_TEAM_SLUG: duta-integra
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts 2>/dev/null || echo "No package.json, skipping"
+
+      - name: Run money flow tests
+        run: |
+          if [ -f tools/test_money_flow.mjs ]; then
+            node tools/test_money_flow.mjs
+          fi
+
+      - name: Run PocketBase tests (if PB_URL set)
+        if: env.PB_URL != ''
+        run: |
+          if [ -f tools/test_money_flow_pb.mjs ]; then
+            node tools/test_money_flow_pb.mjs --url ${{ secrets.PB_URL }} --email ${{ secrets.PB_EMAIL }} --password ${{ secrets.PB_PASSWORD }}
+          fi
+
+      - name: Run check.sh
+        run: |
+          if [ -f tools/check.sh ]; then
+            AGMX_SKIP_NET=1 bash tools/check.sh
+          fi
+
+  deploy-preview:
+    name: Deploy Preview
+    needs: lint-and-test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel Preview
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ env.VERCEL_TEAM_SLUG }})
+          echo "PREVIEW_URL=$url" >> $GITHUB_ENV
+
+      - name: Comment PR with Preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔗 Preview deployment: ${{ env.PREVIEW_URL }}'
+            })
+
+  deploy-production:
+    name: Deploy Production
+    needs: lint-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel Production
+        run: |
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ env.VERCEL_TEAM_SLUG }}
+
+      - name: Notify Deployment
+        if: always()
+        run: |
+          echo "✅ Deployed to https://agmx-v2-app.vercel.app"

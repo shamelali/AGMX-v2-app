@@ -37,14 +37,13 @@ function getLLMConfig(): LLMConfig {
     }
   }
   
-  // OpenAI (default)
   return {
     provider: "openai",
     apiKey: Deno.env.get("OPENAI_API_KEY") || "",
     baseUrl: "https://api.openai.com/v1",
     embeddingModel: Deno.env.get("OPENAI_EMBEDDING_MODEL") || "text-embedding-3-large",
     chatModel: Deno.env.get("OPENAI_CHAT_MODEL") || "gpt-4o-mini",
-    embeddingDimensions: 3072, // text-embedding-3-large default
+    embeddingDimensions: 3072,
   }
 }
 
@@ -58,7 +57,6 @@ export async function getEmbedding(text: string, config = getLLMConfig()): Promi
     input: text,
   }
 
-  // OpenAI supports dimensions parameter; NVIDIA NIM may not
   if (config.provider === "openai" && config.embeddingDimensions) {
     body.dimensions = config.embeddingDimensions
   }
@@ -80,7 +78,6 @@ export async function getEmbedding(text: string, config = getLLMConfig()): Promi
   const data = await resp.json()
   const embedding = data.data[0].embedding
 
-  // Truncate to 1024 for pgvector compatibility if needed
   if (config.provider === "openai" && config.embeddingDimensions && config.embeddingDimensions > 1024) {
     return embedding.slice(0, 1024)
   }
@@ -138,7 +135,6 @@ export async function chatCompletion(
   return data.choices[0]?.message?.content || ""
 }
 
-// Helper: Get config for client-side (non-secret)
 export function getClientLLMConfig() {
   const provider = (Deno.env.get("LLM_PROVIDER") as LLMProvider) || "openai"
   return {
