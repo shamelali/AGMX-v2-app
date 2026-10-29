@@ -8,7 +8,11 @@
 (function () {
   "use strict";
 
-  const API = window.AGMX_API;
+  // Lazy API access: supabase-client.js is a deferred module, so
+  // window.AGMX_API may not be set when this IIFE runs. Access at call time.
+  function api() {
+    return window.AGMX_API;
+  }
 
   const T = {
     BM: {
@@ -189,7 +193,7 @@
     wrap.appendChild(o);
 
     // Demo
-    if (API && API.config.demoMode) {
+    if (api()?.config?.demoMode) {
       const d = document.createElement("button");
       d.className = "btn btn-ghost btn-block login-demo";
       d.type = "button";
@@ -231,8 +235,8 @@
       state.phone = phone;
       const status = document.getElementById("login-status");
       try {
-        if (!API) throw new Error("client not loaded");
-        await API.requestSMSOTP(phone);
+        if (!api()) throw new Error("client not loaded");
+        await api().requestSMSOTP(phone);
         state.step = "otp-verify";
         startTimer();
         const root = document.querySelector(".login-view")?.parentElement;
@@ -276,7 +280,7 @@
       const otp = form.otp.value.trim();
       const status = document.getElementById("login-status");
       try {
-        const res = await API.verifySMSOTP(state.phone, otp);
+        const res = await api().verifySMSOTP(state.phone, otp);
         state.step = "role";
         stopTimer();
         const root = document.querySelector(".login-view")?.parentElement;
@@ -292,7 +296,7 @@
 
     form.querySelector("[data-resend]").addEventListener("click", async () => {
       try {
-        await API.requestSMSOTP(state.phone);
+        await api().requestSMSOTP(state.phone);
         startTimer();
       } catch (_) {
         /* surfaced on next submit */
@@ -354,7 +358,7 @@
       status.classList.remove("is-error");
     }
     try {
-      await API.loginWithGoogle();
+      await api().loginWithGoogle();
       // PocketBase redirects the browser; nothing after this runs in the
       // normal flow.
     } catch (err) {

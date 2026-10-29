@@ -1,6 +1,7 @@
-// Bumped to v8: runtime-diagnostics.js relabelled "Neon health" → "Backend
-// health" (the probe reads PocketBase /api/health; "Neon" was a leftover from
-// the Supabase era).
+// Bumped to v9: login.js now accesses AGMX_API lazily (api()) because
+// supabase-client.js is a deferred module that loads after login.js.
+// Without this, window.AGMX_API was captured as undefined and the login
+// view (demo button, OTP, Google auth) never worked.
 //
 // ANY edit to a file listed in PRECACHE requires a bump here. The fetch
 // handler below is cache-first, and the browser only re-installs the worker
@@ -8,12 +9,16 @@
 // without bumping this string leaves every installed client serving the old
 // copy indefinitely. tools/check.sh pass 7 enforces this.
 //
+// Bumped to v8: runtime-diagnostics.js relabelled "Neon health" → "Backend
+// health" (the probe reads PocketBase /api/health; "Neon" was a leftover from
+// the Supabase era).
+//
 // Bumped to v7: merges the authenticated bootstrap shell (v6, deployed but
 // never committed) with the Sprint 2 money-flow pages (v5). Both sets are
 // required — the shell is what populates #app, the money flow is the revenue
 // path. config.* is deliberately never precached: it varies per environment,
 // and a cached copy would pin a stale Google client ID or PocketBase URL.
-const CACHE = "agmx-v20";
+const CACHE = "agmx-v21";
 const PRECACHE = [
   "/",
   "/index.html",
