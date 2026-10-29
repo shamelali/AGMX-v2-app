@@ -10,6 +10,9 @@ worktrees/
 # PocketBase local state + per-deployment config
 pb_data/
 pocketbase/pb_data/
+
+# Supabase CLI scratch (version check, linked-project state)
+supabase/.temp/
 # Root-anchored: a bare "config.js" matches at any depth and would also
 # ignore api/config.js — the Vercel function that serves production config.
 /config.js
