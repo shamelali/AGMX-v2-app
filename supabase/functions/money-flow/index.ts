@@ -18,7 +18,6 @@ import { corsHeaders } from "../_shared/cors.ts"
 
 // Use secret key (new API key format) instead of service_role_key
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
-const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!
 const BILLPLZ_API_KEY = Deno.env.get("BILLPLZ_API_KEY") || ""
 const BILLPLZ_COLLECTION_ID = Deno.env.get("BILLPLZ_COLLECTION_ID") || ""
 const BILLPLZ_X_SIGNATURE = Deno.env.get("BILLPLZ_X_SIGNATURE") || ""
@@ -27,8 +26,8 @@ const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
 const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
 const APP_URL = Deno.env.get("APP_URL") || "https://agmx-v2-app.vercel.app"
 
-// Use secret key (new API key format) for service-role access
-const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+// Use service_role key (auto-injected by Supabase Edge Functions runtime)
+const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
 
 // ---- Types ----
 interface AssessmentInput {

@@ -346,7 +346,21 @@ export const AGMX_API = {
   async logout() {
     return auth.signOut()
   },
-  
+
+  // SMS OTP (used by login.js OTP flow)
+  async requestSMSOTP(phone) {
+    return auth.signInWithOtp({ phone })
+  },
+
+  async verifySMSOTP(phone, otp) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token: otp,
+      type: 'sms',
+    })
+    return { data, error }
+  },
+
   isAuthenticated() {
     return supabase.auth.getSession().then(({ data: { session } }) => !!session)
   },
