@@ -171,20 +171,17 @@ export const db = {
 
   // Compliance
   compliance: {
-    async runChecks(agmId, orgId) {
-      const { data, error } = await supabase.rpc('run_compliance_checks', {
-        p_agm_id: agmId,
-        p_org_id: orgId,
-      })
-      return { data, error }
-    },
+    // The rules engine is pocketbase-client.js:853, not an RPC — no
+    // supabase/*.sql ever defined run_compliance_checks, so the call that
+    // used to live here failed with PGRST202 for every operator.
 
     async getFindings(orgId) {
       const { data, error } = await supabase
         .from('compliance_findings')
         .select('*, check:compliance_checks(*, rule:compliance_rules(*))')
         .eq('organization_id', orgId)
-        .order('created_at', { ascending: false })
+        // compliance_findings has no created_at column (schema_final.sql:419)
+        .order('severity', { ascending: false })
       return { data, error }
     },
   },

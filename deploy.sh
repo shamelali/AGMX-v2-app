@@ -115,16 +115,17 @@ cat <<EOF
    - Save credentials
 
 2. Run in Supabase SQL Editor (in order):
-   a) supabase/schema.sql          (core schema + RLS)
-   b) supabase/knowledge_schema.sql (pgvector knowledge store)
+   a) supabase/schema_final.sql     (core schema + RLS + RPCs)
+   b) supabase/knowledge_final.sql  (pgvector knowledge store)
 
-3. Enable Realtime for live features:
-   Dashboard → Database → Replication → Enable for:
-     - votes
-     - attendance  
-     - quorum_snapshots
-     - motions
-     - questions
+   Do NOT use schema.sql / knowledge_schema.sql for a new project: they
+   enable RLS with zero policies, so every anon/authenticated read returns
+   no rows, and neither check_rate_limit nor process_payment_webhook is
+   defined there, so all three Edge Functions fail closed.
+
+3. Realtime: schema_final.sql already manages the publication at the end of
+   the file (attendance, quorum_snapshots, motions, questions) and removes
+   `votes` from it deliberately — a realtime feed would stream ballots.
 
 4. Deploy Edge Functions:
    supabase functions deploy money-flow --project-ref <ref>

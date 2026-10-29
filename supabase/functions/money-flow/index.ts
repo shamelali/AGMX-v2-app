@@ -253,60 +253,6 @@ async function checkRateLimit(req: Request): Promise<boolean> {
   }
 }
 
-// ---- Audit Logging ----
-async function auditLog(orgId: string, actorId: string, action: string, entityType: string, entityId: string, payload: any) {
-  const { data: lastEvent } = await supabase
-    .from("audit_events")
-    .select("hash")
-    .eq("organization_id", orgId)
-    .order("occurred_at", { ascending: false })
-    .limit(1)
-    .single()
-
-  const prevHash = lastEvent?.hash || "0".repeat(64)
-  const hashInput = prevHash + JSON.stringify(payload) + Date.now().toString()
-  const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(hashInput))
-  const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("")
-
-  const { error } = await supabase.from("audit_events").insert({
-    organization_id: orgId,
-    actor_id: actorId,
-    action,
-    entity_type: entityType,
-    entity_id: entityId,
-    payload,
-    prev_hash: prevHash,
-    hash,
-  })
-  
-  if (error) {
-    console.error("Audit log failed:", error)
-  }
-}
-
-// ---- Rate Limiting (fail closed) ----
-async function checkRateLimit(req: Request): Promise<boolean> {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-             req.headers.get("x-real-ip") || 
-             "unknown"
-  
-  try {
-    const { data, error } = await supabase.rpc("check_rate_limit", {
-      p_ip: ip,
-      p_limit: 60,
-      p_window: "1 minute"
-    })
-    if (error) {
-      console.error("Rate limit check failed:", error)
-      return false // Fail closed
-    }
-    return data === true
-  } catch (err) {
-    console.error("Rate limit RPC failed:", err)
-    return false // Fail closed
-  }
-}
-
 // ---- Handlers ----
 
 async function handleAssessment(req: Request) {
@@ -698,7 +644,6 @@ async function handlePaymentConfirm(req: Request) {
     p_status: status,
     p_paid_at: paidAt,
     p_gateway: gateway,
-    p_txn_id: txnId,
   })
 
   if (rpcError) {

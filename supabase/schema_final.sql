@@ -719,6 +719,85 @@ end;
 $$;
 
 -- ------------------------------------------------------------
+-- PAYMENT WEBHOOK RPC
+-- ------------------------------------------------------------
+-- supabase/functions/money-flow/index.ts verifies the gateway signature and
+-- then calls this; nothing else writes a payment. Mirrors the live PocketBase
+-- confirmPayment() in pb_hooks/money_flow.lib.js: payment -> succeeded,
+-- invoice -> paid, assessment -> won.
+alter table public.payments add column if not exists gateway text;
+alter table public.payments add column if not exists txn_id  text;
+
+create or replace function public.process_payment_webhook(
+  p_invoice_id  uuid,
+  p_method      text,
+  p_gateway_ref text,
+  p_txn_id      text,
+  p_status      text,
+  p_paid_at     timestamptz,
+  p_gateway     text
+)
+returns text
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_invoice public.invoices%rowtype;
+  v_payment public.payments%rowtype;
+begin
+  -- Locking the invoice serialises two webhooks arriving for the same bill,
+  -- which is what makes the re-charge-on-retry race impossible. A unique
+  -- index on (invoice_id, reference) would be stricter but cannot be added to
+  -- a payments table that already holds duplicate rows.
+  select * into v_invoice from public.invoices
+     where id = p_invoice_id for update;
+  if not found then
+    raise exception 'process_payment_webhook: invoice % not found', p_invoice_id;
+  end if;
+
+  select * into v_payment from public.payments
+     where invoice_id = p_invoice_id
+       and coalesce(reference, '') = coalesce(p_gateway_ref, '')
+     order by created_at desc
+     limit 1;
+
+  if found and v_payment.status = 'succeeded' then
+    return 'duplicate';
+  end if;
+
+  if found then
+    update public.payments
+       set status = p_status, paid_at = p_paid_at,
+           gateway = p_gateway, txn_id = p_txn_id
+     where id = v_payment.id;
+  else
+    insert into public.payments
+      (invoice_id, organization_id, method, reference, amount, status, paid_at, gateway, txn_id)
+    values
+      (p_invoice_id, v_invoice.organization_id, p_method, p_gateway_ref,
+       v_invoice.amount, p_status, p_paid_at, p_gateway, p_txn_id);
+  end if;
+
+  -- A failed callback must not un-pay an invoice that already settled.
+  if p_status = 'succeeded' then
+    update public.invoices set status = 'paid', paid_at = p_paid_at
+      where id = p_invoice_id and status <> 'paid';
+
+    update public.agm_assessments set status = 'won'
+      where id = (select q.assessment_id from public.quotes q
+                    where q.id = v_invoice.quote_id)
+        and status not in ('scheduled', 'lost');
+  end if;
+
+  return p_status;
+end;
+$$;
+
+revoke execute on function public.process_payment_webhook(uuid, text, text, text, text, timestamptz, text)
+  from public, anon;
+grant execute on function public.process_payment_webhook(uuid, text, text, text, text, timestamptz, text)
+  to service_role;
+
+-- ------------------------------------------------------------
 -- APPEND-ONLY TRIGGERS
 -- ------------------------------------------------------------
 create or replace function public.raise_append_only()

@@ -819,6 +819,235 @@ else
 fi
 
 # ----------------------------------------------------------------
+head_ "15. Supabase RPC calls match a declared SQL signature"
+
+# supabase.rpc("name") is a runtime lookup — nothing in TypeScript or the
+# browser binds the name to the schema, so a typo, an RPC that was never
+# written, or an argument name Postgres does not recognise fails only when a
+# live request hits it. Every call site is compared against the create-function
+# statements in supabase/*.sql, parameters included: PostgREST calls by named
+# argument, so an unknown or missing key raises the same PGRST202 as a missing
+# function.
+RPC_OUT=$(mktemp /tmp/agmx-rpc-XXXXXX.txt)
+python3 - "$RPC_OUT" <<'PY'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+# python classifies; bash renders the glyph and tallies PASS/FAIL/WARN. ANSI
+# codes must not be baked into these lines — any later grep for the mark would
+# match nothing and the failures would print without ever being counted.
+def emit(kind, text):
+    out.write(f"{kind}\t{text}\n")
+
+defs = {}
+sigs = {}
+
+def split_top(s):
+    """Split a parameter/argument list on commas outside nested brackets."""
+    parts, depth, cur = [], 0, ""
+    for ch in s:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    parts.append(cur)
+    return parts
+
+def matching(text, start, openers, closers):
+    depth, i = 1, start
+    while i < len(text):
+        if text[i] in openers:
+            depth += 1
+        elif text[i] in closers:
+            depth -= 1
+            if depth == 0:
+                return text[start:i], i + 1
+        i += 1
+    return None, None
+
+for p in sorted(pathlib.Path("supabase").glob("*.sql")):
+    text = p.read_text()
+    for m in re.finditer(r'create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([A-Za-z0-9_]+)"?\s*\(',
+                         text, re.I):
+        name = m.group(1)
+        defs.setdefault(name, set()).add(p.name)
+        raw, _ = matching(text, m.end(), "([{", ")]}")
+        if raw is None:
+            sigs.setdefault(name, []).append((p.name, None))   # unparseable signature
+            continue
+        args = []
+        for part in split_top(raw):
+            part = part.strip()
+            if not part:
+                continue
+            pm = re.match(r'(?:in|out|inout|variadic)?\s*([A-Za-z_][A-Za-z0-9_]*)\b(.*)$',
+                          part, re.I | re.S)
+            if not pm:
+                continue
+            args.append((pm.group(1), bool(re.search(r'\bdefault\b', pm.group(2), re.I))))
+        sigs.setdefault(name, []).append((p.name, args))
+
+# The pair deploy.sh, DEPLOY.md and VERCEL_ENV.md all tell operators to apply.
+# A call can only be judged against the schema it will meet; the superseded
+# files stay on disk and are still parsed, but matching one of them is not a
+# pass — see the "matches ... but not" warning below.
+DEPLOY_PAIR = {"supabase/schema_final.sql", "supabase/knowledge_final.sql"}
+
+sites = [pathlib.Path("supabase-client.js")]
+sites += [p for p in pathlib.Path("supabase/functions").rglob("*.ts")]
+
+called = {}
+for p in sites:
+    if not p.exists():
+        continue
+    text = p.read_text()
+    for m in re.finditer(r'\.rpc\(\s*[\'"]([A-Za-z0-9_]+)[\'"]', text):
+        tail = text[m.end():]
+        brace = tail.find("{")
+        keys = None
+        if brace != -1:
+            raw, _ = matching(tail, brace + 1, "([{", ")]}")
+            if raw is not None:
+                keys = []
+                for part in split_top(raw):
+                    km = re.match(r'\s*[\'"]?([A-Za-z_][A-Za-z0-9_]*)[\'"]?\s*:', part)
+                    if km:
+                        keys.append(km.group(1))
+                keys = keys or []
+        called.setdefault(m.group(1), []).append(
+            (f"{p}:{text[:m.start()].count(chr(10)) + 1}", keys))
+
+problems, warnings, checked = [], [], 0
+for name, hits in sorted(called.items()):
+    checked += 1
+    places = ", ".join(sorted({h[0] for h in hits}))
+    if name not in defs:
+        problems.append(
+            f'rpc "{name}" is called by {places} but no supabase/*.sql defines it '
+            f"— every call returns PGRST202 and the handler's fail-closed path runs")
+        continue
+    files = {f"supabase/{n}" for n in defs[name]}
+    if not (files & DEPLOY_PAIR):
+        warnings.append(
+            f'rpc "{name}" is defined only in {", ".join(sorted(defs[name]))}, '
+            f"not in the schema_final.sql + knowledge_final.sql pair the deploy docs apply")
+
+    # PostgREST calls by named argument, so a key that is not a parameter — or
+    # a required parameter left out — fails with the same opaque PGRST202 as a
+    # missing function. The duplicate p_txn_id key this pass first found is
+    # exactly this class of drift.
+    for path, keys in hits:
+        if keys is None:
+            continue
+        accepted, rejected, unknown = [], [], []
+        for fname, sig in sigs[name]:
+            if sig is None:
+                unknown.append(fname)
+                continue
+            param = dict(sig)
+            bad_keys = [k for k in keys if k not in param]
+            missing = [k for k, has_default in sig
+                       if not has_default and k not in keys]
+            if bad_keys or missing:
+                bits = []
+                if bad_keys:
+                    bits.append("passes " + ", ".join(sorted(bad_keys)))
+                if missing:
+                    bits.append("omits required " + ", ".join(sorted(missing)))
+                rejected.append((fname, "; ".join(bits)))
+            else:
+                accepted.append(fname)
+        detail = " vs ".join(f"{f} ({b})" for f, b in rejected)
+        deploy_rejected = [f for f, _ in rejected if f"supabase/{f}" in DEPLOY_PAIR]
+        if unknown and not accepted and not rejected:
+            warnings.append(f'rpc "{name}" at {path} — signature could not be parsed, not verified')
+        elif rejected and not accepted:
+            problems.append(
+                f'rpc "{name}" at {path} is called with arguments no variant accepts: '
+                f'{detail} — PGRST202 whichever file is applied')
+        elif deploy_rejected and accepted:
+            warnings.append(
+                f'rpc "{name}" at {path} is rejected by the documented schema — {detail} — '
+                f"and would only work if an older file were applied; on the deploy path "
+                f"deploy.sh and DEPLOY.md describe it fails with PGRST202")
+        elif rejected and accepted:
+            warnings.append(
+                f'rpc "{name}" at {path} matches {", ".join(accepted)} and the documented '
+                f"pair, but {detail} would reject it — harmless unless a superseded file "
+                f"is applied")
+
+for w in warnings:
+    emit("WARN", w)
+for p in problems:
+    emit("BAD", p)
+if problems:
+    rc = 1
+elif not checked:
+    emit("WARN", "no supabase.rpc() call sites found — nothing was matched")
+    rc = 2
+else:
+    emit("OK", f"{checked} supabase.rpc() call(s) compared — each resolves to a "
+                f"declared signature in at least one schema variant")
+    rc = 0
+out.close()
+sys.exit(rc)
+PY
+RPC_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 15 emitted an unrecognised result line: $kind";;
+  esac
+done < "$RPC_OUT"
+rm -f "$RPC_OUT"
+if [ "$RPC_RC" -gt 2 ]; then
+  bad "pass 15 could not complete (python exit $RPC_RC) — RPC names were not verified"
+fi
+
+# ----------------------------------------------------------------
+head_ "16. Edge Functions type-check"
+
+# The three functions under supabase/functions/ are Deno TypeScript and were
+# never compiled by anything in this repo — duplicated declarations in
+# money-flow/index.ts (auditLog, checkRateLimit, a second p_txn_id key) sat
+# unnoticed. Third-party .d.ts noise (std@0.168 on Deno 2, esm.sh auth-js)
+# is excluded: this pass asserts only that our own files are clean, so it
+# does not require a runtime we do not control.
+if ! command -v deno >/dev/null 2>&1; then
+  warn "deno not installed — Edge Functions were not type-checked"
+else
+  DENO_OUT=$(mktemp /tmp/agmx-deno-XXXXXX.txt)
+  # NO_COLOR is not cosmetic: deno colourises even when redirected, so the
+  # "at file://" location line becomes "at \e[36mfile://…" and grepping for a
+  # local error finds nothing — a pass that reports failure as a warning.
+  if ! NO_COLOR=1 timeout 180 deno check --remote \
+        supabase/functions/money-flow/index.ts \
+        supabase/functions/knowledge-query/index.ts \
+        supabase/functions/knowledge-ingest/index.ts >"$DENO_OUT" 2>&1; then
+    LOCAL_ERRS=$(grep -c '^[[:space:]]*at file://' "$DENO_OUT" || true)
+    if [ "$LOCAL_ERRS" -gt 0 ]; then
+      bad "$LOCAL_ERRS type error(s) in our own Edge Function files:"
+      grep -B3 '^[[:space:]]*at file://' "$DENO_OUT" | head -30 | sed 's/^/      /'
+    elif grep -qiE 'error: (uncaught|relative import|module not found|fetch|network)|a network error|timed out' "$DENO_OUT"; then
+      warn "Edge Functions not type-checked — remote modules could not be resolved: $(grep -iE '^error:' "$DENO_OUT" | head -1)"
+    else
+      warn "Edge Functions type-check unresolved on deno $(deno --version | awk 'NR==1{print $2}') — all reported errors are in remote modules (std@0.168 / esm.sh), not repo code"
+    fi
+  else
+    ok "deno check clean: supabase/functions/**/*.ts"
+  fi
+  rm -f "$DENO_OUT"
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then

@@ -11,8 +11,8 @@
 ├─────────────────────────────────────────────────────────────────┤
 │  Supabase (Free Tier + $100 credits) — Primary Backend          │
 │  ├── Auth (email/phone/OAuth)                                   │
-│  ├── Postgres (500MB) — schema.sql + RLS                       │
-│  ├── Realtime — votes, attendance, quorum_snapshots            │
+│  ├── Postgres (500MB) — schema_final.sql + RLS                 │
+│  ├── Realtime — attendance, quorum_snapshots, motions          │
 │  ├── Storage (1GB) — documents, minutes                        │
 │  ├── Edge Functions — money-flow, knowledge-query, ingest      │
 │  └── pgvector — AI Copilot RAG                                  │
@@ -58,16 +58,25 @@ cd AGMX-v2-app
 ### 3. Database Schema
 In Supabase SQL Editor, run in order:
 ```sql
--- 1. Core schema (from supabase/schema.sql)
+-- 1. Core schema (from supabase/schema_final.sql)
 -- Copy-paste entire file
 
--- 2. Knowledge schema (from supabase/knowledge_schema.sql)
+-- 2. Knowledge schema (from supabase/knowledge_final.sql)
 -- Copy-paste entire file
 
--- 3. Enable Realtime
--- Dashboard → Database → Replication → Enable for:
---   votes, attendance, quorum_snapshots, motions, questions
+-- 3. Realtime
+-- No dashboard step needed: schema_final.sql ends by managing
+-- supabase_realtime itself (attendance, quorum_snapshots, motions,
+-- questions) and removes `votes`, because a realtime feed of a ballot and
+-- a secret ballot cannot both exist.
 ```
+
+`schema.sql` / `knowledge_schema.sql` are the earlier pair and are **not** a
+valid install for a new project: RLS is enabled on all 33 tables with zero
+policies, so every read returns no rows, and they contain neither
+`check_rate_limit` nor `process_payment_webhook`, so all three Edge Functions
+fail closed on the first request. `tools/check.sh` pass 15 reports any RPC that
+exists in only one of the two pairs.
 
 ### 4. LLM Provider Setup (Choose ONE)
 
@@ -252,7 +261,7 @@ supabase start  # Requires Docker
 ## 🔐 Security Checklist
 
 - [ ] All secret keys in Vercel/Supabase env vars (not in code)
-- [ ] RLS policies enabled on all tables (schema.sql does this)
+- [ ] RLS policies enabled on all tables **and** policies created (`schema_final.sql` does both; `schema.sql` enables RLS with no policies, which silently returns zero rows to every read)
 - [ ] CSP headers configured (vercel.json includes NVIDIA NIM domain)
 - [ ] HTTPS only (Vercel default)
 - [ ] Billplz/HitPay webhook signatures verified
@@ -266,8 +275,12 @@ supabase start  # Requires Docker
 ```
 AGMX-v2-app/
 ├── supabase/
-│   ├── schema.sql              # Core schema + RLS
-│   ├── knowledge_schema.sql    # pgvector knowledge store
+│   ├── schema_final.sql        # Core schema + RLS + RPCs (apply this one)
+│   ├── knowledge_final.sql     # pgvector knowledge store (apply this one)
+│   ├── schema.sql              # superseded: RLS with no policies, no RPCs
+│   ├── schema_fixed.sql        # superseded intermediate
+│   ├── knowledge_schema.sql    # superseded: 4-arg knowledge_search, grants to anon
+│   ├── knowledge_fixed.sql     # superseded intermediate
 │   └── functions/
 │       ├── money-flow/         # Assessment → Quote → Invoice → Payment
 │       ├── knowledge-query/    # AI Copilot RAG queries
