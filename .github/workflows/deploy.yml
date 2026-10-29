@@ -1,6 +1,7 @@
 # ============================================================
 # AGMX-v2-app — GitHub Actions CI/CD
-# Deploys to Vercel on push to main
+# Tests on every push/PR; deploys to Vercel only when the
+# VERCEL_TOKEN secret exists, otherwise the deploy steps skip.
 # ============================================================
 name: Deploy to Vercel
 
@@ -63,21 +64,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A job-level `if` cannot read `secrets`, so gate on presence here and let
+      # the remaining steps no-op. Without this the repo — which has no Actions
+      # secrets at all today — shows a red deploy job on every PR.
+      - name: Check Vercel credentials
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::VERCEL_TOKEN secret not set — preview deploy skipped."
+            echo "deploy_skip=true" >> "$GITHUB_ENV"
+          fi
+
       - name: Install Vercel CLI
+        if: env.deploy_skip != 'true'
         run: npm install -g vercel@latest
 
       - name: Pull Vercel Environment
+        if: env.deploy_skip != 'true'
         run: vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Build Project Artifacts
+        if: env.deploy_skip != 'true'
         run: vercel build --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy to Vercel Preview
+        if: env.deploy_skip != 'true'
         run: |
           url=$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ env.VERCEL_TEAM_SLUG }}")
           echo "PREVIEW_URL=$url" >> "$GITHUB_ENV"
 
       - name: Comment PR with Preview URL
+        if: env.deploy_skip != 'true'
         uses: actions/github-script@v7
         env:
           PREVIEW_URL: ${{ env.PREVIEW_URL }}
@@ -99,18 +117,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check Vercel credentials
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::VERCEL_TOKEN secret not set — production deploy skipped."
+            echo "deploy_skip=true" >> "$GITHUB_ENV"
+          fi
+
       - name: Install Vercel CLI
+        if: env.deploy_skip != 'true'
         run: npm install -g vercel@latest
 
       - name: Pull Vercel Environment
+        if: env.deploy_skip != 'true'
         run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Build Project Artifacts
+        if: env.deploy_skip != 'true'
         run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy to Vercel Production
+        if: env.deploy_skip != 'true'
         run: |
-          vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ env.VERCEL_TEAM_SLUG }}"
+          url=$(vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ env.VERCEL_TEAM_SLUG }}")
+          echo "DEPLOY_URL=$url" >> "$GITHUB_ENV"
 
       - name: Notify Deployment
-        run: echo "Deployed to https://agmx-v2-app.vercel.app"
+        if: env.deploy_skip != 'true'
+        run: echo "Deployed to ${DEPLOY_URL}"
