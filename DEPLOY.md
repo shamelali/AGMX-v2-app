@@ -257,6 +257,7 @@ supabase start  # Requires Docker
 - [ ] HTTPS only (Vercel default)
 - [ ] Billplz/HitPay webhook signatures verified
 - [ ] Rate limiting on Edge Functions (add if needed)
+- [ ] Every deploy CLI has an ignore file: `.vercelignore` for Vercel, `.wrignore` for `wrangler pages deploy`. Neither reads `.gitignore`, and `wrangler.jsonc` serves the repo root as assets, so `.env.local` / `pb_data/` / `/config.js` go public without it. `tools/check.sh` enforces both.
 
 ---
 
@@ -273,6 +274,8 @@ AGMX-v2-app/
 │       └── knowledge-ingest/   # Document indexing pipeline
 ├── supabase/functions/_shared/llm.ts  # Unified LLM client (OpenAI + NVIDIA NIM)
 ├── vercel.json                 # Vercel config (rewrites, headers, CSP)
+├── wrangler.jsonc              # Cloudflare Pages assets config
+├── .vercelignore / .wrignore   # Deploy-CLI exclusion lists (neither reads .gitignore)
 ├── config.example.js           # Client config template
 ├── deploy.sh                   # Automated deployment script
 ├── .github/workflows/deploy.yml # CI/CD

@@ -15,10 +15,19 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   VERCEL_TEAM_SLUG: duta-integra
 
+# Two pushes to main must not race two production deploys.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-latest
+    env:
+      PB_URL: ${{ secrets.PB_URL }}
+      PB_EMAIL: ${{ secrets.PB_EMAIL }}
+      PB_PASSWORD: ${{ secrets.PB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,34 +35,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts 2>/dev/null || echo "No package.json, skipping"
+        run: |
+          if [ -f package.json ]; then
+            npm ci --ignore-scripts
+          else
+            echo "No package.json — suites are dependency-free, nothing to install"
+          fi
 
       - name: Run money flow tests
-        run: |
-          if [ -f tools/test_money_flow.mjs ]; then
-            node tools/test_money_flow.mjs
-          fi
+        run: node tools/test_money_flow.mjs
 
-      - name: Run PocketBase tests (if PB_URL set)
+      - name: Run PocketBase tests
         if: env.PB_URL != ''
-        run: |
-          if [ -f tools/test_money_flow_pb.mjs ]; then
-            node tools/test_money_flow_pb.mjs --url ${{ secrets.PB_URL }} --email ${{ secrets.PB_EMAIL }} --password ${{ secrets.PB_PASSWORD }}
-          fi
+        run: node tools/test_money_flow_pb.mjs --url "$PB_URL" --email "$PB_EMAIL" --password "$PB_PASSWORD"
 
       - name: Run check.sh
-        run: |
-          if [ -f tools/check.sh ]; then
-            AGMX_SKIP_NET=1 bash tools/check.sh
-          fi
+        run: AGMX_SKIP_NET=1 bash tools/check.sh
 
   deploy-preview:
     name: Deploy Preview
     needs: lint-and-test
-    if: github.event_name == 'pull_request'
+    # Fork PRs have no access to VERCEL_TOKEN, so skip them instead of failing.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,25 +67,27 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy to Vercel Preview
         run: |
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ env.VERCEL_TEAM_SLUG }})
-          echo "PREVIEW_URL=$url" >> $GITHUB_ENV
+          url=$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ env.VERCEL_TEAM_SLUG }}")
+          echo "PREVIEW_URL=$url" >> "$GITHUB_ENV"
 
       - name: Comment PR with Preview URL
         uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ env.PREVIEW_URL }}
         with:
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '🔗 Preview deployment: ${{ env.PREVIEW_URL }}'
+              body: `🔗 Preview deployment: ${process.env.PREVIEW_URL}`
             })
 
   deploy-production:
@@ -88,6 +95,7 @@ jobs:
     needs: lint-and-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -95,16 +103,14 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy to Vercel Production
         run: |
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ env.VERCEL_TEAM_SLUG }}
+          vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ env.VERCEL_TEAM_SLUG }}"
 
       - name: Notify Deployment
-        if: always()
-        run: |
-          echo "✅ Deployed to https://agmx-v2-app.vercel.app"
+        run: echo "Deployed to https://agmx-v2-app.vercel.app"

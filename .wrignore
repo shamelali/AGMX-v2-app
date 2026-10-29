@@ -1,0 +1,62 @@
+# Cloudflare Pages / wrangler does NOT honour .gitignore — `wrangler pages
+# deploy` uploads everything under the assets directory (wrangler.jsonc ->
+# assets.directory = ".") except .git and node_modules.
+#
+# Without this file a local deploy would publish .env.local (VERCEL_OIDC_TOKEN),
+# pb_data/ (live SQLite with member accounts) and /config.js as public URLs —
+# the same failure mode .vercelignore documents for Vercel.
+#
+# Keep in sync with .vercelignore and .gitignore.
+
+# Per-deployment config — must come from api/config.js + env vars instead.
+# Leading slash is load-bearing: a bare "config.js" also matches api/config.js,
+# which is the function meant to serve production config.
+/config.js
+/config.local.js
+
+# Secrets
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+
+# PocketBase backend (deployed separately to Fly.io) + local state
+bin/
+pb_data/
+pocketbase/
+pb_hooks/
+pb_migrations/
+collections.json
+
+# Server-side / tooling — never part of the static bundle
+supabase/
+scripts/
+tools/
+worktrees/
+AGMX/
+patches/
+
+# Repo metadata and docs
+.git
+.github
+.vercel
+.wrangler
+.vercelignore
+.vscode/
+.idea/
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+fly.toml
+*.pdf
+*.xlsx
+__pycache__/
+node_modules/
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

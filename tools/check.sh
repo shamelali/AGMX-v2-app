@@ -427,6 +427,21 @@ else
   bad "no .vercelignore — 'vercel deploy' ignores .gitignore, so gitignored config.js and pb_data/ get uploaded"
 fi
 
+# Same trap, second host: wrangler.jsonc points assets.directory at the repo
+# root, and `wrangler pages deploy` honours only .wrignore (plus .git and
+# node_modules). Without it, .env.local and pb_data/ go public.
+if [ -f wrangler.jsonc ] || [ -f wrangler.toml ]; then
+  if [ ! -f .wrignore ]; then
+    bad "no .wrignore while a wrangler config deploys the repo root — .env.local and pb_data/ would be uploaded to Cloudflare Pages"
+  elif ! grep -qE '^/config\.js$' .wrignore; then
+    bad ".wrignore missing '/config.js' — the same 2026-10-17 exposure applies to a wrangler deploy"
+  elif ! grep -qE '^pb_data/?$' .wrignore; then
+    bad ".wrignore missing 'pb_data/' — the local PocketBase SQLite file would be served publicly"
+  else
+    ok ".wrignore excludes /config.js and pb_data/"
+  fi
+fi
+
 # The inverse failure, caught in the same session: an unanchored "config.js"
 # in .gitignore also ignores api/config.js, so the config function is never
 # committed and every GitHub-integration deploy ships without it.
