@@ -25,6 +25,9 @@ Thumbs.db
 # Opencode skills (local only)
 .agents/
 
+# Qoder CLI local state: approved-command log with machine-specific paths
+.qoder/
+
 # Large binary files
 *.zip
 
