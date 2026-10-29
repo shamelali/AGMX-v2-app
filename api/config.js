@@ -11,6 +11,12 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed')
   }
 
+  // Unset means ON, which is what every deployment has done until now — the
+  // previous form OR'd a constant true onto the comparison, so passing
+  // NEXT_PUBLIC_DEMO_MODE=false still left demo mode on. Set it to the
+  // literal "false" to opt out.
+  const flag = (v) => v !== 'false'
+
   const config = {
     // Supabase (client-safe)
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -32,9 +38,9 @@ export default async function handler(req, res) {
     appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://agmx-v2-app.vercel.app',
 
     // Feature flags
-    demoMode: process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || true,
-    knowledgeRagEnabled: process.env.NEXT_PUBLIC_KNOWLEDGE_RAG === 'true' || true,
-    realtimeEnabled: process.env.NEXT_PUBLIC_REALTIME === 'true' || true,
+    demoMode: flag(process.env.NEXT_PUBLIC_DEMO_MODE),
+    knowledgeRagEnabled: flag(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG),
+    realtimeEnabled: flag(process.env.NEXT_PUBLIC_REALTIME),
 
     // Legacy PocketBase (optional, for realtime only)
     pocketbaseUrl: process.env.NEXT_PUBLIC_POCKETBASE_URL || '',

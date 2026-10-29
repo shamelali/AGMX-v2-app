@@ -772,7 +772,55 @@ PY
 fi
 
 # ----------------------------------------------------------------
+head_ "14. Runtime config flags are env-driven"
+
+# api/config.js shipped `process.env.X === 'true' || true`, which is always
+# true: passing NEXT_PUBLIC_DEMO_MODE=false still served demoMode: true, so
+# demo mode could not be disabled by any setting. Both halves are asserted —
+# the dead pattern must not come back, and the handler must actually honour
+# the variable when it is loaded.
+# Scan code only: a comment describing the old bug must not trip the check.
+if grep -vE '^[[:space:]]*(//|\*)' api/config.js | grep -qE "=== *['\"]true['\"] *\|\| *true"; then
+  bad "api/config.js has an always-true flag expression again — that flag is a constant env cannot turn off"
+else
+  ok "no always-true flag expressions in api/config.js"
+fi
+
+CFG_HARNESS=$(mktemp /tmp/agmx-cfg-XXXXXX.mjs)
+cat > "$CFG_HARNESS" <<'JS'
+import { pathToFileURL } from "node:url";
+const mod = await import(pathToFileURL(process.cwd() + "/api/config.js").href);
+const mk = () => { const r = { b: null, setHeader() {}, status() { return r; }, send(x) { r.b = x; return r; } }; return r; };
+// "false" must disable; unset must stay ON — that default is what every
+// deployment has been serving, so flipping it here would be a live change.
+process.env.NEXT_PUBLIC_DEMO_MODE = "false";
+delete process.env.NEXT_PUBLIC_KNOWLEDGE_RAG;
+const r = mk();
+await mod.default({ method: "GET" }, r);
+const cfg = JSON.parse(r.b.replace(/^\s*window\.AGMX_CONFIG\s*=\s*/, "").replace(/;\s*$/, ""));
+if (cfg.demoMode !== false) { console.error(`demoMode stayed ${cfg.demoMode} with NEXT_PUBLIC_DEMO_MODE=false`); process.exit(1); }
+if (cfg.knowledgeRagEnabled !== true) { console.error(`knowledgeRagEnabled was ${cfg.knowledgeRagEnabled} while unset — defaults must stay ON`); process.exit(1); }
+JS
+CFG_ERR=$(node "$CFG_HARNESS" 2>&1); CFG_RC=$?
+rm -f "$CFG_HARNESS"
+if [ "$CFG_RC" = 0 ]; then
+  ok "api/config.js honours NEXT_PUBLIC_*=false and defaults to ON when unset"
+else
+  case "$CFG_ERR" in
+    *ERR_MODULE_NOT_FOUND*|*SyntaxError*|*Cannot\ use\ import*)
+      # Node too old to load an ESM file with no package.json beside it. Warn,
+      # never tick green: a pass that executed nothing proves nothing.
+      warn "flag behaviour not executed on $(node --version) (ESM load failed) — static check only: ${CFG_ERR%%$'\n'*}"
+      ;;
+    *)
+      bad "api/config.js flag behaviour check failed: ${CFG_ERR%%$'\n'*}"
+      ;;
+  esac
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
+
 if [ "$FAIL" -gt 0 ]; then
   printf '\033[31m✗\033[0m  %d passed · %d warning(s) · \033[31m%d failed\033[0m\n' "$PASS" "$WARN" "$FAIL"
   exit 1
