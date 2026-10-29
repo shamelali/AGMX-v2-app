@@ -297,7 +297,7 @@ async function handleAssessment(req: Request) {
       contact_phone: input.contactPhone,
       contact_email: input.contactEmail,
       complexity_score: complexityScore,
-      recommended_plan_id: plan?.id,
+      recommended_plan: plan?.id,
       status: "lead",
       reference: generateRef("LD"),
       token: crypto.randomUUID(),
@@ -693,7 +693,7 @@ async function handleMetrics(req: Request) {
 
   const { data: assessments } = await supabase
     .from("agm_assessments")
-    .select("status, complexity_score, created_at, recommended_plan_id")
+    .select("status, complexity_score, created_at")
     .order("created_at", { ascending: false })
 
   const { data: quotes } = await supabase

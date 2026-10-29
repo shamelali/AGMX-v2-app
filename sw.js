@@ -13,7 +13,7 @@
 // required — the shell is what populates #app, the money flow is the revenue
 // path. config.* is deliberately never precached: it varies per environment,
 // and a cached copy would pin a stale Google client ID or PocketBase URL.
-const CACHE = "agmx-v19";
+const CACHE = "agmx-v20";
 const PRECACHE = [
   "/",
   "/index.html",

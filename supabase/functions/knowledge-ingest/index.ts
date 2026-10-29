@@ -4,7 +4,7 @@
  * Supports OpenAI + NVIDIA NIM via unified LLM client
  * 
  * POST /functions/v1/knowledge-ingest
- *   { document_id: string, organization_id?: string }
+ *   { document_id: string }
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -22,7 +22,6 @@ const CHUNK_OVERLAP = 200
 
 interface IngestRequest {
   document_id: string
-  organization_id?: string
 }
 
 async function getAuthUser(req: Request) {
@@ -163,7 +162,7 @@ serve(async (req) => {
   }
 
   try {
-    const { document_id, organization_id }: IngestRequest = await req.json()
+    const { document_id }: IngestRequest = await req.json()
 
     if (!document_id) {
       return new Response(JSON.stringify({ error: "document_id required" }), {
@@ -172,20 +171,20 @@ serve(async (req) => {
       })
     }
 
-    // Get org_id from auth if not provided
-    let orgId = organization_id
-    if (!orgId) {
-      const authHeader = req.headers.get("Authorization")
-      if (authHeader) {
-        const token = authHeader.replace("Bearer ", "")
-        const { data: { user } } = await supabase.auth.getUser(token)
-        if (user) {
-          const profile = await getUserOrg(user.id)
-          orgId = profile?.organization_id
-        }
-      }
+    // The tenant always comes from the caller's profile, never the body:
+    // the writes below run under the service-role key, so a body-supplied
+    // organization_id would let any authenticated user re-ingest another
+    // tenant's document as long as they knew its id.
+    const user = await getAuthUser(req)
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
     }
 
+    const profile = await getUserOrg(user.id)
+    const orgId = profile?.organization_id
     if (!orgId) {
       return new Response(JSON.stringify({ error: "Organization context required" }), {
         status: 400,

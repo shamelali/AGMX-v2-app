@@ -1050,6 +1050,157 @@ else
 fi
 
 # ----------------------------------------------------------------
+head_ "17. Insert payloads match the deployed table columns"
+
+# .from("t").insert({...}) is another runtime lookup: PostgREST resolves the
+# table and every key in the payload against the schema cache, so one stale
+# key rejects the whole row with a 400. TypeScript cannot see it, and the RPC
+# pass above only covers .rpc(). Selects are deliberately out of scope —
+# embedded joins ("plans(id)") would make every select a false positive.
+# Scope is the same schema_final.sql + knowledge_final.sql pair deploy.sh
+# applies; a table defined only in archive/ is not a pass here.
+SER_OUT=$(mktemp /tmp/agmx-series-XXXXXX.txt)
+python3 - "$SER_OUT" <<'PY'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write(f"{kind}\t{text}\n")
+
+def split_top(s):
+    parts, depth, cur = [], 0, ""
+    for ch in s:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    parts.append(cur)
+    return parts
+
+def matching(text, start, openers, closers):
+    depth, i = 1, start
+    while i < len(text):
+        if text[i] in openers:
+            depth += 1
+        elif text[i] in closers:
+            depth -= 1
+            if depth == 0:
+                return text[start:i], i + 1
+        i += 1
+    return None, None
+
+DEPLOY_PAIR = ["supabase/schema_final.sql", "supabase/knowledge_final.sql"]
+tables = {}
+for f in DEPLOY_PAIR:
+    path = pathlib.Path(f)
+    if not path.exists():
+        continue
+    text = path.read_text()
+    for m in re.finditer(
+            r'create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?"?([A-Za-z0-9_]+)"?\s*\(',
+            text, re.I):
+        raw, _ = matching(text, m.end(), "(", ")")
+        if raw is None:
+            continue
+        cols = set()
+        for part in split_top(raw):
+            part = part.strip()
+            if not part:
+                continue
+            # table-level constraints are not columns
+            if re.match(r'(constraint|primary|unique|check|foreign|exclude|like)\b', part, re.I):
+                continue
+            cm = re.match(r'"?([A-Za-z_][A-Za-z0-9_]*)"?\s+', part)
+            if cm:
+                cols.add(cm.group(1).lower())
+        tables[m.group(1).lower()] = (f, cols)
+
+sites = [pathlib.Path("supabase-client.js")]
+sites += [p for p in pathlib.Path("supabase/functions").rglob("*.ts")]
+
+problems, warnings, checked = [], [], 0
+for p in sites:
+    if not p.exists():
+        continue
+    text = p.read_text()
+    for m in re.finditer(r'\.from\(\s*[\'"]([A-Za-z0-9_]+)[\'"]\s*\)', text):
+        tail = text[m.end():]
+        # only a direct insert/upsert on this from(); anything else is a
+        # different chain and its braces belong to another call
+        chained = re.match(r'\s*\.(insert|upsert)\s*\(', tail)
+        if not chained:
+            continue
+        start = chained.end()
+        while start < len(tail) and tail[start] in " \t\r\n":
+            start += 1
+        if start >= len(tail) or tail[start] != "{":
+            brace = tail.find("{", start)
+            if brace == -1 or ")" in tail[start:brace]:
+                continue
+            start = brace
+        raw, _ = matching(tail, start + 1, "([{", ")]}")
+        if raw is None:
+            continue
+        keys = []
+        for part in split_top(raw):
+            km = re.match(r'\s*[\'"]?([A-Za-z_][A-Za-z0-9_]*)[\'"]?\s*:', part)
+            if km:
+                keys.append(km.group(1).lower())
+        where = f"{p}:{text[:m.start()].count(chr(10)) + 1}"
+        table = m.group(1).lower()
+        checked += 1
+        if table not in tables:
+            warnings.append(
+                f'{chained.group(1)} into "{table}" at {where}, which neither '
+                f"schema_final.sql nor knowledge_final.sql creates — fails with "
+                f"PGRST205 unless that table exists outside these files")
+            continue
+        path_used, cols = tables[table]
+        bad = [k for k in keys if k not in cols]
+        if bad:
+            problems.append(
+                f'{chained.group(1)} into "{table}" at {where} passes '
+                f'{", ".join(bad)}, not declared in {path_used} — PostgREST '
+                f"rejects the whole statement (42703), so the handler's error "
+                f"branch runs instead")
+
+for w in warnings:
+    emit("WARN", w)
+for p in problems:
+    emit("BAD", p)
+if problems:
+    rc = 1
+elif not checked:
+    emit("WARN", "no .from().insert()/.upsert() call sites found — nothing was matched")
+    rc = 2
+else:
+    emit("OK", f"{checked} insert/upsert call(s) compared against "
+                f"{len(tables)} table definition(s) in the deploy pair")
+    rc = 0
+out.close()
+sys.exit(rc)
+PY
+SER_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 17 emitted an unrecognised result line: $kind";;
+  esac
+done < "$SER_OUT"
+rm -f "$SER_OUT"
+if [ "$SER_RC" -gt 2 ]; then
+  bad "pass 17 could not complete (python exit $SER_RC) — insert payloads were not verified"
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then
