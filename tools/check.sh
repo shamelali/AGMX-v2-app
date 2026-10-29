@@ -870,15 +870,17 @@ def matching(text, start, openers, closers):
         i += 1
     return None, None
 
-for p in sorted(pathlib.Path("supabase").glob("*.sql")):
+# Archive/ is parsed too: a call that only matches a superseded file must be
+# reported as such, not silently treated as undefined.
+for p in sorted(pathlib.Path("supabase").rglob("*.sql")):
     text = p.read_text()
     for m in re.finditer(r'create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([A-Za-z0-9_]+)"?\s*\(',
                          text, re.I):
         name = m.group(1)
-        defs.setdefault(name, set()).add(p.name)
+        defs.setdefault(name, set()).add(str(p))
         raw, _ = matching(text, m.end(), "([{", ")]}")
         if raw is None:
-            sigs.setdefault(name, []).append((p.name, None))   # unparseable signature
+            sigs.setdefault(name, []).append((str(p), None))   # unparseable signature
             continue
         args = []
         for part in split_top(raw):
@@ -890,7 +892,7 @@ for p in sorted(pathlib.Path("supabase").glob("*.sql")):
             if not pm:
                 continue
             args.append((pm.group(1), bool(re.search(r'\bdefault\b', pm.group(2), re.I))))
-        sigs.setdefault(name, []).append((p.name, args))
+        sigs.setdefault(name, []).append((str(p), args))
 
 # The pair deploy.sh, DEPLOY.md and VERCEL_ENV.md all tell operators to apply.
 # A call can only be judged against the schema it will meet; the superseded
@@ -931,7 +933,7 @@ for name, hits in sorted(called.items()):
             f'rpc "{name}" is called by {places} but no supabase/*.sql defines it '
             f"— every call returns PGRST202 and the handler's fail-closed path runs")
         continue
-    files = {f"supabase/{n}" for n in defs[name]}
+    files = set(defs[name])
     if not (files & DEPLOY_PAIR):
         warnings.append(
             f'rpc "{name}" is defined only in {", ".join(sorted(defs[name]))}, '
@@ -963,7 +965,7 @@ for name, hits in sorted(called.items()):
             else:
                 accepted.append(fname)
         detail = " vs ".join(f"{f} ({b})" for f, b in rejected)
-        deploy_rejected = [f for f, _ in rejected if f"supabase/{f}" in DEPLOY_PAIR]
+        deploy_rejected = [f for f, _ in rejected if f in DEPLOY_PAIR]
         if unknown and not accepted and not rejected:
             warnings.append(f'rpc "{name}" at {path} — signature could not be parsed, not verified')
         elif rejected and not accepted:

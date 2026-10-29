@@ -123,6 +123,7 @@ supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
 
 # Set secrets (server-only)
+supabase secrets set SUPABASE_ANON_KEY=eyJ...           # Required by knowledge-query: the search runs as the caller so RLS can scope it
 supabase secrets set OPENAI_API_KEY=sk-...              # If using OpenAI
 supabase secrets set NVIDIA_NIM_API_KEY=nvapi-...       # If using NVIDIA NIM
 supabase secrets set LLM_PROVIDER=nvidia                # If using NVIDIA NIM
@@ -277,10 +278,7 @@ AGMX-v2-app/
 ├── supabase/
 │   ├── schema_final.sql        # Core schema + RLS + RPCs (apply this one)
 │   ├── knowledge_final.sql     # pgvector knowledge store (apply this one)
-│   ├── schema.sql              # superseded: RLS with no policies, no RPCs
-│   ├── schema_fixed.sql        # superseded intermediate
-│   ├── knowledge_schema.sql    # superseded: 4-arg knowledge_search, grants to anon
-│   ├── knowledge_fixed.sql     # superseded intermediate
+│   ├── archive/                # superseded schemas — history only, never apply
 │   └── functions/
 │       ├── money-flow/         # Assessment → Quote → Invoice → Payment
 │       ├── knowledge-query/    # AI Copilot RAG queries

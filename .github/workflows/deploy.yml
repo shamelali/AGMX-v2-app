@@ -37,6 +37,13 @@ jobs:
         with:
           node-version: '20'
 
+      # check.sh pass 16 type-checks supabase/functions/**/*.ts. Without deno
+      # it reports a warning, so CI would never exercise the pass.
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Install dependencies
         run: |
           if [ -f package.json ]; then

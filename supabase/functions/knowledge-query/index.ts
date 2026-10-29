@@ -13,12 +13,15 @@ import { getEmbedding, chatCompletion } from "../_shared/llm.ts"
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || ""
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
 
 interface QueryRequest {
   question: string
-  organization_id?: string
+  // organization_id is deliberately not accepted: knowledge_search derives the
+  // tenant from the caller's JWT (schema_final.sql), and honouring a body value
+  // would let any authenticated user read another organisation's documents.
 }
 
 interface SearchResult {
@@ -38,15 +41,6 @@ async function getAuthUser(req: Request) {
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user) return null
   return user
-}
-
-async function getUserOrg(userId: string) {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", userId)
-    .single()
-  return profile
 }
 
 async function checkRateLimit(req: Request): Promise<boolean> {
@@ -71,9 +65,18 @@ async function checkRateLimit(req: Request): Promise<boolean> {
   }
 }
 
-async function searchKnowledge(orgId: string, embedding: number[], limit = 8): Promise<SearchResult[]> {
-  const { data, error } = await supabase.rpc("knowledge_search", {
-    p_org_id: orgId,
+// knowledge_search filters by public.current_org_id(), i.e. the org of
+// auth.uid(). That only resolves for a client carrying the caller's JWT: the
+// service-role client used elsewhere in this function has no uid, so every
+// search would return zero rows, and passing an org id in the body (the
+// previous design) turns a tenancy check into a caller-supplied field.
+async function searchKnowledge(token: string, embedding: number[], limit = 8): Promise<SearchResult[]> {
+  if (!SUPABASE_ANON_KEY) throw new Error("SUPABASE_ANON_KEY is not configured")
+  const asCaller = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data, error } = await asCaller.rpc("knowledge_search", {
     p_query_embedding: embedding,
     p_limit: limit,
     p_threshold: 0.65,
@@ -154,7 +157,7 @@ serve(async (req) => {
   }
 
   try {
-    const { question, organization_id }: QueryRequest = await req.json()
+    const { question }: QueryRequest = await req.json()
 
     if (!question || question.length < 3 || question.length > 2000) {
       return new Response(JSON.stringify({ error: "Question must be 3-2000 characters" }), {
@@ -163,23 +166,13 @@ serve(async (req) => {
       })
     }
 
-    // Get org_id from auth if not provided
-    let orgId = organization_id
-    if (!orgId) {
-      const authHeader = req.headers.get("Authorization")
-      if (authHeader) {
-        const token = authHeader.replace("Bearer ", "")
-        const { data: { user } } = await supabase.auth.getUser(token)
-        if (user) {
-          const profile = await getUserOrg(user.id)
-          orgId = profile?.organization_id
-        }
-      }
-    }
-
-    if (!orgId) {
-      return new Response(JSON.stringify({ error: "Organization context required" }), {
-        status: 400,
+    // The caller's identity is the tenancy context for the search, so it is
+    // required rather than optional.
+    const token = (req.headers.get("Authorization") || "").replace("Bearer ", "")
+    const user = token ? await getAuthUser(req) : null
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
@@ -188,7 +181,7 @@ serve(async (req) => {
     const embedding = await getEmbedding(question)
 
     // Search knowledge base
-    const results = await searchKnowledge(orgId, embedding)
+    const results = await searchKnowledge(token, embedding)
 
     // Generate answer with citations
     const answer = await generateAnswer(question, results)

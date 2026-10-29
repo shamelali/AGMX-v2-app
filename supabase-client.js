@@ -188,14 +188,16 @@ export const db = {
 
   // Knowledge/RAG
   knowledge: {
-    async query(question, orgId) {
+    async query(question) {
       const resp = await fetch(`${CONFIG.appUrl}/functions/v1/knowledge-query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },
-        body: JSON.stringify({ question, organization_id: orgId }),
+        // organization_id is intentionally omitted — the function derives the
+        // tenant from the bearer token.
+        body: JSON.stringify({ question }),
       })
       if (!resp.ok) throw new Error(await resp.text())
       return resp.json()
