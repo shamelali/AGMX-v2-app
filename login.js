@@ -21,7 +21,7 @@
       google: "Teruskan dengan Google",
       googleHint: "Paling cepat untuk ahli komite",
       divider: "atau",
-      otp: "Masuk dengan OTP",
+      otp: "Masukkan e-mail anda",
       phone: "Nombor telefon",
       sendOtp: "Hantar kod OTP",
       otpSent: "Kod 6 digit telah dihantar ke",
