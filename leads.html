@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Lead Inbox AGMX — operasi jualan: penilaian, sebut harga, invois dan pembayaran AGM koperasi.">
+  <title>Lead Inbox · AGMX Operasi</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: var(--c-bg); }
+    .as-header { background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary)); color: #fff; padding: 16px 0; }
+    .as-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .as-brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 19px; }
+    .as-brand .ag-badge { width: 38px; height: 38px; border-radius: 11px; background: #fff; color: var(--c-primary); display: grid; place-items: center; font-size: 17px; font-weight: 800; }
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+    .as-main { padding: 32px 0 72px; }
+    .as-card { background: #fff; border: 1px solid var(--c-border); border-radius: 18px; box-shadow: var(--sh-md); padding: 26px; margin-bottom: 22px; }
+    .as-card h2 { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+    .as-card .sub { font-size: 13px; color: var(--c-text-2); margin-bottom: 16px; }
+    .section-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--c-primary); background: var(--c-primary-100); padding: 5px 10px; border-radius: 999px; margin-bottom: 10px; }
+
+    .backend-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); cursor: pointer; }
+    .backend-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-warning); }
+    .backend-chip.live .dot { background: var(--c-success); box-shadow: 0 0 0 3px rgba(16,185,129,0.35); }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .metric { background: #fff; border: 1px solid var(--c-border); border-radius: 14px; padding: 16px 18px; }
+    .metric .k { font-size: 11px; color: var(--c-text-3); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
+    .metric .v { font-size: 25px; font-weight: 800; color: var(--c-primary-700); margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .metric .d { font-size: 12px; color: var(--c-text-2); margin-top: 2px; }
+
+    .toolbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+    .search-input { max-width: 300px; }
+
+    .deals-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .deals-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--c-text-3); padding: 9px 10px; border-bottom: 1.5px solid var(--c-border); white-space: nowrap; }
+    .deals-table td { padding: 11px 10px; border-bottom: 1px solid var(--c-divider); vertical-align: top; }
+    .deals-table tr:hover td { background: var(--c-surface-2); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .cell-sub { color: var(--c-text-3); font-size: 11.5px; margin-top: 2px; }
+
+    .audit-item { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--c-divider); font-size: 12.5px; }
+    .audit-item:last-child { border-bottom: none; }
+    .audit-item .t { color: var(--c-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* Backend settings dialog */
+    dialog { border: none; border-radius: 18px; box-shadow: var(--sh-pop); padding: 26px; width: min(480px, 92vw); }
+    dialog::backdrop { background: rgba(15,23,42,0.45); }
+    dialog h3 { margin: 0 0 4px; font-size: 17px; }
+    dialog .sub { font-size: 13px; color: var(--c-text-2); margin-bottom: 16px; }
+    .fine { font-size: 12px; color: var(--c-text-3); line-height: 1.6; margin-top: 14px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--c-primary-700); color: #fff; padding: 14px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--sh-lg); opacity: 0; transform: translateY(12px); transition: all 0.25s; z-index: 50; max-width: 340px; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 720px) { .as-card { padding: 16px; } .toolbar { justify-content: flex-start; } }
+  </style>
+</head>
+<body>
+  <header class="as-header">
+    <div class="wrap">
+      <div class="as-brand"><span class="ag-badge">AG</span> Lead Inbox · Operasi AGMX</div>
+        <button type="button" id="lang-toggle" class="btn btn-ghost" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff;min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
+      <div class="header-actions">
+        <button class="backend-chip" id="backend-chip" title="Tukar backend">
+          <span class="dot"></span><span id="backend-label">Backend…</span>
+        </button>
+        <a href="assessment.html" class="btn btn-sm" style="background:var(--c-accent);color:var(--c-primary-700);font-weight:700">+ Penilaian Baharu</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="as-main">
+    <div class="wrap">
+
+      <!-- Metrics -->
+      <div class="metric-grid" id="metric-grid">
+        <div class="metric"><div class="k">Penilaian Diterima</div><div class="v" id="m-leads">0</div><div class="d">lead dari laman awam</div></div>
+        <div class="metric"><div class="k">Nilai Pipeline</div><div class="v" id="m-pipeline">RM0</div><div class="d">sebut harga + anggaran belum diproses</div></div>
+        <div class="metric"><div class="k">Hasil Dikutip</div><div class="v" id="m-collected">RM0</div><div class="d">pembayaran berjaya</div></div>
+        <div class="metric"><div class="k">Kadar Tutup</div><div class="v" id="m-close">0%</div><div class="d">dibayar ÷ sebut harga diterbitkan</div></div>
+      </div>
+
+      <!-- Deals table -->
+      <div class="as-card">
+        <span class="section-tag">Operasi Jualan</span>
+        <h2>Senarai Penilaian &amp; Deal</h2>
+        <p class="sub">Setiap penilaian AGM dari laman awam muncul di sini. "Proses" membawa lead ke aliran sebut harga → invois → pembayaran.</p>
+        <div class="toolbar">
+          <input class="input search-input" id="search" type="search" placeholder="Cari koperasi, negeri, rujukan…">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="btn-refresh">↻ Muat Semula</button>
+            <button class="btn btn-ghost btn-sm" id="btn-export">⬇ Eksport CSV</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto" id="deals-wrap"></div>
+        <p class="fine">⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca <code>agm_assessments</code>, <code>quotes</code>, <code>invoices</code>, <code>payments</code>).</p>
+      </div>
+
+      <!-- Audit log -->
+      <div class="as-card">
+        <span class="section-tag">Jejak Audit</span>
+        <h2>Rekod Aktiviti Komersial</h2>
+        <p class="sub">Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: koleksi <code>audit_events</code> berantai-hash SHA-256 di PocketBase.</p>
+        <div id="audit-list"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Backend settings -->
+  <dialog id="backend-dialog">
+    <h3>Tetapan Backend</h3>
+    <p class="sub">Demo menyimpan data dalam pelayar ini (localStorage). Untuk pengeluaran, sambungkan instans PocketBase — rute aliran wang ada dalam <code>pb_hooks/money_flow.pb.js</code>.</p>
+    <div class="form-row">
+      <div>
+        <label class="label" for="pb-url">URL PocketBase</label>
+        <input class="input" id="pb-url" type="url" placeholder="http://127.0.0.1:8090">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button class="btn btn-ghost" id="pb-clear">Guna Demo Tempatan</button>
+      <button class="btn btn-primary" id="pb-save">Simpan &amp; Muat Semula</button>
+    </div>
+    <p class="fine">Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di <code>app.html</code> — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.</p>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script src="api.js"></script>
+  <script src="leads.js"></script>
+
+<script>
+(function () {
+  var MAP = {"Lead Inbox · Operasi AGMX": "Lead Inbox · AGMX Operations", "+ Penilaian Baharu": "+ New Assessment", "Penilaian Diterima": "Assessments Received", "Nilai Pipeline": "Pipeline Value", "sebut harga + anggaran belum diproses": "quotes + estimates pending", "Hasil Dikutip": "Revenue Collected", "pembayaran berjaya": "successful payments", "Kadar Tutup": "Close Rate", "dibayar ÷ sebut harga diterbitkan": "paid ÷ quotes issued", "Operasi Jualan": "Sales Operations", "Senarai Penilaian & Deal": "Assessments & Deals", "Setiap penilaian AGM dari laman awam muncul di sini. \"Proses\" membawa lead ke aliran sebut harga → invois → pembayaran.": "Every AGM assessment from the public site appears here. \"Process\" takes the lead through quote → invoice → payment.", "↻ Muat Semula": "↻ Reload", "⬇ Eksport CSV": "⬇ Export CSV", "⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca <code>agm_assessments</code>, <code>quotes</code>, <code>invoices</code>, <code>payments</code>).": "⚠️ Demo operations page — in production this is protected by auth + RLS (only AGMX operators can read <code>agm_assessments</code>, <code>quotes</code>, <code>invoices</code>, <code>payments</code>).", "Rekod Aktiviti Komersial": "Commercial Activity Log", "Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: koleksi <code>audit_events</code> berantai-hash SHA-256 di PocketBase.": "All sales-flow events (append-only). In production: a SHA-256 hash-chained <code>audit_events</code> collection on PocketBase.", "Tetapan Backend": "Backend Settings", "Demo menyimpan data dalam pelayar ini (localStorage). Untuk pengeluaran, sambungkan instans PocketBase — rute aliran wang ada dalam <code>pb_hooks/money_flow.pb.js</code>.": "Demo stores data in this browser (localStorage). For production, connect a PocketBase instance — the money-flow routes live in <code>pb_hooks/money_flow.pb.js</code>.", "Guna Demo Tempatan": "Use Local Demo", "Simpan & Muat Semula": "Save & Reload", "Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di <code>app.html</code> — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.": "Operational data (inbox, metrics, audit) requires operator login (admin/secretary) at <code>app.html</code> — the session token is reused automatically. No secrets here.", "lead dari laman awam": "leads from the public site"};
+  var lang = "ms";
+  try {
+    var q = new URLSearchParams(location.search).get("lang");
+    lang = (q === "en" || q === "ms") ? q : ((localStorage.getItem("agmx-lang") === "en") ? "en" : "ms");
+  } catch (e) {}
+  if (lang === "en") {
+    document.title = "Lead Inbox · AGMX Operations";
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (w.nextNode()) nodes.push(w.currentNode);
+    nodes.forEach(function (n) {
+      if (n.parentElement && /^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) return;
+      var trim = n.nodeValue.trim();
+      if (trim && Object.prototype.hasOwnProperty.call(MAP, trim)) n.nodeValue = n.nodeValue.replace(trim, MAP[trim]);
+    });
+    document.documentElement.lang = "en";
+  }
+  var btn = document.getElementById("lang-toggle");
+  if (btn) {
+    btn.textContent = lang === "ms" ? "EN" : "BM";
+    btn.addEventListener("click", function () {
+      try { localStorage.setItem("agmx-lang", lang === "ms" ? "en" : "ms"); } catch (e) {}
+      var u = new URL(location.href);
+      if (lang === "ms") u.searchParams.set("lang", "en"); else u.searchParams.delete("lang");
+      location.href = u.toString();
+    });
+  }
+})();
+</script>
+</body>
+</html>

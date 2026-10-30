@@ -1,0 +1,19 @@
+# Keep the build context small — the earlier build warned at 120 MB.
+# Only pb_hooks/ and pb_migrations/ are copied into the image.
+.git
+.gitignore
+bin/
+pb_data/
+pb_migrations/
+assets/
+images/
+node_modules/
+*.md
+!pb_migrations/
+!pb_hooks/
+
+# Never bake local config or secrets into the image.
+config.js
+.env
+.env.*
+*.log

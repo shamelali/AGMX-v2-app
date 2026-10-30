@@ -1,0 +1,284 @@
+/* Credential-free regression coverage using the real client and domain registry.
+ * Only the PocketBase HTTP boundary is mocked; no requests leave this process.
+ * createScheduledAGM creates a planned meeting, not a completed/minuted lifecycle.
+ * The fixture file token and SHA are metadata, not a PDF upload or hash proof.
+ */
+"use strict";
+
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+const fixture = JSON.parse(fs.readFileSync(
+  path.join(__dirname, "..", "fixtures", "resident-association-workflow.json"),
+  "utf8"
+));
+const org = fixture.organization;
+const workflow = fixture.workflow;
+const root = path.join(__dirname, "..");
+const clientSource = fs.readFileSync(path.join(root, "pocketbase-client.js"), "utf8");
+const packsSource = fs.readFileSync(path.join(root, "domain-packs.js"), "utf8");
+const staff = {
+  id: "ra-secretary", organizationId: org.id, role: "secretary", name: "RA Secretary",
+};
+
+function validateFixture() {
+  assert.strictEqual(org.domainPackId, "resident-association");
+  assert.strictEqual(org.domainPackVersion, "1.0");
+  assert.strictEqual(org.entityVariant, "neighbourhood");
+  assert.strictEqual(org.ruleProfileId, "resident-association.my.v1");
+
+  for (const name of ["meeting", "minutes", "resolution", "action"]) {
+    assert.strictEqual(workflow[name].organizationId, org.id, `${name} tenant`);
+  }
+  assert.strictEqual(workflow.meeting.status, "minuted");
+  assert.strictEqual(workflow.minutes.agmId, workflow.meeting.id);
+  assert.strictEqual(workflow.resolution.agmId, workflow.meeting.id);
+  assert.strictEqual(workflow.resolution.documentId, workflow.minutes.id);
+  assert.strictEqual(workflow.action.agmId, workflow.meeting.id);
+  assert.strictEqual(workflow.action.resolutionId, workflow.resolution.id);
+  assert.strictEqual(workflow.evidence.type, "document");
+  assert.strictEqual(workflow.evidence.documentId, workflow.minutes.id);
+  assert.ok(workflow.evidence.sha256);
+}
+
+function response(body, status = 200) {
+  const text = JSON.stringify(body);
+  return { ok: status >= 200 && status < 300, status, text: async () => text };
+}
+
+function harness(user = staff) {
+  const storage = new Map();
+  const calls = [];
+  const state = {
+    organizations: [JSON.parse(JSON.stringify(org))],
+    agms: [], documents: [], resolutions: [], actions: [], members: [], audit_events: [],
+  };
+  const context = vm.createContext({
+    window: { AGMX_CONFIG: { url: "http://pb.test", demoMode: false } },
+    localStorage: {
+      getItem: (key) => storage.get(key) || null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: (key) => storage.delete(key),
+    },
+    fetch: async (url, options = {}) => {
+      const parsed = new URL(url);
+      assert.strictEqual(parsed.origin, "http://pb.test", "unexpected HTTP destination");
+      const request = {
+        method: options.method || "GET", path: parsed.pathname,
+        body: options.body ? JSON.parse(options.body) : undefined,
+      };
+      calls.push(request);
+      const match = request.path.match(/^\/api\/collections\/([^/]+)\/records(?:\/([^/]+))?$/);
+      assert.ok(match, `unexpected endpoint: ${request.path}`);
+      const [, collection, id] = match;
+      const rows = state[collection];
+      assert.ok(rows, `unexpected collection: ${collection}`);
+
+      if (request.method === "GET") {
+        if (id) {
+          // Deliberately return foreign records too: update methods must enforce
+          // their own tenant guard, rather than passing because the mock hid them.
+          const row = rows.find((item) => item.id === id);
+          return row ? response(row) : response({ message: "Not found" }, 404);
+        }
+        let items = rows.slice();
+        const filter = parsed.searchParams.get("filter");
+        if (filter) {
+          // Support the actual loader filters; fail loudly on unhandled syntax.
+          assert.match(filter, /^organizationId = "[a-z0-9-]+"(?: && \(status = "[a-z]+"(?: \|\| status = "[a-z]+")*\))?$/);
+          const tenant = filter.match(/^organizationId = "([^"]+)"/)[1];
+          items = items.filter((item) => item.organizationId === tenant);
+          const statuses = Array.from(filter.matchAll(/status = "([^"]+)"/g), (m) => m[1]);
+          if (statuses.length) items = items.filter((item) => statuses.includes(item.status));
+        }
+        const sort = parsed.searchParams.get("sort");
+        if (sort) {
+          const descending = sort.startsWith("-");
+          const field = descending ? sort.slice(1) : sort;
+          items.sort((a, b) => String(a[field] || "").localeCompare(String(b[field] || "")) * (descending ? -1 : 1));
+        }
+        const totalItems = items.length;
+        items = items.slice(0, Number(parsed.searchParams.get("perPage") || 1000));
+        return response({ items, totalItems });
+      }
+      if (request.method === "POST" && !id) {
+        // IDs are generated by the HTTP mock, never copied from the fixture.
+        const row = { ...request.body, id: `pb-${collection}-${rows.length + 1}` };
+        rows.push(row);
+        return response(row);
+      }
+      if (request.method === "PATCH" && id) {
+        const row = rows.find((item) => item.id === id);
+        if (!row) return response({ message: "Not found" }, 404);
+        Object.assign(row, request.body);
+        return response(row);
+      }
+      assert.fail(`unexpected request: ${request.method} ${request.path}`);
+    },
+    URL, URLSearchParams, console,
+  });
+  vm.runInContext(packsSource, context, { filename: "domain-packs.js" });
+  vm.runInContext(clientSource, context, { filename: "pocketbase-client.js" });
+  const pb = context.window.AGMX_PB;
+  if (user) pb._saveAuth("offline-test-token", user);
+  return { api: context.window.AGMX_API, pb, calls, state };
+}
+
+async function testWorkflow() {
+  const h = harness();
+  const ids = new Map();
+  function remember(record, created) {
+    assert.ok(created.id);
+    assert.notStrictEqual(created.id, record.id, "relationships must use returned IDs");
+    ids.set(record.id, created.id);
+    return created;
+  }
+  function reference(id) {
+    assert.ok(ids.has(id), `fixture reference has not been created: ${id}`);
+    return ids.get(id);
+  }
+
+  const meeting = remember(workflow.meeting, await h.api.createScheduledAGM(workflow.meeting));
+  assert.strictEqual(meeting.status, "planned",
+    "createScheduledAGM supports creation only; it does not mark a meeting minuted");
+  for (const field of ["organizationId", "title", "edition", "fiscalYear", "venue", "mode"]) {
+    assert.strictEqual(meeting[field], workflow.meeting[field], `meeting ${field}`);
+  }
+  assert.strictEqual(Date.parse(meeting.scheduledAt), Date.parse(workflow.meeting.scheduledAt));
+  assert.strictEqual(meeting.noticeDays, 14, "resident-association pack default notice period");
+  assert.strictEqual(meeting.settings.domainPackId, "resident-association");
+  assert.strictEqual(meeting.settings.ruleProfileId, "resident-association.my.v1");
+  assert.strictEqual(meeting.settings.quorumMode, "configured_fraction");
+  assert.strictEqual(meeting.settings.votingMode, "show_of_hands_or_poll");
+
+  const minutes = remember(workflow.minutes, await h.api.createDocument({
+    ...workflow.minutes, agmId: reference(workflow.minutes.agmId),
+  }));
+  assert.strictEqual(minutes.uploadedBy, staff.id);
+  for (const field of ["organizationId", "category", "filename", "mime", "file"]) {
+    assert.strictEqual(minutes[field], workflow.minutes[field], `minutes ${field}`);
+  }
+  const resolution = remember(workflow.resolution, await h.api.createResolution({
+    ...workflow.resolution,
+    agmId: reference(workflow.resolution.agmId),
+    documentId: reference(workflow.resolution.documentId),
+  }));
+  for (const field of ["organizationId", "title", "passed", "votesYa", "votesTidak", "votesKecuali", "minutedAt"]) {
+    assert.strictEqual(resolution[field], workflow.resolution[field], `resolution ${field}`);
+  }
+  const action = remember(workflow.action, await h.api.createAction({
+    ...workflow.action,
+    agmId: reference(workflow.action.agmId),
+    resolutionId: reference(workflow.action.resolutionId),
+  }));
+  for (const field of ["organizationId", "title", "picRole", "dueDate", "status"]) {
+    assert.strictEqual(action[field], workflow.action[field], `action ${field}`);
+  }
+  assert.deepStrictEqual(h.calls.map((call) => `${call.method} ${call.path}`), [
+    "GET /api/collections/organizations/records/resident-association-demo",
+    "POST /api/collections/agms/records", "POST /api/collections/documents/records",
+    "POST /api/collections/resolutions/records", "POST /api/collections/actions/records",
+  ], "the workflow must actually write all four records in dependency order");
+
+  // Evidence is document metadata referenced by the resolution, not a separate
+  // evidence-create API. Persist the fixture hash through the real update method.
+  const evidenceId = reference(workflow.evidence.documentId);
+  const evidence = await h.api.updateDocument({ documentId: evidenceId, sha256: workflow.evidence.sha256 });
+  assert.strictEqual(evidence.sha256, workflow.evidence.sha256);
+  const amended = await h.api.updateResolution({ resolutionId: resolution.id, documentId: evidence.id });
+  assert.strictEqual(amended.documentId, evidence.id);
+  const progressed = await h.api.updateAction({ actionId: action.id, status: "dalam tindakan" });
+  assert.strictEqual(progressed.status, "dalam tindakan");
+
+  // Read back over the HTTP boundary so assertions cover persisted records, not
+  // just returned payloads or the fixture's original string relationships.
+  const storedMeeting = await h.pb.collection("agms").getOne(meeting.id);
+  const storedMinutes = await h.pb.collection("documents").getOne(evidenceId);
+  const storedResolution = await h.pb.collection("resolutions").getOne(resolution.id);
+  const storedAction = await h.pb.collection("actions").getOne(action.id);
+  for (const record of [storedMeeting, storedMinutes, storedResolution, storedAction]) {
+    assert.strictEqual(record.organizationId, org.id);
+  }
+  assert.strictEqual(storedMinutes.agmId, storedMeeting.id);
+  assert.strictEqual(storedResolution.agmId, storedMeeting.id);
+  assert.strictEqual(storedAction.agmId, storedMeeting.id);
+  assert.strictEqual(storedAction.resolutionId, storedResolution.id);
+  assert.strictEqual(storedResolution.documentId, storedMinutes.id);
+  assert.strictEqual(storedMinutes.sha256, workflow.evidence.sha256);
+  assert.strictEqual(storedAction.status, "dalam tindakan");
+  for (const collection of ["agms", "documents", "resolutions", "actions"]) {
+    assert.strictEqual(h.state[collection].length, 1, `${collection}: updates must not duplicate records`);
+    assert.strictEqual(h.calls.filter((call) => call.method === "POST" &&
+      call.path === `/api/collections/${collection}/records`).length, 1);
+  }
+
+  h.state.actions.push({ id: "foreign-action", organizationId: "other-association", title: "Private action" });
+  const dashboard = await h.api.loadDashboard();
+  assert.strictEqual(dashboard.source, "pocketbase");
+  assert.strictEqual(dashboard.cooperative.pbId, org.id);
+  for (const field of ["domainPackId", "domainPackVersion", "entityVariant", "ruleProfileId"]) {
+    assert.strictEqual(dashboard[field], org[field], `dashboard ${field}`);
+  }
+  // These registry-only fields prove the real pack was used, not the fallback.
+  assert.strictEqual(dashboard.domainPack.participantLabel.en, "Residents");
+  assert.strictEqual(dashboard.domainPack.capabilities.hybridMeeting, true);
+  assert.strictEqual(dashboard.agm, null, "planned meetings are not yet current/minuted meetings");
+  assert.strictEqual(dashboard.actions.length, 1, "the action loader must request the authenticated tenant");
+  assert.strictEqual(dashboard.actions[0].fromMotion, storedResolution.id);
+  assert.strictEqual(dashboard.actions[0].status, storedAction.status);
+  console.log("resident association workflow: API-created meeting, minutes, resolution, action, persisted evidence, and real domain pack passed");
+}
+
+async function testAuthorization() {
+  const creates = [
+    ["createScheduledAGM", workflow.meeting], ["createDocument", workflow.minutes],
+    ["createResolution", workflow.resolution], ["createAction", workflow.action],
+  ];
+  for (const [user, error] of [
+    [null, /diperlukan/],
+    [{ ...staff, role: "member" }, /tidak dibenarkan/],
+    [{ ...staff, id: "foreign-secretary", organizationId: "other-association" }, /Rekod bukan milik organisasi/],
+  ]) {
+    const h = harness(user);
+    for (const [method, payload] of creates) {
+      await assert.rejects(h.api[method](payload), error, `${method} must reject unauthorized/foreign input`);
+      assert.strictEqual(h.calls.length, 0, `${method} must reject before HTTP`);
+    }
+    for (const collection of ["agms", "documents", "resolutions", "actions"]) {
+      assert.strictEqual(h.state[collection].length, 0);
+    }
+  }
+
+  const h = harness();
+  const updates = [
+    ["documents", "updateDocument", { documentId: "foreign-document", sha256: workflow.evidence.sha256 }],
+    ["resolutions", "updateResolution", { resolutionId: "foreign-resolution", documentId: "foreign-document" }],
+    ["actions", "updateAction", { actionId: "foreign-action", status: "selesai" }],
+  ];
+  for (const [collection, method, payload] of updates) {
+    const id = payload.documentId && collection === "documents" ? payload.documentId
+      : collection === "resolutions" ? payload.resolutionId : payload.actionId;
+    h.state[collection].push({ id, organizationId: "other-association", title: "Private record" });
+    const before = JSON.stringify(h.state);
+    const callCount = h.calls.length;
+    await assert.rejects(h.api[method](payload), /Rekod tidak ditemui dalam organisasi ini/, `${method} foreign record`);
+    assert.deepStrictEqual(h.calls.slice(callCount).map((call) => `${call.method} ${call.path}`), [
+      `GET /api/collections/${collection}/records/${id}`,
+    ], `${method} must inspect the returned foreign tenant and never PATCH`);
+    assert.strictEqual(JSON.stringify(h.state), before, `${method} must leave stored data untouched`);
+  }
+  console.log("resident association authorization: all four creates reject anonymous/member/cross-tenant callers; all three updates reject foreign records without writes");
+}
+
+async function run() {
+  validateFixture();
+  await testWorkflow();
+  await testAuthorization();
+}
+
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -1,0 +1,10 @@
+# AGMX — local variables for `wrangler pages dev` (copy to .dev.vars)
+#
+# wrangler.jsonc currently declares static assets only, so nothing reads these
+# yet. They become live the moment a Pages Function is added under functions/.
+# Never commit .dev.vars — .gitignore keeps it out, and .wrignore keeps the
+# real file out of any upload.
+#
+# Cloudflare Pages Function bindings are normally project/secret scoped; this
+# file is the local mirror of those names, one per line.
+NEXT_PUBLIC_APP_URL=http://localhost:8788

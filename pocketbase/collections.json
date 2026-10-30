@@ -1,0 +1,2420 @@
+[
+  {
+    "name": "organizations",
+    "type": "base",
+    "listRule": "id = @request.auth.organizationId",
+    "viewRule": "id = @request.auth.organizationId",
+    "createRule": "@request.auth.role = 'admin'",
+    "updateRule": "id = @request.auth.organizationId && @request.auth.role = 'admin'",
+    "deleteRule": "id = @request.auth.organizationId && @request.auth.role = 'admin'",
+    "options": {},
+    "schema": [
+      {
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "shortName",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "slug",
+        "type": "text",
+        "required": true,
+        "unique": true,
+        "max": 100
+      },
+      {
+        "name": "type",
+        "type": "select",
+        "required": true,
+        "values": [
+          "cooperative",
+          "partner",
+          "federation"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "cooperative"
+      },
+      {
+        "name": "registrationNo",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "state",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "zone",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "plan",
+        "type": "select",
+        "values": [
+          "starter",
+          "professional",
+          "enterprise",
+          "platinum",
+          "unlimited"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "starter"
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "values": [
+          "active",
+          "trial",
+          "suspended"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "active"
+      },
+      {
+        "name": "settings",
+        "type": "json",
+        "maxSize": 1000000
+      },
+      {
+        "name": "founded",
+        "type": "text",
+        "max": 10
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "name": "members",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId",
+    "updateRule": "organizationId = @request.auth.organizationId && @request.auth.role != 'member'",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "memberNo",
+        "type": "text",
+        "required": true,
+        "max": 30
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "ic",
+        "type": "text",
+        "max": 20
+      },
+      {
+        "name": "phone",
+        "type": "text",
+        "max": 20
+      },
+      {
+        "name": "email",
+        "type": "email",
+        "max": 200
+      },
+      {
+        "name": "shares",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "Aktif",
+          "Tunggakan",
+          "Berehat",
+          "Keluar"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "Aktif"
+      },
+      {
+        "name": "arrears",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "eligible",
+        "type": "bool",
+        "required": false,
+        "defaultValue": true
+      },
+      {
+        "name": "age",
+        "type": "number",
+        "min": 0,
+        "max": 150
+      },
+      {
+        "name": "joinedAt",
+        "type": "date"
+      },
+      {
+        "name": "proxyOf",
+        "type": "relation",
+        "collectionId": "members",
+        "maxSelect": 1,
+        "cascadeDelete": false
+      },
+      {
+        "name": "photo",
+        "type": "file",
+        "maxSelect": 1,
+        "maxSize": 5000000,
+        "mimeTypes": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ]
+      },
+      {
+        "name": "userId",
+        "type": "relation",
+        "collectionId": "_pb_users_auth_",
+        "maxSelect": 1,
+        "cascadeDelete": true
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_members_org_no ON members (organizationId, memberNo)",
+      "CREATE INDEX idx_members_org ON members (organizationId)",
+      "CREATE INDEX idx_members_eligible ON members (organizationId, eligible)"
+    ]
+  },
+  {
+    "name": "agms",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "required": true,
+        "max": 300
+      },
+      {
+        "name": "edition",
+        "type": "number",
+        "required": false,
+        "min": 1
+      },
+      {
+        "name": "fiscalYear",
+        "type": "text",
+        "max": 20
+      },
+      {
+        "name": "scheduledAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "venue",
+        "type": "text",
+        "max": 300
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "required": true,
+        "values": [
+          "physical",
+          "online",
+          "hybrid"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "hybrid"
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "planned",
+          "notice",
+          "open",
+          "live",
+          "closed",
+          "minuted",
+          "archived"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "planned"
+      },
+      {
+        "name": "quorumPct",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "max": 100,
+        "defaultValue": 25
+      },
+      {
+        "name": "noticeDays",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 21
+      },
+      {
+        "name": "startedAt",
+        "type": "date"
+      },
+      {
+        "name": "settings",
+        "type": "json",
+        "maxSize": 1000000
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_agms_org_status ON agms (organizationId, status)",
+      "CREATE INDEX idx_agms_scheduled ON agms (scheduledAt)"
+    ]
+  },
+  {
+    "name": "agm_settings",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1,
+        "unique": true
+      },
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "allowProxy",
+        "type": "bool",
+        "defaultValue": true
+      },
+      {
+        "name": "allowOnline",
+        "type": "bool",
+        "defaultValue": true
+      },
+      {
+        "name": "votingOpensAt",
+        "type": "date"
+      },
+      {
+        "name": "votingClosesAt",
+        "type": "date"
+      },
+      {
+        "name": "minSeconder",
+        "type": "number",
+        "required": false,
+        "min": 1,
+        "defaultValue": 1
+      },
+      {
+        "name": "debateLimitMin",
+        "type": "number",
+        "required": false,
+        "min": 1,
+        "defaultValue": 15
+      }
+    ]
+  },
+  {
+    "name": "agenda_items",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "code",
+        "type": "text",
+        "required": true,
+        "max": 20
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "required": true,
+        "max": 300
+      },
+      {
+        "name": "type",
+        "type": "select",
+        "required": true,
+        "values": [
+          "opening",
+          "compliance",
+          "resolution",
+          "financial",
+          "report",
+          "election",
+          "motions",
+          "closing"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "durationMin",
+        "type": "number",
+        "required": false,
+        "min": 1,
+        "defaultValue": 10
+      },
+      {
+        "name": "presenter",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "sortOrder",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "menunggu",
+          "berlangsung",
+          "selesai"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "menunggu"
+      },
+      {
+        "name": "startedAt",
+        "type": "date"
+      },
+      {
+        "name": "endedAt",
+        "type": "date"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_agenda_agm ON agenda_items (agmId, sortOrder)",
+      "CREATE UNIQUE INDEX idx_agenda_agm_code ON agenda_items (agmId, code)"
+    ]
+  },
+  {
+    "name": "candidates",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "code",
+        "type": "text",
+        "required": true,
+        "max": 20
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "age",
+        "type": "number",
+        "min": 18,
+        "max": 100
+      },
+      {
+        "name": "position",
+        "type": "select",
+        "required": true,
+        "values": [
+          "Pengerusi",
+          "Naib Pengerusi",
+          "Ahli Lembaga"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "zone",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "manifesto",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "name": "photo",
+        "type": "file",
+        "maxSelect": 1,
+        "maxSize": 5000000,
+        "mimeTypes": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ]
+      },
+      {
+        "name": "sortOrder",
+        "type": "number",
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "memberId",
+        "type": "relation",
+        "collectionId": "members",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_candidates_agm ON candidates (agmId)"
+    ]
+  },
+  {
+    "name": "motions",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && @request.auth.role != 'member'",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "code",
+        "type": "text",
+        "required": true,
+        "max": 20
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "required": true,
+        "max": 500
+      },
+      {
+        "name": "type",
+        "type": "select",
+        "required": true,
+        "values": [
+          "kewangan",
+          "pentadbiran",
+          "uuk",
+          "lain"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "lain"
+      },
+      {
+        "name": "proposerId",
+        "type": "relation",
+        "collectionId": "members",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "seconderId",
+        "type": "relation",
+        "collectionId": "members",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "draf",
+          "dibentang",
+          "dibincang",
+          "diundi",
+          "diluluskan",
+          "digugurkan"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "draf"
+      },
+      {
+        "name": "proposedAt",
+        "type": "date"
+      },
+      {
+        "name": "secondedAt",
+        "type": "date"
+      },
+      {
+        "name": "debateStartedAt",
+        "type": "date"
+      },
+      {
+        "name": "discussion",
+        "type": "json",
+        "maxSize": 2000000
+      },
+      {
+        "name": "dropReason",
+        "type": "text",
+        "max": 300
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_motions_agm_code ON motions (agmId, code)",
+      "CREATE INDEX idx_motions_agm_status ON motions (agmId, status)"
+    ]
+  },
+  {
+    "name": "votes",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "@request.auth.memberId != '' && organizationId = @request.auth.organizationId",
+    "updateRule": "",
+    "deleteRule": "",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "motionId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "motions",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "voterId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "members",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "candidateId",
+        "type": "relation",
+        "collectionId": "candidates",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "choice",
+        "type": "select",
+        "required": true,
+        "values": [
+          "ya",
+          "tidak",
+          "kecuali"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "castAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "auditEventId",
+        "type": "relation",
+        "collectionId": "audit_events",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_votes_motion_voter ON votes (motionId, voterId)",
+      "CREATE UNIQUE INDEX idx_votes_candidate_voter ON votes (candidateId, voterId)",
+      "CREATE INDEX idx_votes_agm ON votes (agmId)",
+      "CREATE INDEX idx_votes_motion ON votes (motionId, choice)"
+    ]
+  },
+  {
+    "name": "resolutions",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "motionId",
+        "type": "relation",
+        "collectionId": "motions",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "required": true,
+        "max": 500
+      },
+      {
+        "name": "passed",
+        "type": "bool",
+        "required": false
+      },
+      {
+        "name": "votesYa",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "votesTidak",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "votesKecuali",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "minutedAt",
+        "type": "date"
+      },
+      {
+        "name": "documentId",
+        "type": "relation",
+        "collectionId": "documents",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_resolutions_agm ON resolutions (agmId)"
+    ]
+  },
+  {
+    "name": "attendance",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId",
+    "updateRule": "",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "memberId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "members",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "checkInAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "method",
+        "type": "select",
+        "required": true,
+        "values": [
+          "qr",
+          "otp",
+          "whatsapp",
+          "manual"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "deviceFingerprint",
+        "type": "text",
+        "max": 128
+      },
+      {
+        "name": "ipAddress",
+        "type": "text",
+        "max": 45
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_attendance_agm_member ON attendance (agmId, memberId)",
+      "CREATE INDEX idx_attendance_agm ON attendance (agmId)"
+    ]
+  },
+  {
+    "name": "quorum_snapshots",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "totalMembers",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "present",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "pct",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "max": 100
+      },
+      {
+        "name": "satisfied",
+        "type": "bool",
+        "required": false
+      },
+      {
+        "name": "capturedAt",
+        "type": "date",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_quorum_agm ON quorum_snapshots (agmId, capturedAt)"
+    ]
+  },
+  {
+    "name": "agm_notices",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "sentAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "channel",
+        "type": "select",
+        "required": true,
+        "values": [
+          "qr",
+          "sms",
+          "whatsapp",
+          "email",
+          "pos"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "recipientCount",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "readCount",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "documentId",
+        "type": "relation",
+        "collectionId": "documents",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_notices_agm ON agm_notices (agmId)"
+    ]
+  },
+  {
+    "name": "notice_recipients",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "noticeId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agm_notices",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "memberId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "members",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "deliveredAt",
+        "type": "date"
+      },
+      {
+        "name": "openedAt",
+        "type": "date"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_notice_recip ON notice_recipients (noticeId, memberId)"
+    ]
+  },
+  {
+    "name": "questions",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId",
+    "updateRule": "organizationId = @request.auth.organizationId && @request.auth.role != 'member'",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "askerId",
+        "type": "relation",
+        "collectionId": "members",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "text",
+        "type": "text",
+        "required": true,
+        "max": 1000
+      },
+      {
+        "name": "category",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "dedupeGroup",
+        "type": "text",
+        "max": 200
+      },
+      {
+        "name": "groupedCount",
+        "type": "number",
+        "min": 0,
+        "defaultValue": 1
+      },
+      {
+        "name": "upvotes",
+        "type": "number",
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "baru",
+          "dalam antrian",
+          "dijawab",
+          "disatukan"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "baru"
+      },
+      {
+        "name": "answeredBy",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "answeredAt",
+        "type": "date"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_questions_agm_status ON questions (agmId, status)"
+    ]
+  },
+  {
+    "name": "actions",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "resolutionId",
+        "type": "relation",
+        "collectionId": "resolutions",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "required": true,
+        "max": 500
+      },
+      {
+        "name": "picId",
+        "type": "relation",
+        "collectionId": "members",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "picRole",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "dueDate",
+        "type": "date"
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "terbuka",
+          "dalam tindakan",
+          "selesai",
+          "lewat"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "terbuka"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_actions_org_status ON actions (organizationId, status)"
+    ]
+  },
+  {
+    "name": "compliance_rules",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin'",
+    "updateRule": "@request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.role = 'admin'",
+    "options": {},
+    "schema": [
+      {
+        "name": "code",
+        "type": "text",
+        "required": true,
+        "unique": true,
+        "max": 30
+      },
+      {
+        "name": "act",
+        "type": "select",
+        "required": true,
+        "values": [
+          "akta1993",
+          "gp14",
+          "gp14b",
+          "uuk",
+          "brule"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "label",
+        "type": "text",
+        "required": true,
+        "max": 300
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "name": "severity",
+        "type": "select",
+        "required": true,
+        "values": [
+          "info",
+          "warning",
+          "critical"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "info"
+      },
+      {
+        "name": "checkType",
+        "type": "text",
+        "max": 50
+      }
+    ]
+  },
+  {
+    "name": "compliance_checks",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "ruleId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "compliance_rules",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "result",
+        "type": "select",
+        "required": true,
+        "values": [
+          "lulus",
+          "amaran",
+          "gagal"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "details",
+        "type": "json",
+        "maxSize": 1000000
+      },
+      {
+        "name": "checkedAt",
+        "type": "date",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_compliance_checks_agm ON compliance_checks (agmId)"
+    ]
+  },
+  {
+    "name": "compliance_findings",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "checkId",
+        "type": "relation",
+        "collectionId": "compliance_checks",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "severity",
+        "type": "select",
+        "required": true,
+        "values": [
+          "info",
+          "warning",
+          "critical"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "message",
+        "type": "text",
+        "required": true,
+        "max": 1000
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "terbuka",
+          "dalam-progress",
+          "selesai"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "terbuka"
+      },
+      {
+        "name": "resolvedAt",
+        "type": "date"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_findings_org_status ON compliance_findings (organizationId, status)"
+    ]
+  },
+  {
+    "name": "documents",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "agmId",
+        "type": "relation",
+        "collectionId": "agms",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "category",
+        "type": "select",
+        "required": true,
+        "values": [
+          "notice",
+          "minutes",
+          "financial",
+          "motion",
+          "resolution",
+          "attendance",
+          "other"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "filename",
+        "type": "text",
+        "required": true,
+        "max": 300
+      },
+      {
+        "name": "file",
+        "type": "file",
+        "required": true,
+        "maxSelect": 1,
+        "maxSize": 26214400
+      },
+      {
+        "name": "mime",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "sizeBytes",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "name": "sha256",
+        "type": "text",
+        "max": 64
+      },
+      {
+        "name": "uploadedBy",
+        "type": "relation",
+        "collectionId": "_pb_users_auth_",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_documents_agm ON documents (agmId, category)"
+    ]
+  },
+  {
+    "name": "audit_events",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId",
+    "updateRule": "",
+    "deleteRule": "",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "actorId",
+        "type": "relation",
+        "collectionId": "_pb_users_auth_",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "actorName",
+        "type": "text",
+        "max": 200
+      },
+      {
+        "name": "action",
+        "type": "text",
+        "required": true,
+        "max": 100
+      },
+      {
+        "name": "entityType",
+        "type": "text",
+        "required": true,
+        "max": 100
+      },
+      {
+        "name": "entityId",
+        "type": "text",
+        "required": true,
+        "max": 100
+      },
+      {
+        "name": "payload",
+        "type": "json",
+        "maxSize": 500000
+      },
+      {
+        "name": "prevHash",
+        "type": "text",
+        "max": 64
+      },
+      {
+        "name": "hash",
+        "type": "text",
+        "required": true,
+        "unique": true,
+        "max": 64
+      },
+      {
+        "name": "occurredAt",
+        "type": "date",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_audit_org_time ON audit_events (organizationId, occurredAt)"
+    ]
+  },
+  {
+    "name": "member_status_history",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role != 'member')",
+    "updateRule": "",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "memberId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "members",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "fromStatus",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "toStatus",
+        "type": "text",
+        "required": true,
+        "max": 50
+      },
+      {
+        "name": "note",
+        "type": "text",
+        "max": 500
+      },
+      {
+        "name": "changedAt",
+        "type": "date",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_status_hist_member ON member_status_history (memberId, changedAt)"
+    ]
+  },
+  {
+    "name": "plans",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin'",
+    "updateRule": "@request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.role = 'admin'",
+    "options": {},
+    "schema": [
+      {
+        "name": "code",
+        "type": "text",
+        "required": true,
+        "unique": true,
+        "max": 50
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 100
+      },
+      {
+        "name": "type",
+        "type": "select",
+        "required": true,
+        "values": [
+          "agm_service",
+          "subscription"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "priceMonthly",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "name": "priceAnnual",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "name": "priceOneoff",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "name": "maxMembers",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "name": "minScore",
+        "type": "number",
+        "min": 0,
+        "max": 100
+      },
+      {
+        "name": "maxScore",
+        "type": "number",
+        "min": 0,
+        "max": 100
+      },
+      {
+        "name": "features",
+        "type": "json",
+        "maxSize": 500000
+      },
+      {
+        "name": "sortOrder",
+        "type": "number",
+        "min": 0,
+        "defaultValue": 0
+      }
+    ]
+  },
+  {
+    "name": "subscriptions",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "planId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "plans",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "trialing",
+          "active",
+          "past_due",
+          "canceled"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "trialing"
+      },
+      {
+        "name": "currentPeriodStart",
+        "type": "date"
+      },
+      {
+        "name": "currentPeriodEnd",
+        "type": "date"
+      },
+      {
+        "name": "billingCycle",
+        "type": "select",
+        "values": [
+          "monthly",
+          "annual"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "annual"
+      },
+      {
+        "name": "renewalDate",
+        "type": "date"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_subs_org ON subscriptions (organizationId, status)"
+    ]
+  },
+  {
+    "name": "agm_assessments",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId || (@request.auth.role = 'admin' && organizationId = '')",
+    "viewRule": "organizationId = @request.auth.organizationId || (@request.auth.role = 'admin' && organizationId = '')",
+    "createRule": "(organizationId = '' && @request.auth.id = '') || (organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary'))",
+    "updateRule": "(@request.auth.role = 'admin' && (organizationId = @request.auth.organizationId || organizationId = '')) || (@request.auth.role = 'secretary' && organizationId = @request.auth.organizationId)",
+    "deleteRule": "@request.auth.role = 'admin' && (organizationId = @request.auth.organizationId || organizationId = '')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "coopName",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "coopReg",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "state",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "members",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "agmDate",
+        "type": "date"
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "required": true,
+        "values": [
+          "physical",
+          "online",
+          "hybrid"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "expectedAttendance",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "name": "candidates",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "motions",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "currentProcess",
+        "type": "select",
+        "required": true,
+        "values": [
+          "manual",
+          "partial",
+          "digital"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "manual"
+      },
+      {
+        "name": "needsManaged",
+        "type": "bool",
+        "required": false,
+        "defaultValue": true
+      },
+      {
+        "name": "contactName",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "contactPhone",
+        "type": "text",
+        "required": true,
+        "max": 30
+      },
+      {
+        "name": "contactEmail",
+        "type": "email",
+        "max": 200
+      },
+      {
+        "name": "answers",
+        "type": "json",
+        "maxSize": 100000
+      },
+      {
+        "name": "complexityScore",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "max": 100
+      },
+      {
+        "name": "recommendedPlanId",
+        "type": "relation",
+        "collectionId": "plans",
+        "cascadeDelete": false,
+        "maxSelect": 1
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "lead",
+          "contacted",
+          "quoted",
+          "won",
+          "lost",
+          "scheduled"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "lead"
+      },
+      {
+        "name": "notes",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "name": "reference",
+        "type": "text",
+        "unique": true,
+        "max": 20
+      },
+      {
+        "name": "token",
+        "type": "text",
+        "hidden": true,
+        "max": 64
+      },
+      {
+        "name": "createdAt",
+        "type": "date",
+        "required": false
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_assessments_status ON agm_assessments (status)",
+      "CREATE INDEX idx_assessments_created ON agm_assessments (-created)"
+    ]
+  },
+  {
+    "name": "quotes",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "assessmentId",
+        "type": "relation",
+        "collectionId": "agm_assessments",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "number",
+        "type": "text",
+        "required": true,
+        "unique": true,
+        "max": 50
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "draft",
+          "sent",
+          "accepted",
+          "declined",
+          "expired"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "draft"
+      },
+      {
+        "name": "validUntil",
+        "type": "date"
+      },
+      {
+        "name": "subtotal",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "tax",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "sstRate",
+        "type": "number",
+        "min": 0,
+        "max": 100,
+        "defaultValue": 8
+      },
+      {
+        "name": "total",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "notes",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "name": "items",
+        "type": "json",
+        "maxSize": 500000
+      },
+      {
+        "name": "sentAt",
+        "type": "date"
+      },
+      {
+        "name": "acceptedAt",
+        "type": "date"
+      },
+      {
+        "name": "createdAt",
+        "type": "date",
+        "required": false
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_quotes_org ON quotes (organizationId, status)"
+    ]
+  },
+  {
+    "name": "invoices",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "quoteId",
+        "type": "relation",
+        "collectionId": "quotes",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "number",
+        "type": "text",
+        "required": true,
+        "unique": true,
+        "max": 50
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "unpaid",
+          "paid",
+          "overdue",
+          "void"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "unpaid"
+      },
+      {
+        "name": "issuedAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "dueAt",
+        "type": "date"
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "paidAt",
+        "type": "date"
+      },
+      {
+        "name": "items",
+        "type": "json",
+        "maxSize": 500000
+      },
+      {
+        "name": "createdAt",
+        "type": "date",
+        "required": false
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_invoices_org ON invoices (organizationId, status)",
+      "CREATE INDEX idx_invoices_due ON invoices (dueAt, status)"
+    ]
+  },
+  {
+    "name": "payments",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin' || @request.auth.role = 'secretary')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "invoiceId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "invoices",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "method",
+        "type": "select",
+        "required": true,
+        "values": [
+          "fpx",
+          "card",
+          "bank_transfer",
+          "manual",
+          "google_pay",
+          "billplz"
+        ],
+        "maxSelect": 1
+      },
+      {
+        "name": "reference",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "required": false,
+        "min": 0
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "pending",
+          "succeeded",
+          "failed",
+          "refunded"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "pending"
+      },
+      {
+        "name": "gatewayRef",
+        "type": "text",
+        "max": 200
+      },
+      {
+        "name": "receiptUrl",
+        "type": "text",
+        "max": 500
+      },
+      {
+        "name": "paidAt",
+        "type": "date"
+      },
+      {
+        "name": "createdAt",
+        "type": "date",
+        "required": false
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_payments_org ON payments (organizationId, status)"
+    ]
+  },
+  {
+    "name": "partners",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "contactName",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "contactEmail",
+        "type": "email",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "contactPhone",
+        "type": "text",
+        "max": 30
+      },
+      {
+        "name": "commissionPct",
+        "type": "number",
+        "required": false,
+        "min": 0,
+        "max": 100,
+        "defaultValue": 10
+      },
+      {
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "values": [
+          "active",
+          "inactive",
+          "suspended"
+        ],
+        "maxSelect": 1,
+        "defaultValue": "active"
+      }
+    ]
+  },
+  {
+    "name": "partner_organizations",
+    "type": "base",
+    "listRule": "organizationId = @request.auth.organizationId",
+    "viewRule": "organizationId = @request.auth.organizationId",
+    "createRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "updateRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "deleteRule": "organizationId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "partnerId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "partners",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "referredAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "commissionEarned",
+        "type": "number",
+        "min": 0,
+        "defaultValue": 0
+      },
+      {
+        "name": "contractValue",
+        "type": "number",
+        "min": 0
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_partner_org ON partner_organizations (partnerId, organizationId)",
+      "CREATE INDEX idx_partner_org_org ON partner_organizations (organizationId)"
+    ]
+  },
+  {
+    "name": "federations",
+    "type": "base",
+    "listRule": "ownerOrgId = @request.auth.organizationId",
+    "viewRule": "ownerOrgId = @request.auth.organizationId",
+    "createRule": "ownerOrgId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "updateRule": "ownerOrgId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "deleteRule": "ownerOrgId = @request.auth.organizationId && (@request.auth.role = 'admin')",
+    "options": {},
+    "schema": [
+      {
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 200
+      },
+      {
+        "name": "ownerOrgId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "registrationNo",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "name": "memberCount",
+        "type": "number",
+        "min": 0,
+        "defaultValue": 0
+      }
+    ]
+  },
+  {
+    "name": "federation_organizations",
+    "type": "base",
+    "listRule": "federationId.ownerOrgId = @request.auth.organizationId || organizationId = @request.auth.organizationId",
+    "viewRule": "federationId.ownerOrgId = @request.auth.organizationId || organizationId = @request.auth.organizationId",
+    "createRule": "ownerOrgId = @request.auth.organizationId && @request.auth.role = 'admin'",
+    "updateRule": "ownerOrgId = @request.auth.organizationId && @request.auth.role = 'admin'",
+    "deleteRule": "ownerOrgId = @request.auth.organizationId && @request.auth.role = 'admin'",
+    "options": {},
+    "schema": [
+      {
+        "name": "federationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "federations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "organizationId",
+        "type": "relation",
+        "required": true,
+        "collectionId": "organizations",
+        "cascadeDelete": true,
+        "maxSelect": 1
+      },
+      {
+        "name": "joinedAt",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "contributionPct",
+        "type": "number",
+        "min": 0,
+        "max": 100,
+        "defaultValue": 0
+      },
+      {
+        "name": "ownerOrgId",
+        "type": "relation",
+        "required": false,
+        "maxSelect": 1,
+        "minSelect": 0,
+        "maxSize": 0,
+        "cascadeDelete": false,
+        "collectionId": "organizations"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_fed_org ON federation_organizations (federationId, organizationId)",
+      "CREATE INDEX idx_fed_org_org ON federation_organizations (organizationId)"
+    ]
+  }
+]

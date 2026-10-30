@@ -1,0 +1,15 @@
+#!/bin/sh
+# AGMX — pre-commit gate.
+#
+# Actions cannot run for this account right now (billing lock), so the repo's
+# own check suite has to block locally instead of in CI. Once hosted CI works
+# again this hook is redundant, not harmful — delete the symlink in
+# .git/hooks/pre-commit if it gets in your way.
+#
+# Install (from repo root):
+#   ln -sf ../../tools/hooks/pre-commit .git/hooks/pre-commit
+#
+# AGMX_SKIP_NET=1 keeps the live-host probe out of the commit path; it stays
+# in CI, where the probe has something to reach.
+root=$(git rev-parse --show-toplevel) || { echo "pre-commit: not inside a git work tree" >&2; exit 1; }
+AGMX_SKIP_NET=1 exec bash "$root/tools/check.sh"

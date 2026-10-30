@@ -1,0 +1,221 @@
+{
+  "plans": [
+    {
+      "code": "essential_agm",
+      "name": "Essential AGM",
+      "type": "agm_service",
+      "priceOneoff": 1500,
+      "minScore": 0,
+      "maxScore": 34,
+      "maxMembers": 500,
+      "sortOrder": 1,
+      "features": [
+        "AGM setup & member import",
+        "Standard 9-item agenda",
+        "Attendance tracking (QR)",
+        "E-voting for resolutions",
+        "Minutes draft (AI assisted)",
+        "Compliance report: Akta 1993 Sec 17 & 22"
+      ]
+    },
+    {
+      "code": "professional_agm",
+      "name": "Professional AGM",
+      "type": "agm_service",
+      "priceOneoff": 3500,
+      "minScore": 35,
+      "maxScore": 64,
+      "maxMembers": 2000,
+      "sortOrder": 2,
+      "features": [
+        "Everything in Essential",
+        "Hybrid conference (physical + online)",
+        "Board election module with candidate gallery",
+        "Motion chain engine (proposer → seconder → debate → vote)",
+        "Live quorum monitoring",
+        "Compliance report: Akta 1993 + GP14 + GP14B + UUK",
+        "Audit vault with tamper-evident hash chain",
+        "30 days post-AGM support"
+      ]
+    },
+    {
+      "code": "enterprise_agm",
+      "name": "Enterprise AGM",
+      "type": "agm_service",
+      "priceOneoff": 7500,
+      "minScore": 65,
+      "maxScore": 100,
+      "maxMembers": 10000,
+      "sortOrder": 3,
+      "features": [
+        "Everything in Professional",
+        "Multi-session & multi-day AGM",
+        "AI Copilot with RAG over your documents",
+        "Full compliance engine (BRule-001 → BRule-005)",
+        "Multi-venue / multi-hall support",
+        "Custom UUK clause configuration",
+        "Dedicated AGM manager",
+        "SKM audit pack preparation"
+      ]
+    },
+    {
+      "code": "governance_os_essential",
+      "name": "Governance OS · Essential",
+      "type": "subscription",
+      "priceMonthly": 600,
+      "priceAnnual": 6000,
+      "maxMembers": 300,
+      "sortOrder": 10,
+      "features": [
+        "Up to 300 members",
+        "Board meetings & resolutions",
+        "Document vault",
+        "Compliance dashboard",
+        "Email support"
+      ]
+    },
+    {
+      "code": "governance_os_professional",
+      "name": "Governance OS · Professional",
+      "type": "subscription",
+      "priceMonthly": 800,
+      "priceAnnual": 8000,
+      "maxMembers": 1000,
+      "sortOrder": 11,
+      "features": [
+        "Up to 1,000 members",
+        "Everything in Essential",
+        "E-voting year-round",
+        "AI minute writer",
+        "Action tracker with PIC & due dates",
+        "Priority support"
+      ]
+    },
+    {
+      "code": "governance_os_enterprise",
+      "name": "Governance OS · Enterprise",
+      "type": "subscription",
+      "priceMonthly": 1000,
+      "priceAnnual": 10000,
+      "maxMembers": 2000,
+      "sortOrder": 12,
+      "features": [
+        "Up to 2,000 members",
+        "Everything in Professional",
+        "Full RAG knowledge room",
+        "Multi-venue AGMs",
+        "SSO / Google Workspace",
+        "API access",
+        "Dedicated account manager"
+      ]
+    },
+    {
+      "code": "governance_os_federation",
+      "name": "Governance OS · Federation",
+      "type": "subscription",
+      "priceMonthly": 1250,
+      "priceAnnual": 12500,
+      "maxMembers": 1000000,
+      "sortOrder": 13,
+      "features": [
+        "Unlimited members",
+        "Everything in Enterprise",
+        "Federation roll-up dashboard",
+        "Partner portal",
+        "White-label reports",
+        "On-premise option"
+      ]
+    }
+  ],
+
+  "compliance_rules": [
+    {
+      "code": "AKTA-S17",
+      "act": "akta1993",
+      "label": "Notis Mesyuarat (≥15 hari)",
+      "description": "Akta Koperasi 1993 Seksyen 17 — Notice of general meeting must be given at least 15 days before the meeting.",
+      "severity": "critical",
+      "checkType": "notice_days"
+    },
+    {
+      "code": "AKTA-S22",
+      "act": "akta1993",
+      "label": "Kelayakan Mengundi Ahli Aktif",
+      "description": "Akta Koperasi 1993 Seksyen 22(3) — only members in good standing (no arrears) may vote at general meetings.",
+      "severity": "critical",
+      "checkType": "eligibility"
+    },
+    {
+      "code": "GP14",
+      "act": "gp14",
+      "label": "Kuorum Minimum (≥25%)",
+      "description": "GP14 — quorum of not less than 25% of total members must be present for a general meeting to proceed.",
+      "severity": "critical",
+      "checkType": "quorum"
+    },
+    {
+      "code": "GP14B",
+      "act": "gp14b",
+      "label": "Pencadang & Penyokong Usul",
+      "description": "GP14B — every motion must have a named proposer and at least one seconder recorded before discussion.",
+      "severity": "warning",
+      "checkType": "proposer_seconder"
+    },
+    {
+      "code": "GP14B-RESERVE",
+      "act": "gp14b",
+      "label": "Kekalan Lebih Surplus (≥20%)",
+      "description": "GP14B — at least 20% of net surplus must be retained before any distribution to members.",
+      "severity": "critical",
+      "checkType": "surplus_reserve"
+    },
+    {
+      "code": "UUK-7.3",
+      "act": "uuk",
+      "label": "Tempoh Perbahasan (≤15 minit)",
+      "description": "UUK Klausa 7.3 — debate on any single motion is limited to 15 minutes before automatic close.",
+      "severity": "warning",
+      "checkType": "debate_limit"
+    },
+    {
+      "code": "UUK-8.1",
+      "act": "uuk",
+      "label": "Dividen Minimum 5%",
+      "description": "UUK Klausa 8.1 — dividend distributed to members must be at least 5% of distributable surplus.",
+      "severity": "warning",
+      "checkType": "dividend_min"
+    },
+    {
+      "code": "BRULE-001",
+      "act": "brule",
+      "label": "Rekod Usul Jejakable",
+      "description": "BRule-001 — every motion must be recorded with proposer, timestamp and status transitions.",
+      "severity": "info",
+      "checkType": "motion_traceable"
+    },
+    {
+      "code": "BRULE-003",
+      "act": "brule",
+      "label": "Auto-Gugur Tanpa Penyokong",
+      "description": "BRule-003 — a motion without a seconder within 15 minutes is automatically dropped and recorded in the minutes.",
+      "severity": "warning",
+      "checkType": "auto_drop"
+    },
+    {
+      "code": "BRULE-005",
+      "act": "brule",
+      "label": "Sekatan Tunggakan",
+      "description": "BRule-005 — members in share/fee arrears are blocked from voting and from check-in.",
+      "severity": "critical",
+      "checkType": "arrears_block"
+    },
+    {
+      "code": "AKTA-S24",
+      "act": "akta1993",
+      "label": "Rekod Digital Tidak Boleh Dipadam",
+      "description": "Akta Koperasi 1993 Seksyen 24 — cooperative records must be retained; digital records are append-only with a tamper-evident hash chain.",
+      "severity": "critical",
+      "checkType": "immutable_record"
+    }
+  ]
+}
