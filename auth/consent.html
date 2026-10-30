@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesen Access — AGMX</title>
+  <script src="https://esm.sh/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .consent-container { max-width: 480px; margin: 80px auto; padding: 24px; }
+    .consent-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); padding: 32px; }
+    .consent-header { margin-bottom: 24px; }
+    .consent-title { font-size: 1.25rem; font-weight: 700; color: #1e293b; margin: 0 0 8px 0; }
+    .consent-subtitle { color: #64748b; font-size: 0.95rem; margin: 0; }
+    .app-info { background: #f1f5f9; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    .app-name { font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .app-redirect { font-size: 0.85rem; color: #64748b; word-break: break-all; }
+    .scopes-list { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    .scopes-title { font-size: 0.875rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .scope-item { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; font-size: 0.9rem; color: #334155; }
+    .scope-check { color: #0B5394; font-weight: 600; }
+    .btn-group { display: flex; gap: 12px; margin-top: 24px; }
+    .btn { flex: 1; padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: all 0.2s; }
+    .btn-approve { background: #0B5394; color: white; }
+    .btn-approve:hover { background: #084278; }
+    .btn-deny { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+    .btn-deny:hover { background: #f1f5f9; }
+    .status { font-size: 0.875rem; color: #dc2626; margin-top: 12px; min-height: 20px; }
+    .loading { text-align: center; color: #64748b; padding: 20px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="consent-container">
+    <div class="consent-card">
+      <div class="consent-header">
+        <h1 class="consent-title">Lesen Access</h1>
+        <p class="consent-subtitle">Ahakaan ini meminta kebenaran untuk mengakses akaun AGMX anda</p>
+      </div>
+
+      <div id="loading" class="loading">Memuat maklumat permohonan…</div>
+
+      <div id="consent-form" class="hidden">
+        <div class="app-info">
+          <div class="app-name" id="app-name">Memuat…</div>
+          <div class="app-redirect" id="app-redirect"></div>
+        </div>
+
+        <div class="scopes-list">
+          <div class="scopes-title">Kebenaran yang diminta</div>
+          <div id="scopes-list"></div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-approve" id="btn-approve">Terima</button>
+          <button class="btn btn-deny" id="btn-deny">Tolak</button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://lcrfsqocqavczgnzpadq.supabase.co';
+    let supabase = null;
+    let authorizationId = null;
+
+    const el = {
+      loading: document.getElementById('loading'),
+      form: document.getElementById('consent-form'),
+      appName: document.getElementById('app-name'),
+      appRedirect: document.getElementById('app-redirect'),
+      scopesList: document.getElementById('scopes-list'),
+      btnApprove: document.getElementById('btn-approve'),
+      btnDeny: document.getElementById('btn-deny'),
+      status: document.getElementById('status'),
+    };
+
+    async function loadConfig() {
+      const res = await fetch('/api/config.js', { cache: 'no-store' });
+      const text = await res.text();
+      return window.AGMX_CONFIG || {};
+    }
+
+    async function init() {
+      try {
+        const CONFIG = await loadConfig();
+        supabase = supabase.createClient(SUPABASE_URL, CONFIG.supabaseAnonKey);
+
+        const params = new URLSearchParams(location.search);
+        authorizationId = params.get('authorization_id');
+
+        // Check if user is logged in
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          const loginUrl = new URL('/login', location.origin);
+          loginUrl.searchParams.set('redirect', '/auth/consent?authorization_id=' + authorizationId);
+          location.href = loginUrl.toString();
+          return;
+        }
+
+        // Get authorization details
+        const { data: authDetails, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+
+        if (error || !authDetails) {
+          el.loading.textContent = 'Ralat: Permohonan sah tidak dijumpai.';
+          return;
+        }
+
+        // If previously consented, redirect
+        if (!authDetails.authorization_id) {
+          location.href = authDetails.redirect_url;
+          return;
+        }
+
+        el.loading.classList.add('hidden');
+        el.form.classList.remove('hidden');
+
+        // Populate UI
+        el.appName.textContent = authDetails.client?.name ?? 'Permohonan Tidak Diketahui';
+        el.appRedirect.textContent = authDetails.redirect_uri ?? '';
+
+        if (authDetails.scope) {
+          el.scopesList.innerHTML = authDetails.scope.split(' ')
+            .filter(Boolean)
+            .map(scope => `<div class="scope-item"><span class="scope-check">✓</span>${escapeHtml(scope)}</div>`)
+            .join('');
+        } else {
+          el.scopesList.innerHTML = '<div class="scope-item"><span class="scope-check">—</span>Tiada kebenaran khusus diminta.</div>';
+        }
+
+        el.btnApprove.onclick = async () => {
+          el.btnApprove.disabled = true;
+          el.btnDeny.disabled = true;
+          el.status.textContent = 'Memproses…';
+          try {
+            const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
+            if (error) throw new Error(error.message);
+            location.href = data.redirect_url;
+          } catch (err) {
+            el.status.textContent = err.message || 'Ralat telah berlaku.';
+            el.btnApprove.disabled = false;
+            el.btnDeny.disabled = false;
+          }
+        };
+
+        el.btnDeny.onclick = async () => {
+          el.btnApprove.disabled = true;
+          el.btnDeny.disabled = true;
+          el.status.textContent = 'Memproses…';
+          try {
+            const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
+            if (error) throw new Error(error.message);
+            location.href = data.redirect_url;
+          } catch (err) {
+            el.status.textContent = err.message || 'Ralat telah berlaku.';
+            el.btnApprove.disabled = false;
+            el.btnDeny.disabled = false;
+          }
+        };
+      } catch (err) {
+        el.loading.textContent = 'Ralat: ' + escapeHtml(err.message);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[c]);
+    }
+
+    init();
+  </script>
+</body>
+</html>
