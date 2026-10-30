@@ -11,12 +11,13 @@ worktrees/
 pb_data/
 pocketbase/pb_data/
 
-# Supabase CLI scratch (version check, linked-project state)
-supabase/.temp/
-# Root-anchored: a bare "config.js" matches at any depth and would also
-# ignore api/config.js — the Vercel function that serves production config.
+# Root-anchored per-deployment config (a bare "config.js" at any depth
+# would wrongly match api/config.js — the Vercel function).
 /config.js
 /config.local.js
+
+# Supabase CLI scratch (version check, linked-project state)
+supabase/.temp/
 
 # PocketBase server binary (unzip pocketbase_0.40.4 archive into bin/)
 bin/pocketbase
@@ -46,7 +47,7 @@ Thumbs.db
 .env.local
 *.pdf
 *.xlsx
-__pycache__/
+__pycache__
 
 # Historical mbox patches superseded by the committed Sprint 2 files.
 # Preserved on the recovered-baseline tag.
