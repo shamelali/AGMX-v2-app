@@ -1,7 +1,6 @@
 {
   "name": "agmx",
   "private": true,
-  "type": "commonjs",
   "engines": {
     "node": ">=20"
   },
