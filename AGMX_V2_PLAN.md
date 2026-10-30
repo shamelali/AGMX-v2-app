@@ -74,6 +74,10 @@ Existing 13-view UI
 
 ## 6. Production DB (foundation committed)
 
+> **Backend decision (2026-10-30): Supabase is canonical.** The PocketBase v1
+> layer and the Neon GraphRAG experiment are archived under `archive/` as
+> reference only; Supabase is the only deployed backend path.
+
 `supabase/schema.sql` — 30+ tables across:
 
 ```text

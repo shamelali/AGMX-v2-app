@@ -6,8 +6,6 @@
   },
   "scripts": {
     "test": "AGMX_SKIP_NET=1 bash tools/check.sh",
-    "knowledge:worker": "node tools/knowledge-worker.js",
-    "knowledge:backfill": "node tools/knowledge-embedding-backfill.js",
     "check": "bash tools/check.sh"
   },
   "dependencies": {

@@ -4,14 +4,16 @@
 
    One async interface, two adapters:
      * LocalAdapter      — localStorage persistence (demo mode, default)
-     * PocketBaseAdapter — calls the server-side money-flow routes in
-                           pb_hooks/money_flow.pb.js (see pocketbase/README.md).
+     * PocketBaseAdapter — legacy adapter for the archived v1 money-flow
+                           hooks (archive/pocketbase-v1/); no current
+                           deployment selects it. Supabase money-flow
+                           wiring lands in Sprint 2.
                            All commercial invariants — document numbering,
-                           pricing, double-payment guard, audit chain — are
+                           pricing, double-payment guard, audit chain — were
                            enforced SERVER-SIDE in the hook, never here.
 
    Global name: window.AGMX_COMMERCE
-   (window.AGMX_API is owned by pocketbase-client.js — the dashboard
+   (window.AGMX_API is owned by supabase-client.js — the dashboard
    query layer. The two must not collide.)
 
    Configuration (first match wins):
@@ -706,8 +708,8 @@
       /* production deployments set demoMode:false in config.js */
       if (c.url && c.demoMode === false) return { mode: "pocketbase", url: c.url };
       if (c.mode === "supabase") {
-        /* the project moved from Supabase to PocketBase (commit 19b502f) —
-           drop stale config instead of silently pretending it works */
+        /* Supabase commerce adapter is not implemented yet (Sprint 2) —
+           fall back to local rather than pretend it works */
         try { store.removeItem(KEYS.cfg); } catch (e) { /* ignore */ }
       }
     }
@@ -716,7 +718,7 @@
       if (raw) {
         const cfg = JSON.parse(raw);
         if (cfg && cfg.mode === "pocketbase" && cfg.url) return cfg;
-        if (cfg && cfg.mode === "supabase") store.removeItem(KEYS.cfg); // stale
+        if (cfg && cfg.mode === "supabase") store.removeItem(KEYS.cfg); // unsupported until Sprint 2
       }
     } catch (e) { /* ignore malformed config */ }
     return { mode: "local" };

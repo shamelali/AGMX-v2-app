@@ -189,7 +189,7 @@ export const db = {
   // Knowledge/RAG
   knowledge: {
     async query(question) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/knowledge-query`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/knowledge-query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,7 +204,7 @@ export const db = {
     },
 
     async ingest(documentId) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/knowledge-ingest`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/knowledge-ingest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,7 +222,7 @@ export const db = {
   // Money Flow (Operator only)
   money: {
     async submitAssessment(assessment) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/assessment`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/assessment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +235,7 @@ export const db = {
     },
 
     async createQuote(assessmentId, planCode) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/quote`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/quote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -248,7 +248,7 @@ export const db = {
     },
 
     async createInvoice(quoteId) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/invoice`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,7 +261,7 @@ export const db = {
     },
 
     async createPaymentIntent(invoiceId, method) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/payment/intent`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/payment/intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,7 +274,7 @@ export const db = {
     },
 
     async getLeads() {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/metrics`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/metrics`, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },

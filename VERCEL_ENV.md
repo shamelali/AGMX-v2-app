@@ -16,6 +16,9 @@
 | `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS` | `1024` | All | Safe for browser |
 | `NEXT_PUBLIC_APP_URL` | `https://agmx-v2-app.vercel.app` | All | Safe for browser |
 
+> `/api/config.js` prefers `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and still
+> accepts the legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` as a fallback.
+
 ---
 
 ## 🔐 Supabase Edge Function Secrets (NOT Vercel)
@@ -23,7 +26,7 @@
 **Set in Supabase Dashboard → Edge Functions → Secrets:**
 
 ```
-NVIDIA_NIM_API_KEY=nvapi-REDACTED
+NVIDIA_NIM_API_KEY=nvapi-...   # set via Supabase secrets; never commit the real value
 LLM_PROVIDER=nvidia
 ```
 

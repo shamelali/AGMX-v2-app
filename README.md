@@ -25,14 +25,15 @@ AGMX/
 ├── assessment.html/js  # Free 12-question AGM assessment → score → package
 ├── checkout.html/js    # Quote → invoice → payment → receipt
 ├── leads.html/js       # Operator inbox: metrics, CSV, backend switch
-├── api.js              # window.AGMX_COMMERCE — LocalAdapter ↔ PocketBaseAdapter
+├── api.js              # window.AGMX_COMMERCE — LocalAdapter (PocketBase adapter archived)
 ├── login.js            # Google OAuth2 / SMS OTP / passkey / demo
-├── pocketbase-client.js # Dependency-free PocketBase SDK + query layer
+├── supabase-client.js  # Supabase client: auth, data, realtime, Edge Functions
 ├── config.example.js   # Copy to config.js (gitignored, per-deployment)
 │
-├── pb_hooks/           # Server-side money flow (PocketBase JSVM)
-├── pocketbase/         # collections.json (31) + seed.json + README
-├── tools/              # check.sh, pb_migrate.py, harden_rules.py, test suites
+├── api/                # Vercel Functions: config, health, Billplz, HitPay
+├── supabase/           # schema_final.sql + knowledge_final.sql + Edge Functions
+├── archive/            # Superseded PocketBase v1 and Neon layers (reference only)
+├── tools/              # check.sh + test suites
 ├── sw.js               # Service worker (offline + precache)
 ├── vercel.json         # Vercel deployment config
 ├── assets/ images/     # Static assets
@@ -42,17 +43,25 @@ AGMX/
 ## 🧪 Tests
 
 ```bash
+npm test                            # tools/check.sh with AGMX_SKIP_NET=1
 node tools/test_money_flow.mjs      # 61 assertions — local adapter, zero deps
-bash tools/check.sh                 # 10 passes / 25 checks (AGMX_SKIP_NET=1 offline)
+node tools/test_health.js           # /api/health Supabase readiness paths
 
-# Live suites need a running PocketBase 0.40.4 — they WIPE money-flow
-# collections first, so never point them at production.
-node tools/test_money_flow_pb.mjs      --url http://127.0.0.1:8090 --email … --password …  # 63
-node tools/test_money_flow_adapter.mjs                                                    # 23
+# Live PocketBase suites moved to archive/pocketbase-v1/tools/ (reference
+# only — they WIPE money-flow collections first, never point them at
+# production). See tools/CHECKS.md for what each check pass covers.
 ```
 
-See `pocketbase/README.md` to stand one up, and `tools/CHECKS.md` for what
-each check pass covers.
+## 🗄️ Backend
+
+**Supabase is the canonical backend.** The SPA authenticates through
+`supabase-client.js`; transactional data and RAG live in
+`supabase/schema_final.sql` + `supabase/knowledge_final.sql`; money-flow and
+knowledge run as Supabase Edge Functions. `/api/config.js` serves the
+publishable key and `/api/health` probes Supabase readiness.
+
+The PocketBase v1 layer and the Neon GraphRAG experiment are archived under
+`archive/` as reference only — see `archive/README.md` and `DEPLOY.md`.
 
 ## 🚀 How to run
 

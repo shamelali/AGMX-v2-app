@@ -36,13 +36,13 @@ done < <(find . -maxdepth 1 -name '*.js' -not -name '*.min.js' | sort)
 
 # PocketBase JSVM hooks (routerAdd/$app globals are runtime-injected;
 # node --check only parses, which is exactly what we want here).
-if [ -d pb_hooks ]; then
+if [ -d archive/pocketbase-v1/pb_hooks ]; then
   while IFS= read -r f; do
     if node --check "$f" 2>/dev/null; then ok "$f"; else
       bad "$f"
       node --check "$f" 2>&1 | head -5 | sed 's/^/      /'
     fi
-  done < <(find pb_hooks -name '*.js' | sort)
+  done < <(find archive/pocketbase-v1/pb_hooks -name '*.js' | sort)
 fi
 [ "$PASS" -gt 0 ] || true
 
@@ -71,7 +71,7 @@ for f in sitemap.xml; do
   fi
 done
 
-for f in pocketbase/collections.json pocketbase/seed.json; do
+for f in archive/pocketbase-v1/pocketbase/collections.json archive/pocketbase-v1/pocketbase/seed.json; do
   [ -f "$f" ] || continue
   if python3 -c "import json; json.load(open('$f'))" 2>/dev/null; then
     ok "$f"
@@ -237,10 +237,10 @@ fi
 # ----------------------------------------------------------------
 head_ "6. PocketBase schema integrity"
 # ----------------------------------------------------------------
-if [ -f pocketbase/collections.json ]; then
+if [ -f archive/pocketbase-v1/pocketbase/collections.json ]; then
   if python3 - <<'PY'
 import json, sys
-cols   = json.load(open("pocketbase/collections.json"))
+cols   = json.load(open("archive/pocketbase-v1/pocketbase/collections.json"))
 names  = {c["name"] for c in cols}
 fails  = []
 
@@ -386,12 +386,13 @@ SK_P="sk""_live_"
 AK="AK""IA[0-9A-Z]{16}"
 PEM="-----BEGIN [A-Z ]*PR""IVATE KEY-----"
 JWT="eyJ""hbGciOi[A-Za-z0-9_-]{10,}\."
+NV="nv""api-[A-Za-z0-9_-]{32,}"
 # This script and its documentation legitimately contain the patterns.
 SELF="^tools/check\.sh$|^tools/CHECKS\.md$"
 
 LEAKS=$(git ls-files -z 2>/dev/null \
         | grep -zvE "$SELF" \
-        | xargs -0 grep -lIE "($SK_P|$AK|$PEM|$JWT)" 2>/dev/null || true)
+        | xargs -0 grep -lIE "($SK_P|$AK|$PEM|$JWT|$NV)" 2>/dev/null || true)
 
 if [ -n "$LEAKS" ]; then
   bad "possible secrets in: $(echo "$LEAKS" | tr '\n' ' ')"
@@ -471,7 +472,7 @@ fi
 # ----------------------------------------------------------------
 head_ "10. PocketBase JSVM API compatibility"
 # ----------------------------------------------------------------
-if ls pb_hooks/*.js >/dev/null 2>&1; then
+if ls archive/pocketbase-v1/pb_hooks/*.js >/dev/null 2>&1; then
   if python3 - <<'PY'
 import glob, re, sys
 
@@ -522,7 +523,7 @@ def strip_comments(src):
     return "".join(out)
 
 hits = []
-for path in sorted(glob.glob("pb_hooks/*.js")):
+for path in sorted(glob.glob("archive/pocketbase-v1/pb_hooks/*.js")):
     code = strip_comments(open(path).read())
     for lineno, line in enumerate(code.split("\n"), 1):
         for pattern, why in STALE:
@@ -535,7 +536,7 @@ if hits:
         print(f"  \033[31m✗\033[0m {h}")
     sys.exit(1)
 
-n = len(glob.glob("pb_hooks/*.js"))
+n = len(glob.glob("archive/pocketbase-v1/pb_hooks/*.js"))
 print(f"  \033[32m✓\033[0m {n} hook file(s) use no PocketBase 0.22-only APIs")
 PY
     then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
@@ -545,18 +546,19 @@ fi
 head_ "11. Client/server endpoint consistency"
 # ----------------------------------------------------------------
 # Every AGMX route the browser can call must exist on the server. These
-# live in pb_hooks/*.js as routerAdd() registrations; the client reaches them
-# through api.js, which prefixes "/api/agmx" onto a relative path.
+# live in archive/pocketbase-v1/pb_hooks/*.js as routerAdd() registrations
+# (legacy reference layer); the client reaches them through api.js, which
+# prefixes "/api/agmx" onto a relative path.
 #
 # The rule: a client path under /api/agmx/ must be registered. Other /api/...
 # paths are PocketBase's native collections API and always exist.
-if ls pb_hooks/*.js >/dev/null 2>&1; then
+if ls archive/pocketbase-v1/pb_hooks/*.js >/dev/null 2>&1; then
   if python3 - <<'PY'
 import glob, re, sys
 
 # Server: every route the JSVM registers.
 server = set()
-for path in sorted(glob.glob("pb_hooks/*.js")):
+for path in sorted(glob.glob("archive/pocketbase-v1/pb_hooks/*.js")):
     src = open(path).read()
     for method, route in re.findall(r'routerAdd\(\s*"(\w+)"\s*,\s*"([^"]+)"', src):
         server.add(route)
@@ -580,7 +582,7 @@ for path in sorted(glob.glob("*.js")):
 missing = sorted(p for p in client if p not in server)
 if missing:
     for m in missing:
-        print(f"  \033[31m✗\033[0m client calls {m} but pb_hooks/ registers no such route")
+        print(f"  \033[31m✗\033[0m client calls {m} but the archived pb_hooks/ registers no such route")
     sys.exit(1)
 
 print(f"  \033[32m✓\033[0m {len(client)} AGMX endpoint(s) all have server routes "
@@ -598,7 +600,7 @@ head_ "12. Route handlers are exported by their module"
 # no stack trace, no failing test, because the route never ran. This bit the
 # Billplz gateway: both /payment/link and /payment/callback were live in the
 # router but absent from module.exports.
-if ls pb_hooks/*.js >/dev/null 2>&1; then
+if ls archive/pocketbase-v1/pb_hooks/*.js >/dev/null 2>&1; then
   if python3 - <<'PY'
 import glob, re, sys
 
@@ -623,12 +625,12 @@ def exports_of(path):
 
 problems = []
 checked = 0
-for path in sorted(glob.glob("pb_hooks/*.js")):
+for path in sorted(glob.glob("archive/pocketbase-v1/pb_hooks/*.js")):
     src = open(path).read()
     for mod, fn in re.findall(
         r'require\([^)]*?["\']([^"\']+\.js)["\']\)\s*\.\s*([A-Za-z_$][\w$]*)\s*\(', src
     ):
-        target = "pb_hooks/" + mod.rsplit("/", 1)[-1]
+        target = "archive/pocketbase-v1/pb_hooks/" + mod.rsplit("/", 1)[-1]
         checked += 1
         try:
             available = exports_of(target)
@@ -660,12 +662,12 @@ fi
 # 2026-10-18: callbacks were HMAC'd with BILLPLZ_API_KEY and would have
 # rejected every real payment. Guard the invariant, not the spelling —
 # it applies to any gateway added later.
-if [ -d pb_hooks ]; then
+if [ -d archive/pocketbase-v1/pb_hooks ]; then
 printf '\n\033[1m%s\033[0m\n' "──── pass 13: webhook signing keys ────"
 python3 - <<'PY' && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 import re, pathlib, sys
 
-hooks = sorted(pathlib.Path("pb_hooks").glob("*.js"))
+hooks = sorted(pathlib.Path("archive/pocketbase-v1/pb_hooks").glob("*.js"))
 problems, checked = [], 0
 
 ENV = r'env\(\s*"(\w+)"'

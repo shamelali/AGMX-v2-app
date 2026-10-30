@@ -3,7 +3,7 @@
    ------------------------------------------------------------
    Authenticated Dashboard, Members, and admin distribution reporting.
    This file intentionally does not invent live mutations for views
-   that are not wired to the PocketBase API yet.
+   that are not wired to the Supabase API yet.
    ============================================================ */
 
 (function (window, document) {
@@ -33,7 +33,7 @@
     "Authenticated user": "Pengguna disahkan",
     "Member": "Ahli",
     "Log out": "Log Keluar",
-    "Live PocketBase data": "Data PocketBase langsung",
+    "Live Supabase data": "Data Supabase langsung",
     "Demo data · simulated": "Data demo · simulasi",
     "Organization": "Organisasi",
     "No members found.": "Tiada ahli ditemui.",
@@ -173,7 +173,7 @@
 
   function sourceBadge(source) {
     const badge = node("span", `agmx-source-badge${source === "demo" ? " is-demo" : ""}`);
-    badge.textContent = source === "demo" ? "Demo data · simulated" : "Live PocketBase data";
+    badge.textContent = source === "demo" ? "Demo data · simulated" : "Live Supabase data";
     return badge;
   }
 
@@ -598,7 +598,7 @@
 
   async function loadLiveDashboard() {
     const sequence = ++loadSequence;
-    setStatus("loading", { route: routeFromHash(), source: "pocketbase", error: null });
+    setStatus("loading", { route: routeFromHash(), source: "supabase", error: null });
     renderLoading("Loading live organization data…");
     try {
       if (!window.AGMX_API || typeof window.AGMX_API.loadDashboard !== "function") {
@@ -614,7 +614,7 @@
           data.distributionError = errorMessage(error, "Distribution records could not be loaded.");
         }
       }
-      renderShell(data, "pocketbase");
+      renderShell(data, "supabase");
     } catch (error) {
       if (sequence !== loadSequence) return;
       renderLogin(`Live data could not be loaded. ${errorMessage(error, "Please try again or use the explicit demo option.")}`);

@@ -18,9 +18,10 @@ export default async function handler(req, res) {
   const flag = (v) => v !== 'false'
 
   const config = {
-    // Supabase (client-safe)
+    // Supabase (client-safe). Publishable key preferred; legacy anon key
+    // remains accepted so existing deployments keep working.
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
 
     // LLM Provider
     llmProvider: process.env.NEXT_PUBLIC_LLM_PROVIDER || 'openai',

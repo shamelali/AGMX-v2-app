@@ -19,13 +19,11 @@
 .env.*
 .env.local
 
-# PocketBase backend (deployed separately to Fly.io)
+# Archived reference layers + local state — never part of the site
+/archive/
 bin/
 pb_data/
-pocketbase/
-pb_hooks/
 pb_migrations/
-collections.json
 
 # Repo / tooling / docs — never part of the static site
 .git

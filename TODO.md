@@ -9,6 +9,9 @@
 - [ ] 🔐 **Rotate Billplz API key + portal password** (was exposed — audits
       of both repos' trees and git history are clean now, but rotate anyway
       since the old value is burned; needs Billplz portal login)
+- [ ] 🔐 **Rotate NVIDIA NIM API key** (`nvapi-…` was committed in
+      `VERCEL_ENV.md`; scrubbed 2026-10-30, but the value is burned — rotate
+      in NVIDIA console, then set the new key via Supabase secrets)
 - [ ] Deploy the Vercel fix to production
 - [ ] Run production smoke-test matrix (all 6 URLs)
 - [ ] Freeze current UI as V1 baseline

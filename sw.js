@@ -1,3 +1,6 @@
+// Bumped to v23: the PocketBase layer is archived — pocketbase-client.js is
+// no longer shipped or precached; Supabase is the only backend client.
+//
 // Bumped to v9: login.js now accesses AGMX_API lazily (api()) because
 // supabase-client.js is a deferred module that loads after login.js.
 // Without this, window.AGMX_API was captured as undefined and the login
@@ -18,7 +21,7 @@
 // required — the shell is what populates #app, the money flow is the revenue
 // path. config.* is deliberately never precached: it varies per environment,
 // and a cached copy would pin a stale Google client ID or PocketBase URL.
-const CACHE = "agmx-v22";
+const CACHE = "agmx-v23";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -36,7 +39,6 @@ const PRECACHE = [
   "/leads.html",
   "/leads.js",
   "/api.js",
-  "/pocketbase-client.js",
   "/supabase-client.js",
   "/login.js",
   "/404.html",

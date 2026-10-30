@@ -1,7 +1,7 @@
 /* ============================================================
    AGMX — Login View (Google Auth + OTP + demo mode)
    ------------------------------------------------------------
-   Loaded by app.html after pocketbase-client.js.
+   Loaded by app.html; supabase-client.js is a deferred module.
    Exposes window.AGMX_LOGIN.render(container)
    ============================================================ */
 
@@ -32,7 +32,7 @@
       demoHint: "Guna data simulasi KOPEMAJU",
       invalidCode: "Kod tidak sah",
       checking: "Memeriksa status…",
-      errNoPB: "PocketBase tidak dijangkau",
+      errNoPB: "Backend tidak dijangkau",
       rolePick: "Pilih Peranan Anda",
       member: "Ahli",
       secretary: "Setiausaha",
@@ -57,7 +57,7 @@
       demoHint: "Uses simulated KOPEMAJU data",
       invalidCode: "Invalid code",
       checking: "Checking status…",
-      errNoPB: "PocketBase unreachable",
+      errNoPB: "Backend unreachable",
       rolePick: "Choose Your Role",
       member: "Member",
       secretary: "Secretary",

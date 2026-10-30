@@ -20,13 +20,11 @@
 .dev.vars
 .dev.vars.*
 
-# PocketBase backend (deployed separately to Fly.io) + local state
+# Archived reference layers + local state — never part of the static bundle
+/archive/
 bin/
 pb_data/
-pocketbase/
-pb_hooks/
 pb_migrations/
-collections.json
 
 # Server-side / tooling — never part of the static bundle
 supabase/
