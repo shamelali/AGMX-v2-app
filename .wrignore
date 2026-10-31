@@ -29,10 +29,22 @@ pb_migrations/
 # Server-side / tooling — never part of the static bundle
 supabase/
 scripts/
+src/
 tools/
 worktrees/
 AGMX/
 patches/
+
+# Local tooling, repo metadata and machine-specific agent state
+.qoder/
+.wrignore
+deploy.sh
+worktree
+opencode.json
+skills-lock.json
+wrangler.jsonc
+prod-ca-2021.crt
+config.example.js
 
 # Repo metadata and docs
 .git

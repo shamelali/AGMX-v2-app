@@ -25,6 +25,27 @@ bin/
 pb_data/
 pb_migrations/
 
+# Backend sources deploy separately (Supabase CLI / api/ functions) and are
+# not browser assets. `src/` is the superseded PocketBase adapter layer; no
+# runtime file references it.
+/supabase/
+/src/
+/scripts/
+.dev.vars*
+
+# Local tooling, repo metadata and machine-specific agent state. `.qoder/`
+# is gitignored but the CLI uploads the working tree, so it must be listed
+# here or settings.local.json becomes a public URL.
+/.qoder/
+/.wrignore
+/deploy.sh
+/worktree
+/opencode.json
+/skills-lock.json
+/wrangler.jsonc
+/prod-ca-2021.crt
+/config.example.js
+
 # Repo / tooling / docs — never part of the static site
 .git
 .github
