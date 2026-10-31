@@ -1,0 +1,9 @@
+# AGMX — Cloudflare Pages rewrites (port of vercel.json rewrites)
+# Pages applies the first matching rule; static redirects go before splats.
+# /config.js is served by functions/config.js.js; /api/health by
+# functions/api/health.js (Functions take precedence over these rules).
+# No route rules: a top-level 404.html was uploaded so Pages' built-in SPA
+# fallback is off, and Pages already serves app.html at /app (clean URLs).
+# Declaring /app -> /app.html 200 here collided with that canonicalization
+# and produced a 308 redirect loop.
+

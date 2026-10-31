@@ -22,9 +22,20 @@
 
 # Archived reference layers + local state — never part of the static bundle
 /archive/
+/bin/
 bin/
 pb_data/
 pb_migrations/
+
+# Vercel serverless function sources (api/) are replaced on Cloudflare by
+# the ESM ports under functions/. Uploading them would expose CommonJS
+# source at /api/*.js asset URLs.
+/api/
+
+# A top-level 404.html disables Pages' automatic SPA fallback (unknown paths
+# would render the 404 page instead of the SPA shell). Vercel's equivalent
+# behavior there is the /* -> /index.html catch-all rewrite.
+/404.html
 
 # Server-side / tooling — never part of the static bundle
 supabase/
