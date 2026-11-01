@@ -26,7 +26,7 @@ AGMX/
 ├── checkout.html/js    # Quote → invoice → payment → receipt
 ├── leads.html/js       # Operator inbox: metrics, CSV, backend switch
 ├── api.js              # window.AGMX_COMMERCE — LocalAdapter (PocketBase adapter archived)
-├── login.js            # Google OAuth2 / SMS OTP / passkey / demo
+├── login.js            # Google OAuth2 / email + password / demo
 ├── supabase-client.js  # Supabase client: auth, data, realtime, Edge Functions
 ├── config.example.js   # Copy to config.js (gitignored, per-deployment)
 │
@@ -73,7 +73,7 @@ For best experience use Chrome/Edge/Safari (latest).
 
 | # | Section | What it does |
 |---|---------|-------------|
-| 1 | **Login (One Click Join)** | SMS/WhatsApp OTP + Passkey, role picker (Secretary / Chairman / Member) |
+| 1 | **Login (One Click Join)** | Google OAuth + email/password with reset link, role picker (Secretary / Chairman / Member) |
 | 2 | **Dashboard** | Live greeting, KPIs, quorum gauge, agenda, financial RAG summary, meeting pack |
 | 3 | **Members** | Bulk list with eligibility filters (Layak / Tunggakan / Proksi), CSV import/export |
 | 4 | **AGM Live Hall** | Virtual hall with 5 layouts (Town Hall, Conference, Presentation, Discussion, Voting), speaker queue, panic button |
@@ -93,7 +93,7 @@ Built strictly from the **Volume 5 UI/UX specification**:
 - **Color palette** — Malaysian-inspired primary blue `#0B5394` + accent gold `#D4A017`
 - **3 themes** — Default / High Contrast / Dark (cycle via header button)
 - **2 languages minimum** — Bahasa Melayu primary + English visible labels
-- **One Click Join** — login via OTP, no passwords for elderly members
+- **One Click Join** — Google sign-in needs no password; email accounts use a password with an emailed reset link
 - **Panic Button** — in AGM hall: "Saya Perlukan Bantuan" calls admin within 30s
 
 ## 🤖 AI Features Implemented

@@ -786,47 +786,43 @@ a:hover { text-decoration: underline; }
 @media print { .no-print { display: none !important; } .print-only { display: block !important; } body { background: white !important; } .no-print { display: none !important; } }
 
 /* ============================================================
-   Dark Mode Support (Optional)
+   Dark Mode
+   ------------------------------------------------------------
+   Keyed on html.dark, which theme.js sets from the stored choice or,
+   when nothing is stored, from prefers-color-scheme. One rule set
+   serves both, and the toggle button switches it at runtime.
    ============================================================ */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0F172A;
-    --color-surface: #1E293B;
-    --color-surface-2: #0F172A;
-    --color-card: #1E293B;
-    --color-border: #334155;
-    --color-border-strong: #475569;
-    --color-text: #F1F5F9;
-    --color-text-2: #CBD5E1;
-    --color-text-3: #94A3B8;
-    --color-muted: #1E293B;
-    --color-muted-foreground: #94A3B8;
-    --color-bg: #0F172A;
-    --c-bg: #0F172A;
-    --c-surface: #1E293B;
-    --c-surface-2: #0F172A;
-    --c-border: #334155;
-    --c-border-strong: #475569;
-    --c-text: #F1F5F9;
-    --c-text-2: #CBD5E1;
-    --c-text-3: #94A3B8;
-    --c-bg: #0F172A;
-    --c-surface: #1E293B;
-  }
-  .sidebar { background: #1E293B; }
-  .card { background: #1E293B; border-color: #334155; }
-  .input { background: #0F172A; border-color: #334155; color: #F1F5F9; }
-  .btn-secondary { background: #334155; color: #93C5FD; border-color: #334155; }
-  .btn-ghost { color: #CBD5E1; border-color: #334155; }
-  .btn-ghost:hover { background: #334155; }
-  .card { background: #1E293B; border-color: #334155; }
-  .input { background: #0F172A; border-color: #334155; color: #F1F5F9; }
-  .sidebar { background: #1E293B; }
-  .header { background: #1E293B; border-color: #334155; }
-  .input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
-  .btn-secondary:hover { background: #334155; }
-  .btn-ghost:hover { background: #334155; }
+html.dark {
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-surface-2: #0F172A;
+  --color-card: #1E293B;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-text: #F1F5F9;
+  --color-text-2: #CBD5E1;
+  --color-text-3: #94A3B8;
+  --color-muted: #1E293B;
+  --color-muted-foreground: #94A3B8;
+  --color-bg: #0F172A;
+  --c-bg: #0F172A;
+  --c-surface: #1E293B;
+  --c-surface-2: #0F172A;
+  --c-border: #334155;
+  --c-border-strong: #475569;
+  --c-text: #F1F5F9;
+  --c-text-2: #CBD5E1;
+  --c-text-3: #94A3B8;
 }
+html.dark .sidebar { background: #1E293B; }
+html.dark .header { background: #1E293B; border-color: #334155; }
+html.dark .card { background: #1E293B; border-color: #334155; }
+html.dark .input { background: #0F172A; border-color: #334155; color: #F1F5F9; }
+html.dark .input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+html.dark .btn-secondary { background: #334155; color: #93C5FD; border-color: #334155; }
+html.dark .btn-secondary:hover { background: #334155; }
+html.dark .btn-ghost { color: #CBD5E1; border-color: #334155; }
+html.dark .btn-ghost:hover { background: #334155; }
 
 /* ============================================================
    Senior Mode / High Contrast
@@ -1015,7 +1011,7 @@ a:hover { text-decoration: underline; }
 .skip-link:focus { top: 12px; }
 
 /* ============================================================
-   LOGIN VIEW — Google Auth + OTP + Role Picker
+   LOGIN VIEW — Google Auth + Email/Password + Role Picker
    ============================================================ */
 .agmx-login {
   min-height: 100vh;
@@ -1058,14 +1054,6 @@ a:hover { text-decoration: underline; }
   font-size: 16px;
 }
 .login-form .input:focus { outline: 3px solid rgba(212, 160, 23, 0.55); border-color: #D4A017; }
-
-.otp-input {
-  text-align: center;
-  letter-spacing: 0.5em;
-  font-size: 26px !important;
-  font-variant-numeric: tabular-nums;
-  padding: 16px !important;
-}
 
 .login-hint { margin: -6px 0 0; font-size: 12.5px; opacity: 0.72; text-align: center; }
 .login-sent { margin: 0; font-size: 14px; opacity: 0.88; text-align: center; }
@@ -1125,7 +1113,6 @@ a:hover { text-decoration: underline; }
 .senior-mode .login-form .input { font-size: 19px; padding: 18px 16px; }
 .senior-mode .btn-google, .senior-mode .login-form .btn { min-height: 60px; font-size: 18px; }
 .senior-mode .role-card { min-height: 64px; font-size: 17px; }
-.senior-mode .otp-input { font-size: 30px; padding: 20px !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .role-card, .btn-google { transition: none; }

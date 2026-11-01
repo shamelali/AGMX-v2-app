@@ -1,3 +1,15 @@
+// Bumped to v25: theme.js owns theme state (dark mode, senior mode, high
+// contrast) and every page loads it in <head>; [data-agmx-theme-toggle]
+// buttons switch dark mode, and styles.css keys its dark rules on html.dark
+// instead of prefers-color-scheme so the choice is honoured on every page.
+//
+// Bumped to v24: supabase-client.js no longer aborts module evaluation when
+// Supabase is unconfigured (it used to leave window.AGMX_API undefined, so the
+// login view threw "Cannot read properties of undefined (reading
+// 'loginWithGoogle')"); login.js reports the missing-config and Supabase
+// { error } responses instead. SMS OTP login is gone, replaced by
+// email + password (signInWithPassword) with an emailed reset link.
+//
 // Bumped to v23: the PocketBase layer is archived — pocketbase-client.js is
 // no longer shipped or precached; Supabase is the only backend client.
 //
@@ -21,11 +33,19 @@
 // required — the shell is what populates #app, the money flow is the revenue
 // path. config.* is deliberately never precached: it varies per environment,
 // and a cached copy would pin a stale Google client ID or PocketBase URL.
-const CACHE = "agmx-v23";
+// Bumped to v27: password recovery now completes in-app — supabase-client.js
+// listens for PASSWORD_RECOVERY and app-bootstrap.js renders the new-password
+// form. Without this bump an installed client keeps the old pair and a reset
+// link drops the user into the dashboard with no way to set a password.
+//
+// Bumped to v26: /callback.html added — it is the Supabase redirect target for
+// Google sign-in and password reset, and forwards the URL credentials to /app.
+const CACHE = "agmx-v27";
 const PRECACHE = [
   "/",
   "/index.html",
   "/app.html",
+  "/theme.js",
   "/app.js",
   "/app-bootstrap.js",
   "/app-shell.css",
@@ -41,6 +61,7 @@ const PRECACHE = [
   "/api.js",
   "/supabase-client.js",
   "/login.js",
+  "/callback.html",
   "/404.html",
   "/offline.html",
   "/manifest.json",

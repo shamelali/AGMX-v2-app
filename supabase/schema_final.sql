@@ -839,6 +839,11 @@ grant insert, update on public.profiles to authenticated;
 -- votes: INSERT needed for authenticated clients to vote directly
 grant insert on public.votes to authenticated;
 
+-- Supabase's ALTER DEFAULT PRIVILEGES hands anon/authenticated TRUNCATE and
+-- REFERENCES whenever a table is created. TRUNCATE is not subject to RLS, so it
+-- must be revoked rather than left to the platform default.
+revoke truncate, references on all tables in schema public from anon, authenticated;
+
 -- rate_limit: no client access (service_role only via RPC)
 -- grant select, insert on public.rate_limit to authenticated; -- NOT GRANTED
 
@@ -867,3 +872,23 @@ BEGIN
     -- Tables already in publication, continue
   END;
 END $$;
+
+-- ------------------------------------------------------------
+-- SEED: AGM service plans
+-- money-flow refuses POST /quote with "Invalid plan" unless these
+-- three codes exist. Rerun-safe: updates price/name in place.
+-- ------------------------------------------------------------
+insert into public.plans (code, name, type, price_oneoff, max_members, features)
+values
+  ('essential_agm', 'AGMX Essential AGM', 'agm_service', 1500, 500,
+   '["Up to 500 members","1 AGM session","Basic e-voting","Digital minutes","Audit trail"]'::jsonb),
+  ('professional_agm', 'AGMX Professional AGM', 'agm_service', 3500, 2000,
+   '["Up to 2,000 members","Hybrid / online AGM","Full e-voting + hash chain","AI secretary (minutes)","Senior mode","Digital meeting pack","AGM facilitator"]'::jsonb),
+  ('enterprise_agm', 'AGMX Enterprise AGM', 'agm_service', 7500, 5000,
+   '["5,000+ members","All Professional features","Full AI copilot (4 agents)","GP14/GP14B/UUK compliance","Dedicated project manager","SKM audit report"]'::jsonb)
+on conflict (code) do update
+  set name = excluded.name,
+      type = excluded.type,
+      price_oneoff = excluded.price_oneoff,
+      max_members = excluded.max_members,
+      features = excluded.features;

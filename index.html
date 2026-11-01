@@ -24,17 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <script>
-    // Theme initialization
-    (function() {
-      var theme = localStorage.getItem('theme') || 'light';
-      var senior = localStorage.getItem('seniorMode') === 'true';
-      var contrast = localStorage.getItem('highContrast') === 'true';
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-      document.documentElement.classList.toggle('senior-mode', senior);
-      document.documentElement.classList.toggle('high-contrast', contrast);
-    })();
-  </script>
+  <script src="theme.js"></script>
 </head>
 <body>
   <a href="#main" class="skip-link">Langkau ke kandungan utama</a>
@@ -55,6 +45,7 @@
           <a href="#security" class="nav-link">Keselamatan</a>
                 </div>
         <div class="nav-actions">
+          <button type="button" class="btn btn-ghost" style="min-width:96px;font-weight:700" data-agmx-theme-toggle></button>
           <button type="button" id="lang-toggle" class="btn btn-ghost" style="min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
           <a href="app.html" class="btn btn-primary">Buka Aplikasi</a>
           <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20ingin%20mendapatkan%20maklumat%20tentang%20pakej%20AGMX." target="_blank" rel="noopener noreferrer" class="btn btn-ghost">Hubungi Pasukan Jualan</a>

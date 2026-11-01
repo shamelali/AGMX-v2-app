@@ -48,6 +48,15 @@
     "Could not load data.": "Data tidak dapat dimuatkan.",
     "Back": "Kembali",
     "View details": "Lihat butiran",
+    "Set a new password": "Tetapkan kata laluan baharu",
+    "Your reset link has been verified.": "Pautan set semula anda telah disahkan.",
+    "New password": "Kata laluan baharu",
+    "Confirm new password": "Sahkan kata laluan baharu",
+    "Save password": "Simpan kata laluan",
+    "Saving…": "Menyimpan…",
+    "The two passwords do not match.": "Kedua-dua kata laluan tidak sama.",
+    "Could not update the password.": "Kata laluan tidak dapat dikemas kini.",
+    "AGMX API is unavailable.": "API AGMX tidak tersedia.",
   };
   const APP_LANG = (() => {
     try {
@@ -205,11 +214,15 @@
       url.searchParams.set("lang", next);
       window.location.href = url.toString();
     });
+    const theme = node("button", "agmx-shell-button agmx-theme-toggle", "Tema");
+    theme.type = "button";
+    theme.setAttribute("data-agmx-theme-toggle", "");
     const logout = node("button", "agmx-shell-button", appText("Log out"));
     logout.type = "button";
     logout.addEventListener("click", onLogout);
-    append(userGroup, [userCopy, avatar, language, logout]);
+    append(userGroup, [userCopy, avatar, theme, language, logout]);
     append(header, [brand, userGroup]);
+    if (window.AGMX_THEME) window.AGMX_THEME.sync();
     return header;
   }
 
@@ -653,6 +666,74 @@
     }
   }
 
+  // A reset link leaves the visitor holding a session that can only change
+  // their own password, so this view is the only thing worth showing.
+  function renderPasswordRecovery() {
+    if (!root) return;
+    setStatus("login", { route: null, source: null, error: null });
+
+    const heading = node("div", "login-head");
+    append(heading, [
+      node("h1", "login-title", "Set a new password"),
+      node("p", "login-sub", "Your reset link has been verified."),
+    ]);
+
+    function passwordField(id, label) {
+      const field = node("div", "field");
+      const caption = node("label", "field-label", label);
+      caption.htmlFor = id;
+      const input = node("input", "input");
+      input.id = id;
+      input.name = id;
+      input.type = "password";
+      input.autocomplete = "new-password";
+      input.required = true;
+      input.minLength = 8;
+      append(field, [caption, input]);
+      return input;
+    }
+
+    const password = passwordField("agmx-new-password", "New password");
+    const confirm = passwordField("agmx-new-password-confirm", "Confirm new password");
+    const status = node("p", "login-status");
+    status.setAttribute("role", "alert");
+    const submit = node("button", "btn btn-primary btn-block", "Save password");
+    submit.type = "submit";
+
+    const form = document.createElement("form");
+    form.className = "login-form";
+    append(form, [password.parentNode, confirm.parentNode, status, submit]);
+
+    const card = node("div", "login-view agmx-login");
+    card.append(heading, form);
+    root.replaceChildren(card);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.textContent = "";
+      if (password.value !== confirm.value) {
+        status.textContent = appText("The two passwords do not match.");
+        return;
+      }
+      submit.disabled = true;
+      submit.textContent = appText("Saving…");
+      try {
+        if (!window.AGMX_API || typeof window.AGMX_API.updatePassword !== "function") {
+          throw new Error("AGMX API is unavailable.");
+        }
+        const result = await window.AGMX_API.updatePassword(password.value);
+        if (result && result.error) throw new Error(result.error.message);
+        await loadLiveDashboard();
+      } catch (error) {
+        submit.disabled = false;
+        submit.textContent = appText("Save password");
+        status.textContent = errorMessage(error, "Could not update the password.");
+      }
+    });
+
+    password.focus();
+  }
+
   async function bootstrap() {
     root = document.getElementById("app");
     if (!root) return;
@@ -665,7 +746,9 @@
         throw new Error("AGMX API is unavailable.");
       }
       const restored = await window.AGMX_API.init();
-      if (restored && window.AGMX_API.isAuthenticated()) {
+      if (restored && window.AGMX_API.isPasswordRecovery && window.AGMX_API.isPasswordRecovery()) {
+        renderPasswordRecovery();
+      } else if (restored && await window.AGMX_API.isAuthenticated()) {
         await loadLiveDashboard();
       } else {
         renderLogin();

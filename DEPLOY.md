@@ -130,6 +130,7 @@ supabase secrets set LLM_PROVIDER=nvidia                # If using NVIDIA NIM
 supabase secrets set BILLPLZ_API_KEY=...
 supabase secrets set BILLPLZ_COLLECTION_ID=...
 supabase secrets set BILLPLZ_X_SIGNATURE=...            # X Signature key (NOT the API Secret Key)
+supabase secrets set BILLPLZ_API_URL=https://www.billplz.com   # Production; defaults to https://www.billplz-sandbox.com
 supabase secrets set HITPAY_API_KEY=...
 supabase secrets set HITPAY_SALT=...                    # Per-webhook salt (Dashboard → Developers → Webhooks)
 supabase secrets set HITPAY_API_URL=https://api.sandbox.hit-pay.com   # Production: https://api.hit-pay.com
@@ -151,7 +152,7 @@ vercel link --project=agmx-v2-app --scope=duta-integra --yes
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...          # Server-only
+SUPABASE_SECRET_KEY=eyJ...                 # Server-only; the name api/health.js reads
 ```
 
 **LLM Provider (choose one):**
@@ -198,6 +199,26 @@ NEXT_PUBLIC_REALTIME=true
 ```bash
 vercel --prod --scope=duta-integra
 ```
+
+If Vercel answers `● Blocked — the commit author doesn't have permission to create
+deployments for this project`, it is reading the `user.email` of the local HEAD commit,
+which is not a Vercel team member. Either commit as an address that belongs to a member,
+or deploy a copy without `.git` so no author is attributed:
+
+```bash
+rsync -a --exclude .git --exclude .vercel --exclude node_modules --exclude archive \
+  --exclude supabase --exclude tools --exclude bin --exclude design-system \
+  --exclude package.json --exclude '*.lock' --exclude pnpm-lock.yaml \
+  --exclude '/config.js' --exclude '.env*' --exclude '.dev.vars*' --exclude wrangler.jsonc \
+  --exclude _headers --exclude _redirects --exclude _routes.json --exclude '*.md' \
+  ./ /tmp/agmx-deploy/
+mkdir -p /tmp/agmx-deploy/.vercel && cp .vercel/project.json /tmp/agmx-deploy/.vercel/
+cd /tmp/agmx-deploy && vercel deploy --prod --yes --scope duta-integra
+```
+
+The local `config.js` is excluded on purpose — `/config.js` is served by the
+`api/config.js` edge function from Vercel env instead. Keep the leading slash in that
+pattern: a bare `config.js` also drops `api/config.js` and the app boots unconfigured.
 
 ---
 

@@ -4,53 +4,98 @@
  * 
  * Usage:
  *   import { supabase, auth, db } from './supabase-client.js'
- *   await auth.signInWithOtp({ email: 'user@coop.my' })
+ *   await auth.signInWithEmail('user@coop.my', password)
  *   const { data } = await db.from('members').select('*')
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Config loaded from /api/config.js
+// Config loaded from /config.js (served by api/config.js in deploys)
 const CONFIG = window.AGMX_CONFIG || {}
 
+const missingKeys = ["supabaseUrl", "supabaseAnonKey"].filter((k) => !CONFIG[k])
+export const configProblem = missingKeys.length
+  ? `Supabase is not configured — set ${missingKeys.join(" and ")} in config.js (see config.example.js)`
+  : null
+
+// An unconfigured client used to make createClient throw here, which aborted
+// the whole module and left window.AGMX_API undefined. Callers then failed
+// with "Cannot read properties of undefined (reading 'loginWithGoogle')"
+// instead of being told what is missing.
+function unconfiguredProxy() {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(configProblem)
+      },
+    }
+  )
+}
+
 // Create Supabase client
-export const supabase = createClient(
-  CONFIG.supabaseUrl,
-  CONFIG.supabaseAnonKey,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-    realtime: CONFIG.realtimeEnabled ? { params: { eventsPerSecond: 10 } } : false,
-  }
-)
+export const supabase = configProblem
+  ? unconfiguredProxy()
+  : createClient(
+      CONFIG.supabaseUrl,
+      CONFIG.supabaseAnonKey,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+        realtime: CONFIG.realtimeEnabled ? { params: { eventsPerSecond: 10 } } : false,
+      }
+    )
+
+// PASSWORD_RECOVERY is the only signal that the current session arrived through
+// a reset link (user.recovered_at stays set afterwards). The listener has to be
+// registered at import time, before detectSessionInUrl settles, or the event is
+// missed and the caller can no longer tell recovery apart from a normal sign-in.
+let passwordRecovery = false
+if (!configProblem) {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') passwordRecovery = true
+  })
+}
 
 // ---- Auth Helpers ----
 export const auth = {
-  // Email/Phone OTP
-  async signInWithOtp({ email, phone }) {
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email,
-      phone,
-      options: {
-        shouldCreateUser: true,
-        data: { app_name: CONFIG.appName },
-      },
+  // Email + password
+  async signInWithEmail(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    return { data, error }
+  },
+
+  // Password reset link, emailed to an existing account
+  async requestPasswordReset(email) {
+    const baseUrl = CONFIG.appUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${baseUrl}/auth/callback`,
     })
+    return { data, error }
+  },
+
+  // New password while a recovery session is active
+  async updatePassword(password) {
+    const { data, error } = await supabase.auth.updateUser({ password })
     return { data, error }
   },
 
   // Google OAuth
   async signInWithGoogle() {
+    const baseUrl = CONFIG.appUrl || (typeof window !== 'undefined' ? window.location.origin : '')
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${CONFIG.appUrl}/auth/callback`,
+        redirectTo: `${baseUrl}/auth/callback`,
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     })
+    if (error) throw error
+    // The redirect is the normal outcome; a blocked navigation returns here.
+    if (data?.url) window.location.assign(data.url)
     return { data, error }
   },
 
@@ -347,18 +392,22 @@ export const AGMX_API = {
     return auth.signOut()
   },
 
-  // SMS OTP (used by login.js OTP flow)
-  async requestSMSOTP(phone) {
-    return auth.signInWithOtp({ phone })
+  // Email + password (used by the login.js form)
+  async loginWithEmail(email, password) {
+    return auth.signInWithEmail(email, password)
   },
 
-  async verifySMSOTP(phone, otp) {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token: otp,
-      type: 'sms',
-    })
-    return { data, error }
+  async requestPasswordReset(email) {
+    return auth.requestPasswordReset(email)
+  },
+
+  async updatePassword(password) {
+    return auth.updatePassword(password)
+  },
+
+  // True when this page load came back from a password reset link.
+  isPasswordRecovery() {
+    return passwordRecovery
   },
 
   isAuthenticated() {

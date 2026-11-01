@@ -5,6 +5,7 @@
     { "source": "/assessment", "destination": "/assessment.html" },
     { "source": "/checkout", "destination": "/checkout.html" },
     { "source": "/leads", "destination": "/leads.html" },
+    { "source": "/auth/callback", "destination": "/callback.html" },
     { "source": "/404", "destination": "/404.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

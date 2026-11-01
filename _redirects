@@ -6,4 +6,7 @@
 # fallback is off, and Pages already serves app.html at /app (clean URLs).
 # Declaring /app -> /app.html 200 here collided with that canonicalization
 # and produced a 308 redirect loop.
+# /auth/callback is the Supabase redirect target for Google sign-in and
+# password reset; it has no clean-URL sibling, so this rewrite cannot collide.
+/auth/callback /callback.html 200
 
