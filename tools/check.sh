@@ -545,48 +545,97 @@ fi
 # ----------------------------------------------------------------
 head_ "11. Client/server endpoint consistency"
 # ----------------------------------------------------------------
-# Every AGMX route the browser can call must exist on the server. These
-# live in archive/pocketbase-v1/pb_hooks/*.js as routerAdd() registrations
-# (legacy reference layer); the client reaches them through api.js, which
-# prefixes "/api/agmx" onto a relative path.
+# Every AGMX route the browser can call must exist on a server. Two backends
+# serve the same money flow and the client picks one at runtime: api.js's
+# PocketBase adapter prefixes "/api/agmx" onto the path and reaches the JSVM
+# routerAdd() hooks, its Supabase adapter prefixes "/functions/v1/money-flow"
+# and reaches the Edge Function. Checking either adapter's call sites against
+# the other's route table only invents failures, so each _req() is attributed
+# to the adapter that contains it and validated against that adapter's routes.
 #
-# The rule: a client path under /api/agmx/ must be registered. Other /api/...
-# paths are PocketBase's native collections API and always exist.
+# Other /api/... paths are PocketBase's native collections API and always exist.
 if ls archive/pocketbase-v1/pb_hooks/*.js >/dev/null 2>&1; then
   if python3 - <<'PY'
-import glob, re, sys
+import glob, os, re, sys
 
-# Server: every route the JSVM registers.
-server = set()
+PB, SB = "pocketbase", "supabase"
+FN = "supabase/functions/money-flow/index.ts"
+
+pb_routes = set()
 for path in sorted(glob.glob("archive/pocketbase-v1/pb_hooks/*.js")):
-    src = open(path).read()
-    for method, route in re.findall(r'routerAdd\(\s*"(\w+)"\s*,\s*"([^"]+)"', src):
-        server.add(route)
+    for method, route in re.findall(r'routerAdd\(\s*"(\w+)"\s*,\s*"([^"]+)"', open(path).read()):
+        pb_routes.add(route)
 
-# Client: (a) api.js relative paths get the /api/agmx prefix api.js applies;
-#         (b) any literal /api/agmx/... path is already absolute.
-client = set()
-api = open("api.js").read() if __import__("os").path.exists("api.js") else ""
-for method, rel in re.findall(r'_req\(\s*"(\w+)"\s*,\s*"([^"]+)"', api):
-    client.add("/api/agmx" + rel)
-for path in sorted(glob.glob("*.js")):
-    if path.startswith("tools/"):
+# The Edge Function routes with `path === "/x"` and, for the record lookups,
+# `path.startsWith("/x/")`. Both forms have to be honoured or a call site that
+# concatenates an id onto a prefix looks like a missing route.
+sb_exact, sb_prefix = set(), set()
+if os.path.exists(FN):
+    fn_src = open(FN).read()
+    sb_exact = set(re.findall(r'path === "(/[^"]*)"', fn_src))
+    # The router also normalises its own prefix with path.startsWith("/"), and
+    # that is not a route — only the "/x/" record lookups are.
+    sb_prefix = {p for p in re.findall(r'path\.startsWith\("(/[^"]*)"', fn_src)
+                 if len(p) > 1 and p.endswith("/")}
+
+def served_pb(p):
+    # routerAdd() matches exactly, so a path that merely starts with a
+    # registered route is a bug, not a hit.
+    return p in pb_routes
+
+def served_sb(p):
+    return p in sb_exact or any(p.startswith(pre) for pre in sb_prefix)
+
+# The two adapters are object literals in one file, so a call site belongs to
+# the _req() definition above it. Each definition names the prefix it builds.
+api = open("api.js").read() if os.path.exists("api.js") else ""
+starts = [m.start() for m in re.finditer(r'async _req\(', api)]
+adapters = []
+for i, start in enumerate(starts):
+    body = api[start: starts[i + 1] if i + 1 < len(starts) else start + 1500]
+    if "/functions/v1/money-flow" in body:
+        adapters.append((start, SB))
+    elif "/api/agmx" in body:
+        adapters.append((start, PB))
+
+def backend_for(offset):
+    chosen = None
+    for start, name in adapters:
+        if start <= offset:
+            chosen = name
+    return chosen
+
+missing, checked = [], 0
+for m in re.finditer(r'_req\(\s*"(\w+)"\s*,\s*"([^"]+)"', api):
+    rel = m.group(2)
+    backend = backend_for(m.start())
+    if backend is None:
         continue
+    checked += 1
+    if backend == SB:
+        if not served_sb(rel):
+            missing.append((FN, rel))
+    elif not served_pb("/api/agmx" + rel):
+        missing.append(("archive/pocketbase-v1/pb_hooks/", "/api/agmx" + rel))
+
+# An absolute /api/agmx/... literal is a PocketBase call by shape.
+for path in sorted(glob.glob("*.js")):
     src = open(path).read()
     # strip comments so doc notes do not count as calls
     src = re.sub(r"/\*.*?\*/", " ", src, flags=re.DOTALL)
     src = re.sub(r"//[^\n]*", " ", src)
     for lit in re.findall(r'"(/api/agmx/[^"]+)"', src):
-        client.add(lit)
+        checked += 1
+        if not served_pb(lit):
+            missing.append((path, lit))
 
-missing = sorted(p for p in client if p not in server)
 if missing:
-    for m in missing:
-        print(f"  \033[31m✗\033[0m client calls {m} but the archived pb_hooks/ registers no such route")
+    for where, p in sorted(set(missing)):
+        print(f"  \033[31m✗\033[0m {p} is called but {where} serves no such route")
     sys.exit(1)
 
-print(f"  \033[32m✓\033[0m {len(client)} AGMX endpoint(s) all have server routes "
-      f"({len(server)} registered)")
+print(f"  \033[32m✓\033[0m {checked} client call(s) resolve against "
+      f"{len(pb_routes)} PocketBase and {len(sb_exact) + len(sb_prefix)} Edge Function route(s)")
 PY
     then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
 fi
