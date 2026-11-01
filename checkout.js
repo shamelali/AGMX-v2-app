@@ -23,6 +23,7 @@
 
   const API = window.AGMX_COMMERCE;
   const $ = (id) => document.getElementById(id);
+  const PAY_MODE = String((window.AGMX_CONFIG && window.AGMX_CONFIG.paymentsMode) || "all").toLowerCase();
 
   /* Optional add-ons — DISPLAY COPY of the server-side rate card
      (pb_hooks/money_flow.pb.js ADDONS). The hook re-prices every
@@ -231,6 +232,16 @@
     };
     document.querySelectorAll('input[name="paymethod"]').forEach((r) => r.addEventListener("change", update));
     $("bank-ref").textContent = "AGMX-" + (state.invoice ? state.invoice.number : "") + "-" + state.lead.id;
+    if (PAY_MODE === "bank_transfer") {
+      /* Gateway (FPX/card/Billplz) keys are not configured yet: show only
+         the manual transfer option instead of a dead payment button. */
+      document.querySelectorAll(".pay-pill").forEach((label) => {
+        const input = label.querySelector('input[name="paymethod"]');
+        if (input && input.value !== "bank_transfer") label.classList.add("hidden");
+      });
+      const bank = document.querySelector('input[name="paymethod"][value="bank_transfer"]');
+      if (bank) bank.checked = true;
+    }
     update();
 
     $("pay-submit").addEventListener("click", async () => {
@@ -256,9 +267,17 @@
               ? T("Menunggu pengesahan ", "Awaiting confirmation from ") + $("fpx-bank").value + "…"
               : T("Menunggu pengesahan 3-D Secure bank anda…", "Awaiting your bank's 3-D Secure confirmation…");
           setStep(3.5);
-          await new Promise((r) => setTimeout(r, 2200)); /* simulated gateway latency */
+          await new Promise((r) => setTimeout(r, 600)); /* brief hand-off beat */
         }
         state.payment = await API.payInvoice(state.invoice.number, { method });
+        /* Supabase mode hands the payer to the hosted gateway (Billplz /
+           HitPay); the signed webhook settles the invoice and the return
+           URL brings the prospect back to this page with ?ref=&t=. */
+        if (state.payment.redirectUrl) {
+          sessionStorage.setItem("agmx_pending_invoice", state.invoice.number);
+          window.location.href = state.payment.redirectUrl;
+          return;
+        }
         await renderReceipt();
         setStep(4);
         showToast(T("Pembayaran berjaya dirakam.", "Payment recorded successfully."));
@@ -337,19 +356,26 @@
     $("r-print").addEventListener("click", () => window.print());
 
     /* returning from a hosted gateway (Billplz): the payment may already be
-       settled by the webhook, so poll once before showing the invoice */
-    const pendingId = sessionStorage.getItem("agmx_pending_payment");
-    if (pendingId) {
+       settled by the webhook. getDeal() is token-gated per lead, so this
+       works for prospects without an operator session. */
+    const pendingInvoice = sessionStorage.getItem("agmx_pending_invoice");
+    const pendingPayment = sessionStorage.getItem("agmx_pending_payment");
+    if (pendingInvoice || pendingPayment) {
+      sessionStorage.removeItem("agmx_pending_invoice");
       sessionStorage.removeItem("agmx_pending_payment");
       try {
-        const deals = await API.listDeals();
-        const paid = (deals || []).find(d => d.payment && d.payment.status === "succeeded");
-        if (paid) {
-          state.payment = paid.payment;
-          state.invoice = paid.invoice;
+        const deal = ref ? await API.getDeal(ref) : null;
+        if (deal && deal.payment) {
+          state.lead = deal.lead;
+          state.quote = deal.quote;
+          state.invoice = deal.invoice;
+          state.payment = deal.payment;
+          renderQuoteBuilder();
           await renderReceipt();
           setStep(4);
-          showToast(T("Pembayaran berjaya dirakam.", "Payment recorded successfully."));
+          showToast(deal.payment.status === "succeeded"
+            ? T("Pembayaran berjaya dirakam.", "Payment recorded successfully.")
+            : T("Pembayaran sedang disahkan oleh gerbang.", "Payment is being confirmed by the gateway."));
           return;
         }
       } catch (e) { /* fall through to normal flow */ }

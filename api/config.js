@@ -40,6 +40,8 @@ export default async function handler(req, res) {
 
     // Feature flags
     demoMode: flag(process.env.NEXT_PUBLIC_DEMO_MODE),
+    // "bank_transfer" hides gateway methods until Billplz/HitPay keys exist.
+    paymentsMode: (process.env.NEXT_PUBLIC_PAYMENTS_MODE || 'all').toLowerCase(),
     knowledgeRagEnabled: flag(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG),
     realtimeEnabled: flag(process.env.NEXT_PUBLIC_REALTIME),
 
