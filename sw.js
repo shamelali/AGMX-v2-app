@@ -45,7 +45,12 @@
 // pricing, FAQ) and styles.css gains the components it renders. Both are
 // precached, so an installed browser would keep serving the unsubstantiated
 // brochure indefinitely without this bump.
-const CACHE = "agmx-v28";
+// Bumped to v29: styles.css drops the rules left over from the brochure it
+// replaced — the fake dashboard preview, the old trust bar, the old feature and
+// how-it-works grids. None were referenced by any page or script, and the
+// rendered page is pixel-identical, but an installed client would otherwise
+// keep fetching the fatter stylesheet.
+const CACHE = "agmx-v29";
 const PRECACHE = [
   "/",
   "/index.html",
