@@ -852,6 +852,12 @@ grant all on all tables in schema public to service_role;
 grant all on all sequences in schema public to service_role;
 grant all on all functions in schema public to service_role;
 
+-- Pin search_path on the SECURITY DEFINER helpers and keep the tenant check off
+-- the anonymous API surface. See migrations/0005 for the reasoning.
+alter function public.current_org_id() set search_path to 'public', 'pg_catalog';
+grant execute on function public.current_org_id() to authenticated, service_role;
+revoke execute on function public.current_org_id() from public, anon;
+
 -- ------------------------------------------------------------
 -- REALTIME: EXCLUDE votes FROM PUBLICATION (ballot secrecy)
 -- ------------------------------------------------------------
