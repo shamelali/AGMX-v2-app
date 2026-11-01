@@ -40,7 +40,12 @@
 //
 // Bumped to v26: /callback.html added — it is the Supabase redirect target for
 // Google sign-in and password reset, and forwards the URL credentials to /app.
-const CACHE = "agmx-v27";
+// Bumped to v28: index.html is rewritten around verifiable capability statuses
+// (data-en attribute i18n, trust centre, stage deliverables, scoped enterprise
+// pricing, FAQ) and styles.css gains the components it renders. Both are
+// precached, so an installed browser would keep serving the unsubstantiated
+// brochure indefinitely without this bump.
+const CACHE = "agmx-v28";
 const PRECACHE = [
   "/",
   "/index.html",

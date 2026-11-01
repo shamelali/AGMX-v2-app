@@ -1213,3 +1213,250 @@ html.dark .btn-ghost:hover { background: #334155; }
 @media (max-width: 768px) { .hero-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .preview-content { grid-template-columns: 1fr; } .preview-sidebar { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid #E2E8F0; } }
 @media (max-width: 375px) { .features-grid, .pricing-grid, .trust-grid, .how-grid { grid-template-columns: 1fr; } .hero-actions .btn { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .feature-card, .feature-card:hover, .btn, .btn:hover { transition: none; transform: none; } }
+
+/* ============================================================
+   Landing page — status-led layout (2027 positioning)
+   The page's argument is that every claim carries a verifiable
+   status, so the status pill is the primary visual primitive here
+   and is reused by the capability, stage, trust and pricing blocks.
+   ============================================================ */
+
+.status {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px;
+  text-transform: uppercase; border-radius: 999px;
+  padding: 5px 11px; white-space: nowrap; border: 1px solid transparent;
+}
+.status::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.status-ready { background: #ECFDF5; color: #047857; border-color: #A7F3D0; }
+.status-build { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
+.status-plan  { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
+.status-sample { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+
+/* ---- Hero: proof line and today-status ---- */
+.hero-proof { margin: 18px 0 0; font-size: 14px; color: #475569; line-height: 1.65; }
+.hero-status { margin-top: 22px; padding-top: 20px; border-top: 1px dashed #CBD5E1; }
+.hero-status-title {
+  margin: 0 0 12px; font-size: 11.5px; font-weight: 800;
+  letter-spacing: 0.7px; text-transform: uppercase; color: #64748B;
+}
+.hero-status-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hero-status-list li {
+  display: flex; align-items: baseline; gap: 12px;
+  font-size: 14px; color: #334155; line-height: 1.55;
+}
+.hero-status-list .status { flex: none; transform: translateY(-1px); }
+
+/* ---- Hero visual: sample record card (replaces the mock dashboard) ---- */
+.record-card {
+  margin: 0; background: #fff; border: 1px solid #E2E8F0; border-radius: 18px;
+  padding: 22px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+}
+.record-card > figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.record-kicker { font-size: 11.5px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; color: #64748B; }
+.record-title { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: #0F172A; line-height: 1.45; }
+.record-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 18px; }
+.record-stats > div { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 10px; }
+.record-stats dt { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #64748B; }
+.record-stats dd { margin: 4px 0 0; font-size: 19px; font-weight: 800; color: #1D4ED8; font-variant-numeric: tabular-nums; }
+.record-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid #E2E8F0; }
+.record-label { margin: 0; font-size: 13.5px; color: #334155; line-height: 1.5; }
+.record-tally { margin: 0; font-weight: 800; font-variant-numeric: tabular-nums; color: #0F172A; flex: none; }
+.record-tally span:nth-child(1) { color: #047857; }
+.record-tally span:nth-child(2) { color: #B91C1C; }
+.record-tally span:nth-child(3) { color: #64748B; }
+.record-flag { margin: 0; flex: none; font-size: 12px; font-weight: 800; color: #B91C1C; }
+.record-legend { margin: -6px 0 0; font-size: 11px; color: #94A3B8; text-align: right; }
+.record-foot {
+  margin: 14px 0 0; padding-top: 14px; border-top: 1px dashed #CBD5E1;
+  font-size: 12px; line-height: 1.6; color: #64748B;
+}
+
+/* ---- Capability availability grid ---- */
+.availability-section { padding: 64px 0; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; }
+.availability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.availability-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px;
+}
+.availability-card h3 { margin: 0; font-size: 16px; color: #0F172A; }
+.availability-card p { margin: 0; font-size: 13.5px; line-height: 1.65; color: #475569; }
+.availability-evidence {
+  font-size: 12.5px !important; color: #64748B !important;
+  padding: 10px 12px; background: #F8FAFC; border-left: 3px solid #BFDBFE; border-radius: 0 8px 8px 0;
+}
+.availability-card .status { margin-top: auto; }
+
+/* ---- Four stages with deliverables ---- */
+.stage-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.stage-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; }
+.stage-num {
+  margin: 0 0 10px; width: 30px; height: 30px; border-radius: 9px;
+  background: #1D4ED8; color: #fff; display: grid; place-items: center;
+  font-weight: 800; font-size: 14px;
+}
+.stage-card h3 { margin: 0 0 12px; font-size: 17px; color: #0F172A; }
+.stage-deliverables { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.stage-deliverables li { font-size: 13.5px; line-height: 1.55; color: #475569; padding-left: 18px; position: relative; }
+.stage-deliverables li::before { content: ""; position: absolute; left: 0; top: 8px; width: 7px; height: 7px; border-radius: 2px; background: #2563EB; }
+.stage-state { margin: auto 0 0; font-size: 12px; font-weight: 700; color: #B45309; padding-top: 12px; border-top: 1px dashed #CBD5E1; }
+
+/* ---- Trust centre ---- */
+.trust-matrix { display: grid; gap: 0; border: 1px solid #E2E8F0; border-radius: 18px; background: #fff; overflow: hidden; }
+.trust-row { padding: 24px; border-bottom: 1px solid #E2E8F0; }
+.trust-row:last-child { border-bottom: 0; }
+.trust-row h3 { display: inline; margin: 0 14px 0 0; font-size: 17px; color: #0F172A; }
+.trust-row p { margin: 14px 0 0; font-size: 14px; line-height: 1.7; color: #475569; }
+.trust-check {
+  padding: 12px 14px !important; border-radius: 10px; font-size: 13px !important;
+  background: #F8FAFC; border-left: 3px solid #BFDBFE; color: #334155 !important;
+}
+
+/* ---- Compliance ---- */
+.compliance-section { padding: 64px 0; background: #fff; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+.compliance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.compliance-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; }
+.compliance-card h3 { margin: 0 0 10px; font-size: 16px; color: #0F172A; }
+.compliance-card p { margin: 0; font-size: 13.5px; line-height: 1.7; color: #475569; }
+.compliance-note {
+  margin: 24px 0 0; padding: 16px 18px; border-radius: 12px;
+  background: #FFFBEB; border: 1px solid #FDE68A;
+  font-size: 13px; line-height: 1.65; color: #92400E;
+}
+
+/* ---- Resources ---- */
+.resources-section { padding: 64px 0; }
+.resources-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.resource-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 20px;
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 16px;
+  text-decoration: none; transition: border-color 150ms ease, transform 150ms ease;
+}
+.resource-card:hover { border-color: #2563EB; transform: translateY(-2px); }
+.resource-card h3 { margin: 0; font-size: 15px; color: #0F172A; }
+.resource-card p { margin: 0; font-size: 13px; line-height: 1.6; color: #475569; }
+.resource-link { margin-top: auto; font-size: 13px; font-weight: 800; color: #1D4ED8; }
+
+.accessibility-block { margin-top: 36px; padding: 24px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 18px; }
+.accessibility-block h3 { margin: 0 0 18px; font-size: 18px; color: #0F172A; }
+.accessibility-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.accessibility-heading { margin: 0 0 12px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; color: #64748B; }
+.accessibility-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.accessibility-list li { position: relative; padding-left: 24px; font-size: 13.5px; line-height: 1.6; color: #475569; }
+.accessibility-list li::before {
+  content: "\2713"; position: absolute; left: 0; top: -1px;
+  font-weight: 800; color: #047857;
+}
+.accessibility-list.caution li::before { content: "\2192"; color: #B45309; }
+
+/* ---- Pricing: roadmap honesty ---- */
+.features li.is-roadmap { display: block; opacity: 0.78; }
+.features li.is-roadmap > span:first-child { display: block; }
+/* A tick would claim the line is delivered; a hollow marker plus the pill says it is not. */
+.features li.is-roadmap::before { content: "\25CB "; color: #94A3B8; }
+.features li.is-roadmap .status { margin-top: 5px; }
+.scoping-block { margin-top: 28px; padding: 24px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 18px; }
+.scoping-block h3 { margin: 0 0 10px; font-size: 18px; color: #0F172A; }
+.scoping-block > p { margin: 0 0 14px; font-size: 14px; line-height: 1.7; color: #475569; }
+.scope-steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.scope-steps li { font-size: 13.5px; line-height: 1.65; color: #475569; }
+
+/* ---- FAQ ---- */
+.faq-section { padding: 64px 0; background: #fff; border-top: 1px solid #E2E8F0; }
+.faq-list { display: grid; gap: 10px; max-width: 880px; margin: 0 auto; }
+.faq-item { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 14px; padding: 4px 18px; }
+.faq-item summary { cursor: pointer; font-size: 15px; font-weight: 700; color: #0F172A; padding: 12px 0; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; float: right; font-weight: 800; color: #2563EB; }
+.faq-item[open] summary::after { content: "\2212"; }
+.faq-item[open] { background: #fff; }
+.faq-item p { margin: 0 0 14px; font-size: 14px; line-height: 1.7; color: #475569; }
+
+.cta-copy { max-width: 640px; margin: 0 auto; }
+.cta-foot { margin-top: 20px; font-size: 12.5px; opacity: 0.82; }
+/* The close card is a blue gradient, and .btn-secondary is blue on transparent —
+   on that background it reads as an empty box. The html.dark selector is repeated
+   because the dark theme's own .btn-secondary rule outranks a plain descendant one. */
+.cta-card .btn-secondary, html.dark .cta-card .btn-secondary { color: #FFFFFF; border-color: rgba(255, 255, 255, 0.65); background: transparent; }
+.cta-card .btn-secondary:hover, html.dark .cta-card .btn-secondary:hover { background: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
+
+/* ---- Dark theme ---- */
+/* The nav toggle predates this page and only ever recoloured the app chrome, so
+   switching to dark left the marketing page white with dark cards floating on
+   it. These rules cover the page shell and everything the landing page renders.
+   Status pills deliberately keep their light chip styling: dimming only some of
+   the four would make the badges disagree with each other. */
+html.dark body { background: #0F172A; color: #E2E8F0; }
+html.dark .availability-section, html.dark .how-section, html.dark .compliance-section,
+html.dark .faq-section, html.dark .footer { background: #0F172A; }
+html.dark .hero { background: linear-gradient(180deg, #10233F 0%, #0F172A 100%); }
+html.dark .hero, html.dark .availability-section, html.dark .how-section,
+html.dark .compliance-section, html.dark .faq-section, html.dark .footer,
+html.dark .trust-row, html.dark .record-row { border-color: #1E293B; }
+html.dark .hero-status { border-top-color: #334155; }
+
+html.dark .hero h1, html.dark .section-header h2, html.dark .pricing-card h3,
+html.dark .price, html.dark .nav-brand, html.dark .trust-number { color: #F1F5F9; }
+html.dark .hero-subtitle, html.dark .section-subtitle, html.dark .trust-row p,
+html.dark .nav-link, html.dark .plan-desc, html.dark .price span, html.dark .plan-badge,
+html.dark .hero-status-title, html.dark .trust-label, html.dark .record-stats dt,
+html.dark .accessibility-heading, html.dark .footer-nav h4, html.dark .footer-bottom,
+html.dark .record-legend { color: #94A3B8; }
+html.dark .nav-link:hover, html.dark .footer-nav a:hover { color: #93C5FD; }
+html.dark .footer-nav a { color: #CBD5E1; }
+html.dark .section-label, html.dark .resource-link, html.dark .faq-item summary::after { color: #93C5FD; }
+html.dark .stage-state { color: #FCD34D; }
+html.dark .accessibility-list li::before { color: #34D399; }
+html.dark .accessibility-list.caution li::before { color: #FBBF24; }
+html.dark .trust-check { border-left-color: #3B82F6; }
+html.dark .pricing-card { background: #1E293B; border-color: #334155; }
+/* .features is #334155 on white; on a dark card that is unreadable. */
+html.dark .features { color: #CBD5E1; }
+html.dark .features li::before { color: #34D399; }
+html.dark .features li.is-roadmap::before { color: #64748B; }
+
+html.dark .hero-proof, html.dark .availability-card p, html.dark .trust-row h3,
+html.dark .compliance-card p, html.dark .resource-card p, html.dark .faq-item p,
+html.dark .scoping-block > p, html.dark .scope-steps li, html.dark .record-label,
+html.dark .accessibility-list li, html.dark .stage-deliverables li,
+html.dark .hero-status-list li { color: #CBD5E1; }
+html.dark .record-card, html.dark .availability-card, html.dark .trust-matrix,
+html.dark .resource-card, html.dark .compliance-card, html.dark .stage-card,
+html.dark .accessibility-block, html.dark .scoping-block, html.dark .faq-item {
+  background: #1E293B; border-color: #334155;
+}
+html.dark .faq-item[open] { background: #0F172A; }
+html.dark .record-title, html.dark .availability-card h3, html.dark .compliance-card h3,
+html.dark .resource-card h3, html.dark .accessibility-block h3, html.dark .scoping-block h3,
+html.dark .stage-card h3, html.dark .faq-item summary { color: #F1F5F9; }
+html.dark .record-stats > div { background: #0F172A; border-color: #334155; }
+html.dark .record-stats dd { color: #93C5FD; }
+html.dark .availability-evidence, html.dark .trust-check { background: #0F172A; color: #CBD5E1; }
+html.dark .compliance-note { background: #3B2F12; border-color: #78560F; color: #FDE68A; }
+html.dark .record-card { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); }
+
+/* ---- Responsive ---- */
+@media (max-width: 1024px) {
+  .availability-grid, .compliance-grid { grid-template-columns: repeat(2, 1fr); }
+  .stage-grid, .resources-grid { grid-template-columns: repeat(2, 1fr); }
+  .trust-section .trust-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .record-stats { grid-template-columns: repeat(2, 1fr); }
+  .accessibility-columns { grid-template-columns: 1fr; gap: 20px; }
+  .record-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .record-legend { text-align: left; }
+}
+@media (max-width: 375px) {
+  .availability-grid, .compliance-grid, .stage-grid, .resources-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .resource-card, .resource-card:hover { transition: none; transform: none; }
+}
+@media print {
+  .availability-section, .trust-section, .faq-section { padding: 24px 0; }
+  .nav-top, .hero-actions, .cta-actions { display: none !important; }
+}
