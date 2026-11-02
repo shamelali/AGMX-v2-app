@@ -1286,6 +1286,35 @@ if [ -z "${GITHUB_ACTIONS:-}" ]; then
 fi
 
 # ----------------------------------------------------------------
+head_ "19. One canonical host"
+# ----------------------------------------------------------------
+# Pass 5 proves a referenced host is alive, which cannot notice this: a retired
+# deployment stays alive and the page points at it. Compare every absolute host in
+# the landing page against the single host the sitemap declares, and require the
+# canonical link the share-preview tags were missing.
+SITEMAP_HOSTS=$(grep -oE 'https://[a-z0-9.-]+\.vercel\.app' sitemap.xml 2>/dev/null | sed 's|^https://||' | sort -u)
+CANON_COUNT=$(printf '%s\n' "$SITEMAP_HOSTS" | grep -c . || true)
+if [ "$CANON_COUNT" = "0" ]; then
+  warn "sitemap.xml declares no vercel.app host — nothing to compare against"
+elif [ "$CANON_COUNT" -gt 1 ]; then
+  bad "sitemap.xml declares $(printf '%s ' $SITEMAP_HOSTS) — one product needs one host"
+else
+  CANON_HOST="$SITEMAP_HOSTS"
+  STRAY=$(grep -oE 'https://[a-z0-9.-]+\.vercel\.app' index.html 2>/dev/null | sed 's|^https://||' | sort -u | grep -vxF "$CANON_HOST" || true)
+  if [ -n "$STRAY" ]; then
+    bad "index.html references $(printf '%s ' $STRAY) but the canonical host is $CANON_HOST"
+  else
+    ok "index.html references only $CANON_HOST"
+  fi
+  canon=$(grep -c 'rel="canonical"' index.html 2>/dev/null || true)
+  if [ "$canon" = "1" ] && grep -q "rel=\"canonical\"[^>]*https://$CANON_HOST" index.html; then
+    ok "exactly one canonical link, set to $CANON_HOST"
+  else
+    bad "index.html needs one rel=canonical pointing at https://$CANON_HOST/ (found $canon)"
+  fi
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then

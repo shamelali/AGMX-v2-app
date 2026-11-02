@@ -50,7 +50,11 @@
 // how-it-works grids. None were referenced by any page or script, and the
 // rendered page is pixel-identical, but an installed client would otherwise
 // keep fetching the fatter stylesheet.
-const CACHE = "agmx-v29";
+// Bumped to v30: index.html's share-preview tags pointed at agmx-v2-app.vercel.app,
+// a retired deployment still serving the old brochure, so a link pasted into
+// WhatsApp or LinkedIn previewed the page the trust centre replaced. The canonical
+// link was missing entirely, with three hostnames answering for one product.
+const CACHE = "agmx-v30";
 const PRECACHE = [
   "/",
   "/index.html",
