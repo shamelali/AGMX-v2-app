@@ -10,9 +10,17 @@ set -euo pipefail
 
 # --- Config ---
 TEAM_SLUG="duta-integra"
-PROJECT_NAME="agmx-v2-app"
 GITHUB_ORG="shamelali"
 GITHUB_REPO="AGMX-v2-app"
+
+# The project name is read from the link file instead of hardcoded: a stale name
+# here points the deploy at a project the team does not have, and the project that
+# is actually linked keeps serving. `vercel link` writes this file.
+if [ ! -f .vercel/project.json ]; then
+  echo "[ERROR] .vercel/project.json is missing. Run: vercel link --scope=${TEAM_SLUG}" >&2
+  exit 1
+fi
+PROJECT_NAME="$(node -p 'require("./.vercel/project.json").projectName')"
 
 # Colors
 GREEN='\033[0;32m'
@@ -67,9 +75,11 @@ else
   log "No changes to commit"
 fi
 
-# Push to GitHub
-log "Pushing to GitHub..."
-git push -u origin main || {
+# Push to GitHub — the branch this checkout is on, not a hardcoded one: the repo's
+# refs live under master, and pushing a branch that does not exist fails here.
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+log "Pushing ${BRANCH} to GitHub..."
+git push -u origin "${BRANCH}" || {
   warn "Push failed. Create the repo first: https://github.com/new"
   warn "Repo name: ${GITHUB_REPO}, Owner: ${GITHUB_ORG}"
   exit 1
