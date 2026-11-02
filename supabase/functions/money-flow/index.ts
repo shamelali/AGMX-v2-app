@@ -36,7 +36,7 @@ const BILLPLZ_X_SIGNATURE = Deno.env.get("BILLPLZ_X_SIGNATURE") || ""
 const HITPAY_API_KEY = Deno.env.get("HITPAY_API_KEY") || ""
 const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
 const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
-const APP_URL = Deno.env.get("APP_URL") || "https://agmx-v2-app.vercel.app"
+const APP_URL = Deno.env.get("APP_URL") || "https://agmx-project.vercel.app"
 
 // Use service_role key (auto-injected by Supabase Edge Functions runtime)
 const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
@@ -428,7 +428,7 @@ async function handleAssessment(req: Request) {
 async function handleQuote(req: Request) {
   const ctx = await resolveAuthContext(req)
   if (!ctx.user && !ctx.isProspect) return errorResponse("Unauthorized", 401)
-  if (ctx.user && ctx.profile && !isAdminOrSecretary(ctx.profile)) {
+  if (ctx.user && (!ctx.profile || !isAdminOrSecretary(ctx.profile))) {
     return errorResponse("Operator access required", 403)
   }
 
@@ -449,6 +449,13 @@ async function handleQuote(req: Request) {
       .eq("id", input.assessmentId)
       .single()
     if (!a) return errorResponse("Assessment not found", 404)
+    /* Own org, or a lead nobody has claimed yet — the same rule GET /deals
+       uses. Without it an operator could quote another tenant's assessment
+       and the response hands back that assessment's reference and token,
+       which is the checkout credential for reading it as a prospect. */
+    if (a.organization_id && a.organization_id !== ctx.profile?.organization_id) {
+      return errorResponse("Forbidden", 403)
+    }
     assessment = a
   }
 
@@ -533,10 +540,12 @@ async function handleQuoteAccept(req: Request) {
   if (ctx.isProspect && quote.assessment_id !== ctx.assessment.id) {
     return errorResponse("Forbidden", 403)
   }
-  if (ctx.user && ctx.profile && quote.organization_id !== ctx.profile.organization_id) {
+  /* The prospect branch above already binds the quote to this token's own
+     assessment, so only the operator path needs the organisation match —
+     and it needs it even when there is no profile to match against. */
+  if (!ctx.isProspect && (!ctx.profile || quote.organization_id !== ctx.profile.organization_id)) {
     return errorResponse("Forbidden", 403)
   }
-
   if (quote.status === "accepted" || quote.status === "invoiced") {
     return successResponse({ quoteId: quote.id, number: quote.number, status: "accepted" })
   }
@@ -562,7 +571,7 @@ async function handleQuoteAccept(req: Request) {
 async function handleInvoice(req: Request) {
   const ctx = await resolveAuthContext(req)
   if (!ctx.user && !ctx.isProspect) return errorResponse("Unauthorized", 401)
-  if (ctx.user && ctx.profile && !isAdminOrSecretary(ctx.profile)) {
+  if (ctx.user && (!ctx.profile || !isAdminOrSecretary(ctx.profile))) {
     return errorResponse("Operator access required", 403)
   }
 
@@ -584,7 +593,11 @@ async function handleInvoice(req: Request) {
     // verify the quote belongs to the prospect's assessment
     if (quote.assessment_id !== ctx.assessment.id) return errorResponse("Forbidden", 403)
   } else {
-    if (ctx.profile && quote.organization_id !== ctx.profile.organization_id) {
+    /* Fail closed. supabase is the service-role client, so RLS does not
+       separate tenants here — this comparison is the only thing that does,
+       and a signed-in user with no profiles row has no organization to
+       compare against. Skipping it would serve them the other tenant's row. */
+    if (!ctx.profile || quote.organization_id !== ctx.profile.organization_id) {
       return errorResponse("Forbidden", 403)
     }
     orgId = quote.organization_id
@@ -659,7 +672,7 @@ async function handlePaymentIntent(req: Request) {
   if (ctx.isProspect) {
     orgId = await ensureOrganization(ctx.assessment)
     if (invoice.organization_id !== orgId) return errorResponse("Forbidden", 403)
-  } else if (ctx.profile && invoice.organization_id !== ctx.profile.organization_id) {
+  } else if (!ctx.profile || invoice.organization_id !== ctx.profile.organization_id) {
     return errorResponse("Forbidden", 403)
   }
 
@@ -814,6 +827,11 @@ async function handleLeadStage(req: Request) {
       .single())
   }
   if (!assessment) return errorResponse("Lead not found", 404)
+  /* Own org or unclaimed, as in GET /deals — otherwise any admin/secretary
+     could move another tenant's lead through the pipeline by its reference. */
+  if (assessment.organization_id && assessment.organization_id !== ctx.profile.organization_id) {
+    return errorResponse("Forbidden", 403)
+  }
 
   await supabase.from("agm_assessments").update({ status: stage }).eq("id", assessment.id)
 
@@ -964,7 +982,7 @@ async function handleQuoteGet(req: Request) {
   if (ctx.isProspect) {
     const orgId = await ensureOrganization(ctx.assessment)
     if (quote.organization_id !== orgId) return errorResponse("Forbidden", 403)
-  } else if (ctx.profile && quote.organization_id !== ctx.profile.organization_id) {
+  } else if (!ctx.profile || quote.organization_id !== ctx.profile.organization_id) {
     return errorResponse("Forbidden", 403)
   }
 
@@ -996,7 +1014,7 @@ async function handleInvoiceGet(req: Request) {
   if (ctx.isProspect) {
     const orgId = await ensureOrganization(ctx.assessment)
     if (invoice.organization_id !== orgId) return errorResponse("Forbidden", 403)
-  } else if (ctx.profile && invoice.organization_id !== ctx.profile.organization_id) {
+  } else if (!ctx.profile || invoice.organization_id !== ctx.profile.organization_id) {
     return errorResponse("Forbidden", 403)
   }
 
@@ -1031,8 +1049,8 @@ async function handleAudit(req: Request) {
     }
     /* Operators see their own org's leads plus unclaimed ones (same rule
        as GET /deals), never another tenant's. */
-    if (!ctx.isProspect && ctx.profile && assessment.organization_id &&
-        assessment.organization_id !== ctx.profile.organization_id) {
+    if (!ctx.isProspect && (!ctx.profile ||
+        (assessment.organization_id && assessment.organization_id !== ctx.profile.organization_id))) {
       return errorResponse("Forbidden", 403)
     }
 
@@ -1161,6 +1179,13 @@ async function handleLead(req: Request) {
 
   /* A prospect may only see their own assessment row. */
   if (ctx.isProspect && assessment.id !== ctx.assessment.id) {
+    return errorResponse("Forbidden", 403)
+  }
+  /* An operator sees their own org's leads plus unclaimed ones — GET /deals'
+     rule. Without it this returns another tenant's lead with its checkout
+     token, which is the credential for acting as that prospect. */
+  if (!ctx.isProspect && assessment.organization_id &&
+      assessment.organization_id !== ctx.profile?.organization_id) {
     return errorResponse("Forbidden", 403)
   }
 

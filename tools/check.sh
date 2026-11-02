@@ -469,6 +469,23 @@ else
   warn "tools/test_money_flow.mjs not found"
 fi
 
+# The money-flow Edge Function queries with the service-role key, so RLS
+# separates nothing there; every tenant boundary is an application guard in
+# supabase/functions/money-flow/index.ts. This harness loads that file as
+# written and drives its real handler, so deleting or weakening a guard fails
+# the suite instead of shipping.
+if [ -f tools/test_money_flow_auth.mjs ]; then
+  if OUT=$(node tools/test_money_flow_auth.mjs 2>&1); then
+    COUNT=$(printf '%s' "$OUT" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+')
+    ok "tools/test_money_flow_auth.mjs (${COUNT:-?} assertions)"
+  else
+    bad "tools/test_money_flow_auth.mjs failed — a tenant boundary in money-flow is not holding"
+    printf '%s\n' "$OUT" | grep -E '^  ✗' | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_money_flow_auth.mjs not found"
+fi
+
 # ----------------------------------------------------------------
 head_ "10. PocketBase JSVM API compatibility"
 # ----------------------------------------------------------------
