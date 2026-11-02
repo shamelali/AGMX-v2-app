@@ -62,9 +62,33 @@ jobs:
       - name: Run check.sh
         run: AGMX_SKIP_NET=1 bash tools/check.sh
 
+  verify-deploy-author:
+    name: Verify Deploy Author
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A deploy made from a git checkout is attributed to the latest commit's author,
+      # and Vercel Blocks it when that email is not on the team — naming neither the
+      # email nor the reason. Read the roster here so the failing step says what to
+      # change. Nothing from the workflow event reaches the shell: the author comes
+      # from git and is handed to python through an environment variable.
+      - name: Confirm the commit author may deploy
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::notice::VERCEL_TOKEN or VERCEL_ORG_ID not set — author check skipped."
+            exit 0
+          fi
+          author=$(git log -1 --format='%ae')
+          echo "Latest commit author: $author"
+          AGMX_AUTHOR="$author" python3 tools/check_deploy_author.py
+
   deploy-preview:
     name: Deploy Preview
-    needs: lint-and-test
+    needs: [lint-and-test, verify-deploy-author]
     # Fork PRs have no access to VERCEL_TOKEN, so skip them instead of failing.
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -117,7 +141,7 @@ jobs:
 
   deploy-production:
     name: Deploy Production
-    needs: lint-and-test
+    needs: [lint-and-test, verify-deploy-author]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     environment: production

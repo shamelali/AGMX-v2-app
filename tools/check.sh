@@ -1252,6 +1252,40 @@ if [ "$SER_RC" -gt 2 ]; then
 fi
 
 # ----------------------------------------------------------------
+head_ "18. Commit author identity"
+# ----------------------------------------------------------------
+# Vercel attributes a deploy made from a git checkout to the latest commit's author
+# and Blocks the deployment when that email is not a member of the team. The block
+# names neither the email nor the reason, and one bad commit is enough to fail every
+# deploy after it, so check the two places the address can go wrong.
+placeholder_email() {
+  case "$1" in
+    ""|*@example.com|*@example.org|*@localhost|*@local) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  author_email=$(git log -1 --format='%ae')
+  if placeholder_email "$author_email"; then
+    bad "HEAD author email is a placeholder: ${author_email:-<empty>} — re-author the commit before deploying"
+  else
+    ok "HEAD author: $author_email"
+  fi
+fi
+
+# The runner's own git identity is not the one that ships, so in CI only the
+# commit already in the checkout is worth judging.
+if [ -z "${GITHUB_ACTIONS:-}" ]; then
+  cfg_email=$(git config user.email || true)
+  if placeholder_email "$cfg_email"; then
+    bad "git config user.email is a placeholder: ${cfg_email:-<unset>} — the next commit inherits it"
+  else
+    ok "git config user.email: $cfg_email"
+  fi
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then
