@@ -668,7 +668,12 @@ async function handlePaymentIntent(req: Request) {
   }
 
   const paymentRef = generateRef("PAY")
-  const callbackUrl = input.callbackUrl || `${APP_URL}/functions/v1/money-flow/payment/confirm`
+  // The gateway posts its confirmation to this function, so the URL has to come from
+  // the function's own request — APP_URL is the web app, which has no /functions/v1
+  // route and answers 405, leaving a paid invoice stuck as unpaid.
+  const self = new URL(req.url)
+  const callbackUrl = input.callbackUrl ||
+    `${self.origin}${self.pathname.replace(/payment\/intent$/, "payment/confirm")}`
   /* Prospects must land back on checkout with their ?ref&t context so the
      token-gated resume can fetch the settled deal. */
   const prospectCtx = ctx.isProspect
