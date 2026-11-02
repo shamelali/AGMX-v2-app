@@ -2,8 +2,9 @@
   "name": "agmx",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
+  "packageManager": "npm@10.9.9",
   "scripts": {
     "test": "AGMX_SKIP_NET=1 bash tools/check.sh",
     "check": "bash tools/check.sh"

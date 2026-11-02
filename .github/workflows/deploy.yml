@@ -35,7 +35,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       # check.sh pass 16 type-checks supabase/functions/**/*.ts. Without deno
       # it reports a warning, so CI would never exercise the pass.
