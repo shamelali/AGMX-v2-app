@@ -152,6 +152,10 @@ cat <<EOF
 EOF
 
 # --- 5. Deploy ---
+# Vercel attributes a deploy made from a git checkout to the latest commit's author
+# and Blocks it when that email is not a member of the team. A placeholder author
+# fails without naming itself, so print the author that is about to be checked.
+log "Deploy will be attributed to commit author: $(git log -1 --format='%ae')"
 log "Deploying to Vercel..."
 vercel --prod --scope="${TEAM_SLUG}" || {
   err "Vercel deploy failed. Check logs."
