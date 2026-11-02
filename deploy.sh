@@ -100,19 +100,19 @@ log "Setting Vercel environment variables..."
 log "You'll need to add these in Vercel Dashboard → Settings → Environment Variables:"
 cat <<EOF
 
-Required:
+Required — only the names api/*.js actually reads; SUPABASE_SERVICE_ROLE_KEY and
+OPENAI_API_KEY belong to the Edge Function in step 5, and setting them here does
+nothing:
   NEXT_PUBLIC_SUPABASE_URL          (from Supabase project)
-  NEXT_PUBLIC_SUPABASE_ANON_KEY     (from Supabase project)
-  SUPABASE_SERVICE_ROLE_KEY         (from Supabase project - server only)
-  OPENAI_API_KEY                    (from OpenAI - server only)
-  BILLPLZ_API_KEY                   (from Billplz sandbox - server only)
-  BILLPLZ_COLLECTION_ID             (from Billplz sandbox - server only)
-  HITPAY_API_KEY                    (from HitPay - server only)
-  HITPAY_SALT                       (from HitPay - server only)
+  NEXT_PUBLIC_SUPABASE_ANON_KEY     (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+  BILLPLZ_API_KEY                   (from Billplz sandbox)
+  BILLPLZ_COLLECTION_ID             (from Billplz sandbox)
+  HITPAY_API_KEY                    (from HitPay)
+  HITPAY_SALT                       (from HitPay)
   NEXT_PUBLIC_APP_URL               https://${PROJECT_NAME}.vercel.app
 
 Optional (if using PocketBase for realtime):
-  POCKETBASE_URL                    https://agmx-pb.fly.dev
+  NEXT_PUBLIC_POCKETBASE_URL        https://agmx-pb.fly.dev
 
 EOF
 
@@ -142,7 +142,9 @@ cat <<EOF
    supabase functions deploy knowledge-query --project-ref <ref>
    supabase functions deploy knowledge-ingest --project-ref <ref>
 
-5. Set Edge Function secrets:
+5. Set Edge Function secrets — money-flow reads every one of these through Deno.env,
+   so a missing name fails the function at boot, not on the request:
+   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... --project-ref <ref>
    supabase secrets set OPENAI_API_KEY=sk-... --project-ref <ref>
    supabase secrets set BILLPLZ_API_KEY=... --project-ref <ref>
    supabase secrets set BILLPLZ_COLLECTION_ID=... --project-ref <ref>
@@ -153,9 +155,17 @@ EOF
 
 # --- 5. Deploy ---
 # Vercel attributes a deploy made from a git checkout to the latest commit's author
-# and Blocks it when that email is not a member of the team. A placeholder author
-# fails without naming itself, so print the author that is about to be checked.
-log "Deploy will be attributed to commit author: $(git log -1 --format='%ae')"
+# and Blocks it when that email is not on the team, naming neither the address nor
+# the reason. Ask before uploading — a Blocked deploy still costs the whole upload —
+# using the same token the vercel CLI is about to use, from its own credential file.
+author=$(git log -1 --format='%ae')
+log "Deploy will be attributed to commit author: $author"
+cli_token=$(node -p 'try{require(process.env.HOME+"/.local/share/com.vercel.cli/auth.json").token}catch(e){""}')
+AGMX_AUTHOR="$author" VERCEL_ORG_ID="$(node -p 'require("./.vercel/project.json").orgId')" \
+  VERCEL_TOKEN="$cli_token" python3 tools/check_deploy_author.py || {
+  err "Aborted before upload — Vercel would have Blocked this deploy."
+  exit 1
+}
 log "Deploying to Vercel..."
 vercel --prod --scope="${TEAM_SLUG}" || {
   err "Vercel deploy failed. Check logs."
