@@ -165,9 +165,9 @@
         </article>
         <article class="availability-card" role="listitem">
           <h3 data-en="Languages">Bahasa</h3>
-          <p data-en="Bahasa Melayu and English, end to end, including inside the workspace.">Bahasa Melayu dan English, hujung ke hujung, termasuk dalam ruang kerja.</p>
+          <p data-en="This site is fully bilingual. Inside the signed-in workspace the navigation, table headings and buttons switch between Bahasa Melayu and English; loading and error messages still render in English.">Laman ini dwibahasa sepenuhnya. Dalam ruang kerja bersesi, navigasi, tajuk jadual dan butang bertukar antara Bahasa Melayu dan English; mesej pemuatan dan ralat masih dipaparkan dalam Bahasa Inggeris.</p>
           <p class="availability-evidence" data-en="Tamil and Chinese have been quoted in some material; they are not built and should not be sold as included.">Tamil dan Cina pernah disebut dalam bahan tertentu; ia belum dibina dan tidak boleh dijual sebagai termasuk.</p>
-          <span class="status status-ready" data-en="Available · BM/EN">Sedia · BM/EN</span>
+          <span class="status status-build" data-en="In progress · partial in the workspace">Dalam pembinaan · separa dalam ruang kerja</span>
         </article>
       </div>
     </div>
@@ -246,8 +246,8 @@
         <article class="trust-row">
           <h3 data-en="Data separation between cooperatives">Pengasingan data antara koperasi</h3>
           <span class="status status-ready" data-en="Available">Sedia</span>
-          <p data-en="PostgreSQL row-level security is enabled on all 34 tables in the application schema. Tenant isolation is one predicate — organization_id equals the signed-in user's organisation — enforced by the database on 36 policies, not by the browser.">Keselamatan peringkat baris PostgreSQL didayakan pada semua 34 jadual dalam skema aplikasi. Pengasingan penyewa ialah satu predikat — organization_id sama dengan organisasi pengguna yang log masuk — dikuatkuasakan oleh pangkalan data pada 36 polisi, bukan oleh pelayar.</p>
-          <p class="trust-check" data-en="Check it yourself: ask us to run a cross-tenant read attempt with a second test account and share the query result.">Semak sendiri: minta kami menjalankan percubaan baca silang penyewa dengan akaun ujian kedua dan kongsikan hasil pertanyaan.</p>
+          <p data-en="PostgreSQL row-level security is switched on for all 47 tables in the application schema. Tenant isolation is one predicate — organization_id equals the signed-in user's organisation — written into 44 policies across 37 tables; the other ten carry no policy and so deny every client read. The commerce API connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada semua 47 jadual dalam skema aplikasi. Pengasingan penyewa ialah satu predikat — organization_id sama dengan organisasi pengguna yang log masuk — ditulis dalam 44 polisi merentas 37 jadual; sepuluh lagi tiada polisi maka menolak setiap bacaan klien. API komersial menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
+          <p class="trust-check" data-en="Check it yourself: ask for the money-flow tenant-isolation test. It signs in as a user with no organisation row and as a second cooperative's admin, and expects 403 on both.">Semak sendiri: minta ujian pengasingan penyewa money-flow. Ia log masuk sebagai pengguna tanpa baris organisasi dan sebagai admin koperasi kedua, dan jangkakan 403 untuk kedua-duanya.</p>
         </article>
 
         <article class="trust-row">
@@ -273,15 +273,15 @@
 
         <article class="trust-row">
           <h3 data-en="Audit log: scope, integrity and export">Jejak audit: skop, integriti dan eksport</h3>
-          <span class="status status-ready" data-en="Available">Sedia</span>
-          <p data-en="Audit events are insert-only. A database trigger raises an error on any UPDATE or DELETE against the audit and votes tables, so a record cannot be silently rewritten even by an authenticated user. Each entry carries the previous entry's hash, forming a per-organisation chain you can verify from the earliest event.">Peristiwa audit hanya boleh disisip. Satu pemicu pangkalan data mengeluarkan ralat untuk sebarang UPDATE atau DELETE terhadap jadual audit dan undi, jadi sesuatu rekod tidak boleh ditulis diam-diam walaupun oleh pengguna yang disahkan. Setiap entri membawa hash entri sebelumnya, membentuk rantaian bagi setiap organisasi yang boleh anda sahkan sejak peristiwa terawal.</p>
+          <span class="status status-build" data-en="In progress · append-only is live">Dalam pembinaan · append-only sudah aktif</span>
+          <p data-en="Audit events are insert-only: a database trigger raises an error on any UPDATE or DELETE against the audit and votes tables, so a record cannot be silently rewritten by an authenticated user. That is in force now. Each entry also stores the hash of the previous entry for its organisation. What is not there yet is verification you can run yourself — the hash is computed over a timestamp that is not stored beside it, and no verification routine is published, so a reader cannot recompute the chain from the earliest event.">Peristiwa audit hanya boleh disisip: satu pemicu pangkalan data mengeluarkan ralat untuk sebarang UPDATE atau DELETE terhadap jadual audit dan undi, jadi sesuatu rekod tidak boleh ditulis semula diam-diam oleh pengguna yang disahkan. Itu sudah aktif sekarang. Setiap entri juga menyimpan hash entri sebelumnya bagi organisasinya. Yang belum ada ialah pengesahan yang boleh anda jalankan sendiri — hash dikira berdasarkan cap masa yang tidak disimpan bersamanya, dan tiada rutin pengesahan diterbitkan, jadi pembaca tidak boleh mengira semula rantaian sejak peristiwa terawal.</p>
           <p class="trust-check" data-en="Ballot secrecy is configured at the same layer: the votes table is deliberately excluded from the realtime publication, so live updates cannot leak how an individual voted.">Kerahsiaan undi dikonfigurasi pada lapisan yang sama: jadual undi disengajakan dikeluarkan daripada penerbitan realtime, jadi kemas kini langsung tidak boleh membocorkan cara seorang ahli mengundi.</p>
         </article>
 
         <article class="trust-row">
           <h3 data-en="Subprocessors and AI data handling">Pemproses sub dan pengendalian data AI</h3>
           <span class="status status-ready" data-en="Available · listed">Sedia · disenarai</span>
-          <p data-en="Current subprocessors: Supabase (database, authentication, functions), Vercel and Cloudflare Pages (hosting), Google (sign-in only), Billplz and HitPay (payment, not yet enabled). No member data reaches an AI provider today because the knowledge service is not deployed.">Pemproses sub semasa: Supabase (pangkalan data, pengesahan, fungsi), Vercel dan Cloudflare Pages (hos), Google (log masuk sahaja), Billplz dan HitPay (pembayaran, belum diaktifkan). Tiada data ahli sampai ke penyedia AI hari ini kerana perkhidmatan pengetahuan belum disediakan.</p>
+          <p data-en="Current subprocessors: Supabase (database, authentication, one deployed Edge Function for quotes and payments), Vercel (hosting), Google (sign-in only), Billplz and HitPay (payment, credentials not configured, so no bill is created). No member data reaches an AI provider: the knowledge service that would send text to a model provider is not deployed, and the commerce function never calls one. Two things contradict the picture rather than the claim — the page's own content policy still lists the model hosts it would use, and the interface flag for that feature reads enabled while it has no service to call.">Pemproses sub semasa: Supabase (pangkalan data, pengesahan, satu Edge Function untuk sebut harga dan pembayaran), Vercel (hos), Google (log masuk sahaja), Billplz dan HitPay (pembayaran, kelayakan tidak dikonfigurasi, jadi tiada bill dicipta). Tiada data ahli sampai ke penyedia AI: perkhidmatan pengetahuan yang akan menghantar teks kepada penyedia model belum disediakan, dan fungsi komersial tidak pernah memanggilnya. Dua perkara bercanggah dengan gambaran itu dan bukan dengan tuntutan ini — dasar kandungan halaman masih menyenaraikan hos model yang akan digunakannya, dan flanta ciri antara muka masih dibaca didayakan sedangkan tiada perkhidmatan untuk dipanggil.</p>
           <p class="trust-check" data-en="If AI features are switched on later, this row changes and we will state what is sent, where it goes, and whether it is used for training.">Jika ciri AI diaktifkan kelak, baris ini berubah dan kami akan nyatakan apa yang dihantar, ke mana ia pergi, dan sama ada ia digunakan untuk latihan model.</p>
         </article>
 
@@ -361,7 +361,7 @@
               <li data-en="16px base type with a larger-type reading mode (18px)">Saiz taip asas 16px dengan mod bacaan taip lebih besar (18px)</li>
               <li data-en="Visible focus rings on every interactive control, keyboard operable">Gelang fokus kelihatan pada setiap kawalan interaktif, boleh dikendalikan papan kekunci</li>
               <li data-en="Light and dark themes, stored per device; motion respects prefers-reduced-motion">Tema cerah dan gelap, disimpan setiap peranti; pergerakan menghormati prefers-reduced-motion</li>
-              <li data-en="Bilingual BM/EN including inside the authenticated workspace">Dwibahasa BM/EN termasuk dalam ruang kerja bersesi</li>
+              <li data-en="BM/EN language switcher on this site, remembered per device">Penukar bahasa BM/EN pada laman ini, diingati setiap peranti</li>
               <li data-en="Works offline for cached pages; installable as an application">Berfungsi luar talian untuk halaman cache; boleh dipasang sebagai aplikasi</li>
             </ul>
           </div>
@@ -397,7 +397,7 @@
             <li data-en="Governance workspace for one cooperative">Ruang kerja tadbir urus untuk satu koperasi</li>
             <li data-en="Unlimited stored meeting records">Rekod mesyuarat tersimpan tanpa had</li>
             <li data-en="Append-only audit trail">Jejak audit append-only</li>
-            <li data-en="BM/EN interface and member experience">Antara muka dan pengalaman ahli BM/EN</li>
+            <li data-en="BM/EN interface — workspace labels and tables, status messages English-only today">Antara muka BM/EN — label dan jadual ruang kerja, mesej status Bahasa Inggeris sahaja buat masa ini</li>
             <li class="is-roadmap"><span data-en="AI secretary and compliance checks">Setiausaha AI dan semakan pematuhan</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
             <li data-en="Email support, next business day">Sokongan e-mel, hari bekerja berikutnya</li>
           </ul>

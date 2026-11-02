@@ -54,7 +54,16 @@
 // a retired deployment still serving the old brochure, so a link pasted into
 // WhatsApp or LinkedIn previewed the page the trust centre replaced. The canonical
 // link was missing entirely, with three hostnames answering for one product.
-const CACHE = "agmx-v30";
+// Bumped to v31: four trust-centre rows claimed more than the running system
+// does — "BM/EN end to end, including inside the workspace" against a 20-entry
+// dictionary that leaves every load and error string English; "34 tables … 36
+// policies" against the 47 tables and 44 policies live today; "a chain you can
+// verify from the earliest event" against a hash whose timestamp salt is never
+// stored and no verification routine published; and a subprocessor list that
+// named a host no longer serving this product. index.html is precached, so an
+// installed browser had to be forced to re-fetch it or it kept asserting the
+// old numbers.
+const CACHE = "agmx-v31";
 const PRECACHE = [
   "/",
   "/index.html",
