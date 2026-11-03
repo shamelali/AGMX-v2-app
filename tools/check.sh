@@ -215,12 +215,41 @@ head_ "4. HTML asset references"
 # ----------------------------------------------------------------
 # Every local src/href in the HTML must resolve to a real file.
 if python3 - <<'PY'
-import os, re, sys, glob
+import os, re, sys, glob, json
 missing = []
 checked = 0
-for page in ["index.html", "app.html", "assessment.html", "checkout.html", "leads.html", "offline.html", "404.html"]:
-    if not os.path.exists(page):
-        continue
+
+# A reference is also resolved by the routing table, so read that too. Without
+# it this pass could only ever check pages whose refs were all plain files, and
+# it was handed a hardcoded page list that silently left callback.html — which
+# links /app, a rewrite, not a file — outside the check entirely.
+ROUTED = set()
+try:
+    for r in json.load(open("vercel.json")).get("rewrites", []):
+        s = r.get("source", "")
+        if s and not re.search(r"[\\[(]", s):  # literal only; skip splat patterns
+            ROUTED.add(s)
+except (OSError, ValueError):
+    pass  # pass 3 reports a config that does not parse
+try:
+    for ln in open("_redirects"):
+        parts = ln.split()
+        if len(parts) >= 2 and parts[0].startswith("/"):
+            ROUTED.add(parts[0])
+except OSError:
+    pass
+
+
+def resolves(p):
+    q = p.lstrip("/")
+    return (os.path.exists(q) or os.path.exists(q + ".html")
+            or os.path.exists(os.path.join(q, "index.html")) or p in ROUTED)
+
+
+# Read off the tree, not a hardcoded list: the page set grew past it once
+# already, and a broken ref on a page nobody remembered to add here is a 404
+# in production that this pass reports as green.
+for page in sorted(glob.glob("*.html")):
     html = open(page, encoding="utf-8").read()
     for url in re.findall(r'(?:src|href)\s*=\s*"([^"]+)"', html):
         if url.startswith(("http://", "https://", "//", "data:", "#", "mailto:", "tel:")):
@@ -231,7 +260,7 @@ for page in ["index.html", "app.html", "assessment.html", "checkout.html", "lead
         if path.lstrip("/") == "config.js":
             continue  # optional per-deployment file (script tag is onerror-guarded)
         checked += 1
-        if not os.path.exists(path.lstrip("/")):
+        if not resolves(path):
             missing.append(f"{page} → {url}")
 
 if missing:
@@ -358,11 +387,26 @@ NEVER_CACHE = {"sw.js"}
 def never_cache(f):
     return f in NEVER_CACHE or f.startswith("config.")
 
-# Warn when a top-level script is absent from the precache list.
-scripts = {f for f in os.listdir(".") if f.endswith(".js")}
-listed  = {e.lstrip("/") for e in entries}
-unlisted = sorted(f for f in scripts
+# The runtime set is what a page actually asks the browser to run, so read it
+# off the markup. This used to sweep every top-level .js on disk, which called
+# copilot.js and domain-packs.js offline gaps forever — nothing loads either,
+# only tools/*.js requires them — while staying silent on a precache entry for
+# a script no page loads. A ref that does not resolve at all is pass 4's job.
+pages = [f for f in os.listdir(".") if f.endswith(".html")]
+loaded = set()
+for page in pages:
+    body = open(page, encoding="utf-8").read()
+    for raw in re.findall(r'<script[^>]*\bsrc="([^"]+)"', body, re.I):
+        if raw.startswith("http") or raw.startswith("//"):
+            continue
+        path = raw.split("?")[0].split("#")[0].lstrip("/")
+        if os.path.exists(path):
+            loaded.add(path)
+listed = {e.lstrip("/") for e in entries}
+unlisted = sorted(f for f in loaded
                   if f not in listed and not never_cache(f) and os.path.getsize(f) > 0)
+orphaned = sorted(f for f in listed if f.endswith(".js")
+                  and f not in loaded and not never_cache(f))
 
 if missing:
     print(f"  \033[31m✗\033[0m precache references missing files: {missing}")
@@ -419,7 +463,12 @@ else:
 if unlisted:
     print(f"  \033[33m!\033[0m not precached (offline will miss them): {', '.join(unlisted)}")
 else:
-    print(f"  \033[32m✓\033[0m {len(entries)} precache entries resolve; all runtime scripts cached")
+    print(f"  \033[32m✓\033[0m {len(entries)} precache entries resolve; all "
+          f"{len(loaded)} scripts loaded by {len(pages)} pages are cached")
+
+if orphaned:
+    print(f"  \033[33m!\033[0m precached but no page loads it (every install stores it, "
+          f"nothing runs it): {', '.join(orphaned)}")
 PY
     then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
 fi
