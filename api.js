@@ -67,6 +67,7 @@
     quotes: "agmx_quotes_v1",
     invoices: "agmx_invoices_v1",
     payments: "agmx_payments_v1",
+    subscriptions: "agmx_subscriptions_v1",
     audit: "agmx_audit_v1",
     cfg: "agmx_backend_cfg",
   };
@@ -163,6 +164,22 @@
   /* ============================================================
      LOCAL ADAPTER (demo — persists in this browser only)
      ============================================================ */
+
+  /* Demo subscription plans (mirrors server-side plans table for local mode) */
+  function _seedSubscriptionPlans() {
+    const key = KEYS.subscriptions + "_plans";
+    if (!store.getItem(key)) {
+      const plans = [
+        { key: "essential_agm", name: "AGMX Essential AGM", annualPrice: 7200, monthly: 600, description: "Sedia untuk AGM tahunan: notis, agenda, minutes, undian, rekod kehadiran" },
+        { key: "professional_agm", name: "AGMX Professional AGM", annualPrice: 9600, monthly: 800, description: "Essential + pengurusan matlamat, risiko, polisi, laporan lembaga, aliran kerja kelulusan" },
+        { key: "enterprise_agm", name: "AGMX Enterprise AGM", annualPrice: 12000, monthly: 1000, description: "Professional + SSO, audit log, API, domain tersuai, sokongan keutamaan, SLA" },
+        { key: "federation_agm", name: "AGMX Federation AGM", annualPrice: 15000, monthly: 1250, description: "Enterprise + multi-koperasi, konsolidasi laporan, kawalan akses terpusat, pengurus berdedikasi" },
+      ];
+      store.setItem(key, JSON.stringify(plans));
+    }
+  }
+  _seedSubscriptionPlans();
+
   const LocalAdapter = {
 
     /* ----- diagnostics ----- */
@@ -481,6 +498,129 @@
       };
     },
 
+    /* ----- subscriptions (demo — persists in this browser only) ----- */
+    async createSubscription(input) {
+      const { leadRef, planKey, billingCycle } = input || {};
+      if (!leadRef) throw new Error("Rujukan lead diperlukan.");
+      if (!planKey) throw new Error("Pakej langganan diperlukan.");
+      if (billingCycle !== "annual") throw new Error("Hanya kitaran bil tahunan disokong.");
+
+      const leads = readArr(KEYS.leads);
+      const lead = leads.find((l) => l.id === leadRef);
+      if (!lead) throw new Error("Lead tidak dijumpai: " + leadRef);
+
+      const plans = readArr(KEYS.subscriptions + "_plans") || [];
+      const plan = plans.find((p) => p.key === planKey);
+      if (!plan) throw new Error("Pakej tidak dijumpai: " + planKey);
+
+      const subs = readArr(KEYS.subscriptions);
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 14);
+      const periodStart = today();
+      const periodEnd = addDays(365);
+
+      const sub = {
+        id: nextRef("SUB-", subs),
+        number: nextDocNumber("SUB-", subs),
+        leadRef: lead.id,
+        planKey,
+        planName: plan.name,
+        billingCycle: "annual",
+        status: "trialing",
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        trialEndsAt: trialEnd.toISOString().slice(0, 10),
+        autoRenew: true,
+        cancelledAt: null,
+        createdAt: nowIso(),
+      };
+      subs.unshift(sub);
+      writeArr(KEYS.subscriptions, subs);
+
+      lead.subscriptionId = sub.number;
+      writeArr(KEYS.leads, leads);
+
+      this._audit("subscription.created", "subscription", sub.number, {
+        lead: lead.id, plan: planKey, billingCycle: "annual", trialEndsAt: sub.trialEndsAt,
+      });
+      return sub;
+    },
+
+    async getSubscription(id) {
+      return readArr(KEYS.subscriptions).find((s) => s.number === id || s.id === id) || null;
+    },
+
+    async cancelSubscription(id) {
+      const subs = readArr(KEYS.subscriptions);
+      const sub = subs.find((s) => s.number === id || s.id === id);
+      if (!sub) throw new Error("Langganan tidak dijumpai: " + id);
+      if (sub.status === "cancelled") return sub;
+
+      sub.status = "cancelled";
+      sub.cancelledAt = nowIso();
+      sub.autoRenew = false;
+      writeArr(KEYS.subscriptions, subs);
+
+      const leads = readArr(KEYS.leads);
+      const lead = leads.find((l) => l.id === sub.leadRef);
+      if (lead) { lead.subscriptionId = null; writeArr(KEYS.leads, leads); }
+
+      this._audit("subscription.cancelled", "subscription", sub.number, {
+        lead: sub.leadRef, plan: sub.planKey,
+      }, sub.leadRef);
+      return sub;
+    },
+
+    async generateRecurringInvoice(subId) {
+      const subs = readArr(KEYS.subscriptions);
+      const sub = subs.find((s) => s.number === subId || s.id === subId);
+      if (!sub) throw new Error("Langganan tidak dijumpai: " + subId);
+
+      const plans = readArr(KEYS.subscriptions + "_plans") || [];
+      const plan = plans.find((p) => p.key === sub.planKey);
+      if (!plan) throw new Error("Pakej tidak dijumpai: " + sub.planKey);
+
+      const invoices = readArr(KEYS.invoices);
+      const invoice = {
+        id: nextRef("INV-", invoices),
+        number: nextDocNumber("INV-", invoices),
+        leadRef: sub.leadRef,
+        amount: plan.annualPrice || plan.price,
+        currency: "MYR",
+        status: "unpaid",
+        issuedAt: today(),
+        dueAt: addDays(INVOICE_DUE_DAYS),
+        paidAt: null,
+        subscriptionId: sub.number,
+        recurring: true,
+      };
+      invoices.unshift(invoice);
+      writeArr(KEYS.invoices, invoices);
+
+      /* also add to subscription's recurring invoices list */
+      if (!sub.recurringInvoices) sub.recurringInvoices = [];
+      sub.recurringInvoices.unshift({
+        id: invoice.id,
+        number: invoice.number,
+        issuedAt: invoice.issuedAt,
+        dueAt: invoice.dueAt,
+        amount: invoice.amount,
+        status: "unpaid",
+      });
+      writeArr(KEYS.subscriptions, subs);
+
+      this._audit("subscription.invoice_generated", "subscription", sub.number, {
+        lead: sub.leadRef, invoice: invoice.number, amount: invoice.amount,
+      }, sub.leadRef);
+      return invoice;
+    },
+
+    async getSubscriptionEvents(subId) {
+      const all = readArr(KEYS.audit);
+      return all.filter((e) => e.entityType === "subscription" && e.entityId === subId)
+        .sort((a, b) => (a.seq < b.seq ? 1 : -1));
+    },
+
     /* ----- audit trail ----- */
     async audit(leadRef) {
       const all = readArr(KEYS.audit);
@@ -670,6 +810,36 @@
     async createPaymentLink(invoiceNumber) {
       const out = await this._req("POST", "/payment/link" + this._qs({}), { invoiceNumber });
       return out;
+    },
+
+    /* ----- subscriptions ----- */
+    async createSubscription(input) {
+      const out = await this._req("POST", "/subscription" + this._qs({}), {
+        ref: input.leadRef || this._ctx.ref,
+        planKey: input.planKey,
+        billingCycle: input.billingCycle || "annual",
+      });
+      return out.subscription;
+    },
+
+    async getSubscription(id) {
+      const out = await this._req("GET", "/subscription" + this._qs({ number: id }));
+      return out.subscription;
+    },
+
+    async cancelSubscription(id) {
+      const out = await this._req("POST", "/subscription/cancel" + this._qs({}), { subscriptionId: id });
+      return out.subscription;
+    },
+
+    async generateRecurringInvoice(subId) {
+      const out = await this._req("POST", "/subscription/invoice" + this._qs({}), { subscriptionId: subId });
+      return out.invoice;
+    },
+
+    async getSubscriptionEvents(subId) {
+      const out = await this._req("GET", "/subscription/events" + this._qs({ number: subId }));
+      return out.events || [];
     },
 
     async listPayments(leadRef) {
@@ -1205,6 +1375,110 @@
       };
     },
 
+    /* ----- subscriptions ----- */
+    async createSubscription(input) {
+      const leadRef = input.leadRef || this._ctx.ref;
+      if (!leadRef) throw new Error("Rujukan lead diperlukan.");
+      const lead = await this.getAssessment(leadRef);
+      if (!lead) throw new Error("Lead tidak dijumpai: " + leadRef);
+
+      const out = await this._req("POST", "/subscription", {
+        assessmentId: lead.uuid,
+        planCode: input.planKey,
+        billingCycle: input.billingCycle || "annual",
+      });
+      return {
+        id: out.subscriptionId,
+        number: out.number,
+        leadRef: lead.id,
+        planKey: input.planKey,
+        planName: out.planName,
+        billingCycle: "annual",
+        status: out.status,
+        currentPeriodStart: out.currentPeriodStart,
+        currentPeriodEnd: out.currentPeriodEnd,
+        trialEndsAt: out.trialEndsAt,
+        autoRenew: out.autoRenew,
+        cancelledAt: out.cancelledAt,
+        createdAt: out.createdAt,
+      };
+    },
+
+    async getSubscription(id) {
+      const out = await this._req("GET", "/subscription/" + encodeURIComponent(id));
+      if (!out) return null;
+      return {
+        id: out.id,
+        number: out.number,
+        leadRef: out.leadRef,
+        planKey: out.planKey,
+        planName: out.planName,
+        billingCycle: out.billingCycle,
+        status: out.status,
+        currentPeriodStart: out.currentPeriodStart,
+        currentPeriodEnd: out.currentPeriodEnd,
+        trialEndsAt: out.trialEndsAt,
+        autoRenew: out.autoRenew,
+        cancelledAt: out.cancelledAt,
+        createdAt: out.createdAt,
+        recurringInvoices: (out.recurringInvoices || []).map((ri) => ({
+          id: ri.id,
+          number: ri.number,
+          issuedAt: ri.issuedAt,
+          dueAt: ri.dueAt,
+          amount: num(ri.amount),
+          status: ri.status,
+        })),
+        paymentSchedules: (out.paymentSchedules || []).map((ps) => ({
+          invoiceNumber: ps.invoiceNumber,
+          scheduledAt: ps.scheduledAt,
+          amount: num(ps.amount),
+          status: ps.status,
+        })),
+      };
+    },
+
+    async cancelSubscription(id) {
+      const out = await this._req("POST", "/subscription/cancel", { subscriptionId: id });
+      return {
+        id: out.id,
+        number: out.number,
+        leadRef: out.leadRef,
+        planKey: out.planKey,
+        planName: out.planName,
+        billingCycle: out.billingCycle,
+        status: out.status,
+        currentPeriodStart: out.currentPeriodStart,
+        currentPeriodEnd: out.currentPeriodEnd,
+        trialEndsAt: out.trialEndsAt,
+        autoRenew: out.autoRenew,
+        cancelledAt: out.cancelledAt,
+        createdAt: out.createdAt,
+      };
+    },
+
+    async generateRecurringInvoice(subId) {
+      const out = await this._req("POST", "/subscription/invoice", { subscriptionId: subId });
+      return {
+        id: out.invoiceId,
+        number: out.number,
+        leadRef: out.leadRef,
+        amount: num(out.amount),
+        currency: "MYR",
+        status: "unpaid",
+        issuedAt: out.issuedAt,
+        dueAt: out.dueAt,
+        paidAt: null,
+        subscriptionId: subId,
+        recurring: true,
+      };
+    },
+
+    async getSubscriptionEvents(subId) {
+      const out = await this._req("GET", "/subscription/events/" + encodeURIComponent(subId));
+      return Array.isArray(out) ? out : (out.events || []);
+    },
+
     async listPayments(leadRef) {
       if (!leadRef) return [];
       const deal = await this.getDeal(leadRef);
@@ -1334,6 +1608,12 @@
     listDeals: () => adapter.listDeals(),
     metrics: () => adapter.metrics(),
     audit: (ref) => adapter.audit(ref),
+    /* subscriptions (Sprint 3 · Governance OS) */
+    createSubscription: (input) => adapter.createSubscription(input),
+    getSubscription: (id) => adapter.getSubscription(id),
+    cancelSubscription: (id) => adapter.cancelSubscription(id),
+    generateRecurringInvoice: (subId) => adapter.generateRecurringInvoice(subId),
+    getSubscriptionEvents: (subId) => adapter.getSubscriptionEvents(subId),
     /* switch backend at runtime (leads.html settings dialog) */
     configure(next) {
       if (next && next.mode === "supabase" && next.url) {

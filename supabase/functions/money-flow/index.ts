@@ -72,6 +72,16 @@ interface PaymentIntentInput {
   callbackUrl?: string
 }
 
+interface SubscriptionCreateInput {
+  quoteId: string
+  startDate?: string
+}
+
+interface SubscriptionCancelInput {
+  subscriptionId: string
+  immediate?: boolean
+}
+
 // ---- Helpers ----
 function errorResponse(message: string, status = 400) {
   return new Response(JSON.stringify({ error: message }), {
@@ -1231,6 +1241,237 @@ async function handleMetrics(req: Request) {
   return successResponse(metrics)
 }
 
+/* ---- Subscription Handlers (Sprint 3: Governance OS) ---- */
+
+async function handleSubscriptionCreate(req: Request) {
+  const ctx = await resolveAuthContext(req)
+  if (!ctx.user && !ctx.isProspect) return errorResponse("Unauthorized", 401)
+  if (ctx.user && (!ctx.profile || !isAdminOrSecretary(ctx.profile))) {
+    return errorResponse("Operator access required", 403)
+  }
+
+  const input: SubscriptionCreateInput = await req.json()
+  if (!input.quoteId) return errorResponse("Missing quoteId")
+
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("*, assessment_id, organization_id")
+    .eq("id", input.quoteId)
+    .single()
+  if (!quote) return errorResponse("Quote not found", 404)
+
+  if (ctx.isProspect && quote.assessment_id !== ctx.assessment.id) {
+    return errorResponse("Forbidden", 403)
+  }
+  if (!ctx.isProspect && (!ctx.profile || quote.organization_id !== ctx.profile.organization_id)) {
+    return errorResponse("Forbidden", 403)
+  }
+  if (quote.status !== "accepted") {
+    return errorResponse("Quote must be accepted first", 400)
+  }
+
+  const startDate = input.startDate ? new Date(input.startDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]
+
+  const { data: subId, error } = await supabase.rpc("create_subscription_from_quote", {
+    p_quote_id: input.quoteId,
+    p_organization_id: quote.organization_id,
+    p_start_date: startDate,
+  })
+
+  if (error) return errorResponse(error.message, 500)
+
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("*, plan:plans(*)")
+    .eq("id", subId)
+    .single()
+
+  await auditLog(quote.organization_id, ctx.user?.id || "00000000-0000-0000-0000-000000000000", "subscription.created", "subscription", subId, {
+    quoteId: input.quoteId,
+    planCode: subscription.plan?.code,
+  })
+
+  return successResponse({ subscription }, 201)
+}
+
+async function handleSubscriptionCancel(req: Request) {
+  const ctx = await resolveAuthContext(req)
+  if (!ctx.user) return errorResponse("Unauthorized", 401)
+  if (!ctx.profile || !isAdminOrSecretary(ctx.profile)) {
+    return errorResponse("Operator access required", 403)
+  }
+
+  const input: SubscriptionCancelInput = await req.json()
+  if (!input.subscriptionId) return errorResponse("Missing subscriptionId")
+
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("organization_id")
+    .eq("id", input.subscriptionId)
+    .single()
+  if (!sub) return errorResponse("Subscription not found", 404)
+  if (sub.organization_id !== ctx.profile.organization_id) {
+    return errorResponse("Forbidden", 403)
+  }
+
+  const { data: result, error } = await supabase.rpc("cancel_subscription", {
+    p_subscription_id: input.subscriptionId,
+    p_immediate: input.immediate || false,
+  })
+
+  if (error) return errorResponse(error.message, 500)
+
+  await auditLog(sub.organization_id, ctx.user.id, "subscription.cancelled", "subscription", input.subscriptionId, {
+    immediate: input.immediate || false,
+  })
+
+  return successResponse({ status: result })
+}
+
+async function handleSubscriptionRenew(req: Request) {
+  const ctx = await resolveAuthContext(req)
+  if (!ctx.user) return errorResponse("Unauthorized", 401)
+  if (!ctx.profile || !isAdminOrSecretary(ctx.profile)) {
+    return errorResponse("Operator access required", 403)
+  }
+
+  const { subscriptionId } = await req.json()
+  if (!subscriptionId) return errorResponse("Missing subscriptionId")
+
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("organization_id")
+    .eq("id", subscriptionId)
+    .single()
+  if (!sub) return errorResponse("Subscription not found", 404)
+  if (sub.organization_id !== ctx.profile.organization_id) {
+    return errorResponse("Forbidden", 403)
+  }
+
+  const { data: result, error } = await supabase.rpc("process_subscription_renewal", {
+    p_subscription_id: subscriptionId,
+  })
+
+  if (error) return errorResponse(error.message, 500)
+
+  await auditLog(sub.organization_id, ctx.user.id, "subscription.renewed", "subscription", subscriptionId, {
+    result,
+  })
+
+  return successResponse({ status: result })
+}
+
+async function handleSubscriptionGet(req: Request) {
+  const ctx = await resolveAuthContext(req)
+  if (!ctx.user && !ctx.isProspect) return errorResponse("Unauthorized", 401)
+
+  const url = new URL(req.url)
+  const id = url.pathname.split("/").pop()
+
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("*, plan:plans(*)")
+    .eq("id", id)
+    .single()
+
+  if (!sub) return errorResponse("Subscription not found", 404)
+
+  if (ctx.isProspect) {
+    const orgId = await ensureOrganization(ctx.assessment)
+    if (sub.organization_id !== orgId) return errorResponse("Forbidden", 403)
+  } else if (!ctx.profile || sub.organization_id !== ctx.profile.organization_id) {
+    return errorResponse("Forbidden", 403)
+  }
+
+  // Also fetch recurring invoices and payment schedules
+  const { data: recurringInvoices } = await supabase
+    .from("recurring_invoices")
+    .select("*")
+    .eq("subscription_id", sub.id)
+    .order("period_start", { ascending: false })
+
+  const { data: paymentSchedules } = await supabase
+    .from("payment_schedules")
+    .select("*")
+    .eq("subscription_id", sub.id)
+    .order("scheduled_for", { ascending: false })
+
+  return successResponse({ subscription: sub, recurringInvoices, paymentSchedules })
+}
+
+async function handleSubscriptionEvents(req: Request) {
+  const ctx = await resolveAuthContext(req)
+  if (!ctx.user && !ctx.isProspect) return errorResponse("Unauthorized", 401)
+
+  const url = new URL(req.url)
+  const subscriptionId = url.searchParams.get("subscription_id")
+
+  if (!subscriptionId) return errorResponse("Missing subscription_id", 400)
+
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("organization_id")
+    .eq("id", subscriptionId)
+    .single()
+
+  if (!sub) return errorResponse("Subscription not found", 404)
+
+  if (ctx.isProspect) {
+    const orgId = await ensureOrganization(ctx.assessment)
+    if (sub.organization_id !== orgId) return errorResponse("Forbidden", 403)
+  } else if (!ctx.profile || sub.organization_id !== ctx.profile.organization_id) {
+    return errorResponse("Forbidden", 403)
+  }
+
+  const { data: events } = await supabase
+    .from("subscription_events")
+    .select("*")
+    .eq("subscription_id", subscriptionId)
+    .order("created_at", { ascending: false })
+
+  return successResponse({ events: events || [] })
+}
+
+async function handleRecurringInvoiceGenerate(req: Request) {
+  const ctx = await resolveAuthContext(req)
+  if (!ctx.user) return errorResponse("Unauthorized", 401)
+  if (!ctx.profile || !isAdminOrSecretary(ctx.profile)) {
+    return errorResponse("Operator access required", 403)
+  }
+
+  const { recurringInvoiceId } = await req.json()
+  if (!recurringInvoiceId) return errorResponse("Missing recurringInvoiceId")
+
+  const { data: ri } = await supabase
+    .from("recurring_invoices")
+    .select("*, subscription:subscriptions(organization_id)")
+    .eq("id", recurringInvoiceId)
+    .single()
+
+  if (!ri) return errorResponse("Recurring invoice not found", 404)
+  if (ri.subscription.organization_id !== ctx.profile.organization_id) {
+    return errorResponse("Forbidden", 403)
+  }
+
+  const { data: invoiceId, error } = await supabase.rpc("generate_invoice_from_recurring", {
+    p_recurring_invoice_id: recurringInvoiceId,
+  })
+
+  if (error) return errorResponse(error.message, 500)
+
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("id", invoiceId)
+    .single()
+
+  await auditLog(ri.subscription.organization_id, ctx.user.id, "recurring_invoice.generated", "invoice", invoiceId, {
+    recurringInvoiceId,
+  })
+
+  return successResponse({ invoice })
+}
+
 // ---- Router ----
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -1293,6 +1534,28 @@ serve(async (req) => {
     }
     if (method === "GET" && path === "/metrics") {
       return await handleMetrics(req)
+    }
+    // Sprint 3: Subscription endpoints
+    if (method === "POST" && path === "/subscription/create") {
+      return await handleSubscriptionCreate(req)
+    }
+    if (method === "POST" && path === "/subscription/cancel") {
+      return await handleSubscriptionCancel(req)
+    }
+    if (method === "POST" && path === "/subscription/renew") {
+      return await handleSubscriptionRenew(req)
+    }
+    if (method === "GET" && path.startsWith("/subscription/")) {
+      const segments = path.split("/").filter(Boolean)
+      if (segments.length === 2 && segments[1] === "events") {
+        return await handleSubscriptionEvents(req)
+      }
+      if (segments.length === 2) {
+        return await handleSubscriptionGet(req)
+      }
+    }
+    if (method === "POST" && path === "/subscription/recurring-invoice/generate") {
+      return await handleRecurringInvoiceGenerate(req)
     }
     return errorResponse("Not found", 404)
   } catch (err) {

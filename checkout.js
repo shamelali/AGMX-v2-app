@@ -34,11 +34,21 @@
     { key: "printpack", label: T("Pek Mesyuarat Dicetak & Dihantar", "Printed & Delivered Meeting Pack"), desc: T("Pek mesyuarat fizikal dicetak dan dihantar ke dewan AGM", "Physical meeting packs printed and delivered to the AGM hall"), price: 600 },
   ];
 
+  /* Governance OS subscription plans — mirrors server-side plans table
+     (plans.is_subscription=true, billing_cycle='annual'). Prices in MYR/year. */
+  const SUB_PLANS = [
+    { key: "essential", name: T("Essential", "Essential"), monthly: 600, annual: 7200, description: T("Sedia untuk AGM tahunan: notis, agenda, minutes, undian, rekod kehadiran", "Ready for annual AGM: notice, agenda, minutes, voting, attendance records") },
+    { key: "professional", name: T("Professional", "Professional"), monthly: 800, annual: 9600, description: T("Essential + pengurusan matlamat, risiko, polisi, laporan lembaga, aliran kerja kelulusan", "Essential + objectives, risks, policies, board reports, approval workflows") },
+    { key: "enterprise", name: T("Enterprise", "Enterprise"), monthly: 1000, annual: 12000, description: T("Professional + SSO, audit log, API, domain tersuai, sokongan keutamaan, SLA", "Professional + SSO, audit log, API, custom domain, priority support, SLA") },
+    { key: "federation", name: T("Federation", "Federation"), monthly: 1250, annual: 15000, description: T("Enterprise + multi-koperasi, konsolidasi laporan, kawalan akses terpusat, pengurus berdedikasi", "Enterprise + multi-coop, consolidated reporting, centralized access, dedicated manager") },
+  ];
+
   const state = {
     lead: null,
     quote: null,
     invoice: null,
     payment: null,
+    subscription: null,
     step: 1,
     paymentBound: false,
   };
@@ -70,6 +80,7 @@
     for (const [card, step] of [
       ["quote-card", 1], ["invoice-card", 2], ["pay-card", 3],
       ["processing-card", 3.5], ["receipt-card", 4],
+      ["sub-card", 5], ["sub-detail-card", 5.5],
     ]) {
       $(card).classList.toggle("hidden", step !== n);
     }
@@ -315,6 +326,192 @@
     renderAudit();
   }
 
+  /* ---------- STEP 5 · SUBSCRIPTION (Governance OS) ---------- */
+  function renderSubscriptionBuilder() {
+    /* Determine if the accepted quote is for a subscription plan.
+       The lead's pkgKey will indicate the plan (essential_agm, professional_agm, etc.)
+       If it's a subscription plan, we show the subscription step. */
+    const lead = state.lead;
+    const isSubscriptionPlan = lead.pkgKey && lead.pkgKey.endsWith("_agm");
+    
+    if (!isSubscriptionPlan) {
+      /* Not a subscription plan — skip to receipt */
+      setStep(4);
+      return;
+    }
+
+    $("sub-title").textContent = T("Langganan Governance OS", "Governance OS Subscription");
+    infoGrid($("sub-info"), [
+      [T("Rujukan Penilaian", "Assessment Reference"), lead.id],
+      [T("Koperasi", "Cooperative"), lead.coopName],
+      [T("Pakej Disarankan", "Recommended Package"), lead.pkgName],
+      [T("Skor Kerumitan", "Complexity Score"), lead.score + "/100"],
+      [T("Ahli", "Members"), Number(lead.members).toLocaleString("ms-MY")],
+    ]);
+
+    /* Find the matching subscription plan */
+    const planKey = lead.pkgKey.replace("_agm", "");
+    const plan = SUB_PLANS.find((p) => p.key === planKey) || SUB_PLANS[0];
+
+    /* Render plan cards */
+    $("sub-plan-list").innerHTML = SUB_PLANS.map((p) => {
+      const isSelected = p.key === plan.key;
+      return `<label class="addon${isSelected ? " on" : ""}" data-sub-plan="${p.key}" style="cursor:pointer">
+        <input type="radio" name="sub-plan" value="${p.key}" ${isSelected ? "checked" : ""} style="margin-top:3px;accent-color:var(--c-primary);width:16px;height:16px">
+        <span>
+          <strong style="font-size:14px">${p.name}</strong> · <strong style="color:var(--c-primary);font-size:15px">RM${p.annual.toLocaleString("ms-MY")}${T("/tahun", "/yr")}</strong>
+          <div style="font-size:12px;color:var(--c-text-2);margin-top:4px">${p.description}</div>
+          <div style="font-size:11px;color:var(--c-text-3);margin-top:4px">${T("RM", "RM")}${p.monthly}${T("/bulan (bil tahunan)", "/mo (billed annually)")}</div>
+        </span>
+      </label>`;
+    }).join("");
+
+    /* Pre-select the recommended plan */
+    const selectedPlan = plan;
+    renderSelectedPlan(selectedPlan);
+
+    /* Add click handlers for plan selection */
+    document.querySelectorAll('[data-sub-plan]').forEach((card) => {
+      card.addEventListener("click", () => {
+        const key = card.dataset.subPlan;
+        const p = SUB_PLANS.find((pl) => pl.key === key);
+        if (p) {
+          document.querySelectorAll('[data-sub-plan]').forEach((c) => c.classList.remove("on"));
+          card.classList.add("on");
+          card.querySelector('input[name="sub-plan"]').checked = true;
+          renderSelectedPlan(p);
+        }
+      });
+    });
+
+    /* Set up create subscription button */
+    $("sub-create").onclick = async () => {
+      const btn = $("sub-create");
+      btn.disabled = true;
+      btn.textContent = T("Memproses…", "Processing…");
+      try {
+        const selectedKey = document.querySelector('input[name="sub-plan"]:checked').value;
+        const selected = SUB_PLANS.find((p) => p.key === selectedKey);
+        state.subscription = await API.createSubscription({
+          leadRef: lead.id,
+          planKey: selectedKey + "_agm",
+          billingCycle: "annual",
+        });
+        showToast(T("Langganan ", "Subscription ") + state.subscription.number + T(" dicipta.", " created."));
+        await renderSubscriptionDetail();
+        setStep(5.5);
+      } catch (e) {
+        showToast(T("Ralat: ", "Error: ") + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = T("Buat Langganan →", "Create Subscription →");
+      }
+    };
+  }
+
+  function renderSelectedPlan(plan) {
+    $("sub-selected-wrap").classList.remove("hidden");
+    $("sub-selected-detail").innerHTML = `
+      <strong style="font-size:15px">${plan.name}</strong> — RM${plan.annual.toLocaleString("ms-MY")}${T("/tahun", "/yr")}
+      <div style="font-size:12px;color:var(--c-text-2);margin-top:4px">${plan.description}</div>
+    `;
+    $("sub-billing").classList.remove("hidden");
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+    infoGrid($("sub-billing-info"), [
+      [T("Kitaran Bil", "Billing Cycle"), T("Tahunan (1 Januari – 31 Disember)", "Annual (Jan 1 – Dec 31)")],
+      [T("Harga Tahunan", "Annual Price"), `RM${plan.annual.toLocaleString("ms-MY")}`],
+      [T("Tempoh Percubaan", "Trial Period"), `14 ${T("hari", "days")} (${T("tamat", "ends")} ${trialEnd.toLocaleDateString("ms-MY")})`],
+      [T("Pembaharuan Automatik", "Auto Renewal"), T("Ya, setiap 1 Januari", "Yes, every Jan 1")],
+      [T("SST 8%", "Tax 8%"), T("Dikenakan pada setiap bil", "Applied on each invoice")],
+    ]);
+    $("sub-trial").textContent = T("Percubaan 14 hari bermula pada tarikh diluluskan. Batalkan dalam tempoh ini untuk elak caj.", "14-day trial starts on approval date. Cancel within trial to avoid charges.");
+  }
+
+  async function renderSubscriptionDetail() {
+    if (!state.subscription) return;
+    const sub = state.subscription;
+
+    $("sd-title").textContent = T("Butiran Langganan", "Subscription Details");
+    infoGrid($("sd-info"), [
+      [T("No. Langganan", "Subscription No."), sub.number],
+      [T("Pakej", "Package"), sub.planName || sub.planKey],
+      [T("Status", "Status"), sub.status],
+      [T("Kitaran Bil", "Billing Cycle"), sub.billingCycle],
+      [T("Mula", "Starts"), sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString("ms-MY") : "—"],
+      [T("Tamat Tempoh", "Period Ends"), sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString("ms-MY") : "—"],
+      [T("Percubaan Tamat", "Trial Ends"), sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString("ms-MY") : T("Tiada", "None")],
+      [T("Pembaharuan Automatik", "Auto Renew"), sub.autoRenew ? T("Ya", "Yes") : T("Tidak", "No")],
+    ]);
+
+    /* Render recurring invoices */
+    if (sub.recurringInvoices && sub.recurringInvoices.length) {
+      const tbody = $("sd-recurring-invoices").querySelector("tbody");
+      tbody.innerHTML = sub.recurringInvoices.map((ri) => `
+        <tr>
+          <td>${escapeHtml(ri.number)}</td>
+          <td class="num">${ri.issuedAt ? new Date(ri.issuedAt).toLocaleDateString("ms-MY") : "—"}</td>
+          <td class="num">${ri.dueAt ? new Date(ri.dueAt).toLocaleDateString("ms-MY") : "—"}</td>
+          <td class="num">${RM(ri.amount)}</td>
+          <td><span class="badge" style="background:var(--c-${ri.status === "paid" ? "success" : ri.status === "pending" ? "warning" : "text"}-100);color:var(--c-${ri.status === "paid" ? "success" : ri.status === "pending" ? "warning" : "text"}-700)}">${ri.status}</span></td>
+        </tr>
+      `).join("");
+    } else {
+      $("sd-recurring-invoices").querySelector("tbody").innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--c-text-3);padding:20px">${T("Tiada bil bertolak ansur lagi.", "No recurring invoices yet.")}</td></tr>`;
+    }
+
+    /* Render payment schedules */
+    if (sub.paymentSchedules && sub.paymentSchedules.length) {
+      const tbody = $("sd-payment-schedules").querySelector("tbody");
+      tbody.innerHTML = sub.paymentSchedules.map((ps) => `
+        <tr>
+          <td>${escapeHtml(ps.invoiceNumber || "—")}</td>
+          <td class="num">${ps.scheduledAt ? new Date(ps.scheduledAt).toLocaleDateString("ms-MY") : "—"}</td>
+          <td class="num">${RM(ps.amount)}</td>
+          <td><span class="badge" style="background:var(--c-${ps.status === "paid" ? "success" : ps.status === "pending" ? "warning" : "text"}-100);color:var(--c-${ps.status === "paid" ? "success" : ps.status === "pending" ? "warning" : "text"}-700)}">${ps.status}</span></td>
+        </tr>
+      `).join("");
+    } else {
+      $("sd-payment-schedules").querySelector("tbody").innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--c-text-3);padding:20px">${T("Tiada jadual pembayaran lagi.", "No payment schedules yet.")}</td></tr>`;
+    }
+
+    /* Cancel subscription */
+    $("sd-cancel").onclick = async () => {
+      if (!confirm(T("Batalkan langganan ini? Akses kekal sehingga tamat tempoh bil semasa.", "Cancel this subscription? Access remains until end of current billing period."))) return;
+      const btn = $("sd-cancel");
+      btn.disabled = true;
+      btn.textContent = T("Membatalkan…", "Cancelling…");
+      try {
+        state.subscription = await API.cancelSubscription(sub.id);
+        showToast(T("Langganan dibatalkan.", "Subscription cancelled."));
+        await renderSubscriptionDetail();
+      } catch (e) {
+        showToast(T("Ralat: ", "Error: ") + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = T("Batalkan Langganan", "Cancel Subscription");
+      }
+    };
+
+    /* Generate recurring invoice now */
+    $("sd-renew").onclick = async () => {
+      const btn = $("sd-renew");
+      btn.disabled = true;
+      btn.textContent = T("Menterbitkan…", "Generating…");
+      try {
+        const inv = await API.generateRecurringInvoice(sub.id);
+        showToast(T("Bil ", "Invoice ") + inv.number + T(" diterbitkan.", " generated."));
+        state.subscription = await API.getSubscription(sub.id);
+        await renderSubscriptionDetail();
+      } catch (e) {
+        showToast(T("Ralat: ", "Error: ") + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = T("Terbitkan Bil Sekarang", "Generate Invoice Now");
+      }
+    };
+  }
+
   /* ---------- AUDIT TRAIL ---------- */
   const EVENT_LABELS = {
     "assessment.submitted": T("Penilaian dihantar", "Assessment submitted"),
@@ -324,6 +521,9 @@
     "payment.succeeded": T("Pembayaran berjaya", "Payment succeeded"),
     "payment.pending_verification": T("Pemindahan menunggu pengesahan", "Transfer awaiting verification"),
     "lead.stage_changed": T("Peringkat dikemas kini", "Stage updated"),
+    "subscription.created": T("Langganan dicipta", "Subscription created"),
+    "subscription.cancelled": T("Langganan dibatalkan", "Subscription cancelled"),
+    "subscription.invoice_generated": T("Bil bertolak ansur diterbitkan", "Recurring invoice generated"),
   };
 
   async function renderAudit() {
