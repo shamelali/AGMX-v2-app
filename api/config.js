@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 
     // App
     appName: 'AGMX',
-    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://agmx-v2-app.vercel.app',
+    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://agmx-project.vercel.app',
 
     // Feature flags
     demoMode: flag(process.env.NEXT_PUBLIC_DEMO_MODE),

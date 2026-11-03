@@ -63,7 +63,12 @@
 // named a host no longer serving this product. index.html is precached, so an
 // installed browser had to be forced to re-fetch it or it kept asserting the
 // old numbers.
-const CACHE = "agmx-v31";
+//
+// Bumped to v32: index.html pricing subtitle and two plan descriptions removed
+// the "founding cooperative price" and "includes Q4 2026 access at no charge"
+// phrasing, which implied a scarcity incentive and a benefit that cannot be
+// contractually substantiated. index.html is precached.
+const CACHE = "agmx-v32";
 const PRECACHE = [
   "/",
   "/index.html",
