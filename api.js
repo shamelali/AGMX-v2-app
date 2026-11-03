@@ -813,34 +813,19 @@
     },
 
     /* ----- subscriptions ----- */
-    async createSubscription(input) {
-      const out = await this._req("POST", "/subscription" + this._qs({}), {
-        ref: input.leadRef || this._ctx.ref,
-        planKey: input.planKey,
-        billingCycle: input.billingCycle || "annual",
-      });
-      return out.subscription;
+    /* The archived PocketBase router never served /api/agmx/subscription*; the
+       subscription ledger lives in Supabase (money-flow plus the 0006 RPCs).
+       Reaching a retired backend answers 404, so name the requirement instead. */
+    _subscriptionsRequireSupabase() {
+      throw new Error("Langganan memerlukan backend Supabase (money-flow); backend PocketBase telah bersara. "
+        + "Subscriptions require the Supabase backend.");
     },
 
-    async getSubscription(id) {
-      const out = await this._req("GET", "/subscription" + this._qs({ number: id }));
-      return out.subscription;
-    },
-
-    async cancelSubscription(id) {
-      const out = await this._req("POST", "/subscription/cancel" + this._qs({}), { subscriptionId: id });
-      return out.subscription;
-    },
-
-    async generateRecurringInvoice(subId) {
-      const out = await this._req("POST", "/subscription/invoice" + this._qs({}), { subscriptionId: subId });
-      return out.invoice;
-    },
-
-    async getSubscriptionEvents(subId) {
-      const out = await this._req("GET", "/subscription/events" + this._qs({ number: subId }));
-      return out.events || [];
-    },
+    async createSubscription() { return this._subscriptionsRequireSupabase(); },
+    async getSubscription() { return this._subscriptionsRequireSupabase(); },
+    async cancelSubscription() { return this._subscriptionsRequireSupabase(); },
+    async generateRecurringInvoice() { return this._subscriptionsRequireSupabase(); },
+    async getSubscriptionEvents() { return this._subscriptionsRequireSupabase(); },
 
     async listPayments(leadRef) {
       const deal = leadRef ? await this.getDeal(leadRef) : null;
@@ -891,6 +876,8 @@
          (window.supabase); the Edge Function enforces role
          admin/secretary server-side.
      ============================================================ */
+  /* money-flow's recommendPlan() only ever answers with a one-off AGM
+     package, so those are the codes a client may ask to be quoted. */
   const SUPABASE_PLAN_CODES = {
     essential: "essential_agm",
     professional: "professional_agm",
@@ -900,20 +887,24 @@
     enterprise_agm: "enterprise_agm",
   };
 
-  const SUPABASE_PLAN_NAMES = {
-    essential_agm: "AGMX Essential AGM",
-    professional_agm: "AGMX Professional AGM",
-    enterprise_agm: "AGMX Enterprise AGM",
-  };
-
-  /* Display copy of the server-side plan rate card (plans.price_oneoff).
-     The Edge Function re-prices every quote — these values only drive
-     the fresh-quote preview before the server responds. */
-  const SUPABASE_PLAN_PRICES = {
-    essential_agm: 1500,
-    professional_agm: 3500,
-    enterprise_agm: 7500,
-  };
+  /* Names and prices are read from price-list.js, which mirrors public.plans
+     — the table money-flow joins when it prices a quote. Nothing in this file
+     states a number a cooperative is charged: the Edge Function re-prices
+     every order server-side, and a second opinion in the browser is how the
+     landing page ended up selling an RM 2,999 plan that bills RM 9,600. */
+  const RATE_CARD = (typeof globalThis !== "undefined" && globalThis.AGMX_PRICE_LIST)
+    || (typeof require === "function" ? safeRequire("./price-list.js") : null);
+  function safeRequire(id) {
+    try { return require(id); } catch (e) { return null; }
+  }
+  const SUPABASE_PLAN_NAMES = {};
+  const SUPABASE_PLAN_PRICES = {};
+  if (RATE_CARD) {
+    RATE_CARD.services().forEach((p) => {
+      SUPABASE_PLAN_NAMES[p.code] = p.name;
+      SUPABASE_PLAN_PRICES[p.code] = p.oneoff;
+    });
+  }
 
   /* Adapter pipeline stage (BM) ↔ agm_assessments.status code */
   const STATUS_TO_STAGE = {
@@ -1049,6 +1040,71 @@
       currency: "MYR",
       status: row.status,
       paidAt: isoOrNull(row.paid_at),
+      createdAt: row.created_at,
+    };
+  }
+
+  /* money-flow has no sequential subscription number; the row's own id is the
+     record reference, so the UI shows a short stable form of it rather than a
+     number the server never issues. */
+  const subRef = (id) => (id ? "SUB-" + String(id).slice(0, 8).toUpperCase() : "—");
+
+  function mapSupabaseSubscription(row) {
+    if (!row) return null;
+    const plan = row.plan || {};
+    return {
+      id: row.id,
+      number: subRef(row.id),
+      leadRef: row.organization_id,
+      planKey: plan.code || null,
+      planName: plan.name || plan.code || null,
+      billingCycle: row.billing_cycle || "annual",
+      status: row.status,
+      currentPeriodStart: row.current_period_start,
+      currentPeriodEnd: row.current_period_end,
+      trialEndsAt: isoOrNull(row.trial_ends_at),
+      autoRenew: !!row.auto_renew,
+      cancelledAt: isoOrNull(row.cancelled_at),
+      createdAt: row.created_at,
+    };
+  }
+
+  /* A recurring invoice only becomes an invoice — and gets a number, an issue
+     date and a due date — once it has been generated. Before that it is a
+     scheduled period, and the UI has to say so. */
+  function mapSupabaseRecurringInvoice(row) {
+    const invoice = row.invoice || null;
+    return {
+      id: row.id,
+      number: invoice ? invoice.number : "—",
+      issuedAt: invoice ? invoice.issued_at : null,
+      dueAt: invoice ? invoice.due_at : (row.scheduled_for || null),
+      amount: num(invoice ? invoice.amount : (row.total != null ? row.total : row.amount)),
+      status: invoice ? invoice.status : row.status,
+      generated: !!row.invoice_id,
+    };
+  }
+
+  function mapSupabasePaymentSchedule(row) {
+    const invoice = row.recurring_invoice && row.recurring_invoice.invoice
+      ? row.recurring_invoice.invoice
+      : (row.invoice || null);
+    return {
+      id: row.id,
+      invoiceNumber: invoice ? invoice.number : null,
+      scheduledAt: row.scheduled_for,
+      amount: num(row.amount),
+      status: row.status,
+    };
+  }
+
+  function mapSupabaseSubscriptionEvent(row) {
+    return {
+      id: row.id,
+      type: row.event_type,
+      payload: row.payload || {},
+      processed: !!row.processed,
+      processedAt: isoOrNull(row.processed_at),
       createdAt: row.created_at,
     };
   }
@@ -1377,106 +1433,80 @@
 
     /* ----- subscriptions ----- */
     async createSubscription(input) {
-      const leadRef = input.leadRef || this._ctx.ref;
-      if (!leadRef) throw new Error("Rujukan lead diperlukan.");
-      const lead = await this.getAssessment(leadRef);
-      if (!lead) throw new Error("Lead tidak dijumpai: " + leadRef);
+      /* money-flow mints a subscription from an accepted quote; the plan comes
+         from the quote line, so the browser may not choose it. */
+      let quote = null;
+      if (input.quoteRef) {
+        quote = await this.getQuote(input.quoteRef);
+      } else {
+        const deal = await this.getDeal(input.leadRef || this._ctx.ref);
+        quote = deal && deal.quote;
+      }
+      if (!quote) throw new Error("Tiada sebut harga untuk rujukan ini.");
+      if (quote.status !== "accepted") throw new Error("Sebut harga mesti diterima dahulu.");
 
-      const out = await this._req("POST", "/subscription", {
-        assessmentId: lead.uuid,
-        planCode: input.planKey,
-        billingCycle: input.billingCycle || "annual",
+      const out = await this._req("POST", "/subscription/create", {
+        quoteId: quote.id,
+        startDate: input.startDate || undefined,
       });
-      return {
-        id: out.subscriptionId,
-        number: out.number,
-        leadRef: lead.id,
-        planKey: input.planKey,
-        planName: out.planName,
-        billingCycle: "annual",
-        status: out.status,
-        currentPeriodStart: out.currentPeriodStart,
-        currentPeriodEnd: out.currentPeriodEnd,
-        trialEndsAt: out.trialEndsAt,
-        autoRenew: out.autoRenew,
-        cancelledAt: out.cancelledAt,
-        createdAt: out.createdAt,
-      };
+      return mapSupabaseSubscription(out.subscription);
     },
 
     async getSubscription(id) {
       const out = await this._req("GET", "/subscription/" + encodeURIComponent(id));
-      if (!out) return null;
-      return {
-        id: out.id,
-        number: out.number,
-        leadRef: out.leadRef,
-        planKey: out.planKey,
-        planName: out.planName,
-        billingCycle: out.billingCycle,
-        status: out.status,
-        currentPeriodStart: out.currentPeriodStart,
-        currentPeriodEnd: out.currentPeriodEnd,
-        trialEndsAt: out.trialEndsAt,
-        autoRenew: out.autoRenew,
-        cancelledAt: out.cancelledAt,
-        createdAt: out.createdAt,
-        recurringInvoices: (out.recurringInvoices || []).map((ri) => ({
-          id: ri.id,
-          number: ri.number,
-          issuedAt: ri.issuedAt,
-          dueAt: ri.dueAt,
-          amount: num(ri.amount),
-          status: ri.status,
-        })),
-        paymentSchedules: (out.paymentSchedules || []).map((ps) => ({
-          invoiceNumber: ps.invoiceNumber,
-          scheduledAt: ps.scheduledAt,
-          amount: num(ps.amount),
-          status: ps.status,
-        })),
-      };
+      const sub = out && out.subscription;
+      if (!sub) return null;
+
+      /* GET /subscription/:id answers with bare rows, and a recurring invoice
+         only has a number, issue date and due date once it has been generated —
+         those live on the invoice. Annual billing keeps this to a handful. */
+      const invoiceByRecurring = {};
+      await Promise.all((out.recurringInvoices || []).map(async (ri) => {
+        if (!ri.invoice_id) return;
+        try {
+          invoiceByRecurring[ri.id] = await this._req("GET", "/invoice/" + encodeURIComponent(ri.invoice_id));
+        } catch (e) { /* the scheduled period still renders without its invoice */ }
+      }));
+
+      return Object.assign(mapSupabaseSubscription(sub), {
+        recurringInvoices: (out.recurringInvoices || []).map((ri) =>
+          mapSupabaseRecurringInvoice(Object.assign({}, ri, { invoice: invoiceByRecurring[ri.id] || null }))),
+        paymentSchedules: (out.paymentSchedules || []).map((ps) => {
+          const invoice = invoiceByRecurring[ps.recurring_invoice_id] || null;
+          return Object.assign(mapSupabasePaymentSchedule(ps), {
+            invoiceNumber: invoice ? invoice.number : (ps.gateway_reference || null),
+          });
+        }),
+      });
     },
 
     async cancelSubscription(id) {
-      const out = await this._req("POST", "/subscription/cancel", { subscriptionId: id });
-      return {
-        id: out.id,
-        number: out.number,
-        leadRef: out.leadRef,
-        planKey: out.planKey,
-        planName: out.planName,
-        billingCycle: out.billingCycle,
-        status: out.status,
-        currentPeriodStart: out.currentPeriodStart,
-        currentPeriodEnd: out.currentPeriodEnd,
-        trialEndsAt: out.trialEndsAt,
-        autoRenew: out.autoRenew,
-        cancelledAt: out.cancelledAt,
-        createdAt: out.createdAt,
-      };
+      await this._req("POST", "/subscription/cancel", { subscriptionId: id });
+      /* cancel answers with only the new status; re-read the record so the UI
+         shows the period end and cancellation stamp the server wrote. */
+      return await this.getSubscription(id);
     },
 
     async generateRecurringInvoice(subId) {
-      const out = await this._req("POST", "/subscription/invoice", { subscriptionId: subId });
-      return {
-        id: out.invoiceId,
-        number: out.number,
-        leadRef: out.leadRef,
-        amount: num(out.amount),
-        currency: "MYR",
-        status: "unpaid",
-        issuedAt: out.issuedAt,
-        dueAt: out.dueAt,
-        paidAt: null,
+      const detail = await this._req("GET", "/subscription/" + encodeURIComponent(subId));
+      const pending = (detail.recurringInvoices || [])
+        .filter((ri) => !ri.invoice_id)
+        .sort((a, b) => String(a.scheduled_for || a.period_start || "")
+          .localeCompare(String(b.scheduled_for || b.period_start || "")));
+      if (!pending.length) throw new Error("Tiada bil bertolak ansur belum diterbitkan untuk langganan ini.");
+      const out = await this._req("POST", "/subscription/recurring-invoice/generate", {
+        recurringInvoiceId: pending[0].id,
+      });
+      return Object.assign(mapSupabaseInvoice(out.invoice), {
         subscriptionId: subId,
+        leadRef: detail.subscription ? detail.subscription.organization_id : null,
         recurring: true,
-      };
+      });
     },
 
     async getSubscriptionEvents(subId) {
-      const out = await this._req("GET", "/subscription/events/" + encodeURIComponent(subId));
-      return Array.isArray(out) ? out : (out.events || []);
+      const out = await this._req("GET", "/subscription/events", null, { query: { subscription_id: subId } });
+      return (out.events || []).map(mapSupabaseSubscriptionEvent);
     },
 
     async listPayments(leadRef) {

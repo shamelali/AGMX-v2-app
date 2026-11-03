@@ -171,13 +171,17 @@
     showToast(T("CSV dieksport (", "CSV exported (") + DEALS.length + T(" baris).", " rows)."));
   }
 
-  /* ---------- backend chip / settings ---------- */
-  function fillBackendDialog() {
-    const cfgRaw = localStorage.getItem("agmx_backend_cfg");
-    try {
-      const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
-      $("pb-url").value = (cfg && cfg.mode === "pocketbase" && cfg.url) || "";
-    } catch (e) { /* ignore */ }
+  /* ---------- backend chip (read-only status) ---------- */
+  /* The dialog used to hand the operator a PocketBase URL field and an
+     "Use Local Demo" button. PocketBase is retired and the deployment picks its
+     backend from /api/config.js, so the chip now reports state instead of
+     offering a switch that would point the workspace at a dead host. */
+  function fillBackendDialog(st) {
+    $("backend-state").textContent =
+      (st && st.label ? st.label : T("Backend tidak dapat dibaca.", "The backend could not be read.")) +
+      " · " + (st && st.ok
+        ? T("sambungan hidup", "connection live")
+        : T("sambungan tidak disahkan", "connection not verified"));
   }
 
   async function loadAll() {
@@ -225,25 +229,12 @@
       }
     });
 
-    /* backend settings dialog */
+    /* backend status dialog */
     const dlg = $("backend-dialog");
-    $("backend-chip").addEventListener("click", () => { fillBackendDialog(); dlg.showModal(); });
-    $("pb-save").addEventListener("click", () => {
-      const url = $("pb-url").value.trim();
-      if (url) {
-        API.configure({ mode: "pocketbase", url });
-        showToast(T("Backend PocketBase dikonfigurasi. Memuat semula…", "PocketBase backend configured. Reloading…"));
-      } else {
-        showToast(T("URL PocketBase diperlukan (contoh: http://127.0.0.1:8090).", "PocketBase URL is required (e.g. http://127.0.0.1:8090)."));
-        return;
-      }
-      setTimeout(() => location.reload(), 700);
-    });
-    $("pb-clear").addEventListener("click", () => {
-      API.configure(null);
-      showToast(T("Kembali ke demo tempatan. Memuat semula…", "Back to local demo. Reloading…"));
-      setTimeout(() => location.reload(), 700);
-    });
+    let backendState = null;
+    try { backendState = await API.status(); } catch (e) { backendState = null; }
+    $("backend-chip").addEventListener("click", () => { fillBackendDialog(backendState); dlg.showModal(); });
+    $("backend-close").addEventListener("click", () => dlg.close());
 
     await loadAll();
   }

@@ -690,6 +690,8 @@ create index if not exists idx_rate_limit_window on public.rate_limit (window_st
 
 alter table public.rate_limit enable row level security;
 
+drop policy if exists rate_limit_service_only on public.rate_limit;
+
 create policy rate_limit_service_only on public.rate_limit
   for all using (auth.role() = 'service_role');
 

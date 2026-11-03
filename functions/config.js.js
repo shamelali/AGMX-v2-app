@@ -12,14 +12,29 @@ export async function onRequest(context) {
 
   const env = context.env;
 
-  // Unset means ON — set the literal "false" to opt out.
-  const flag = (v) => v !== "false";
+  // Flags are opt-IN, matching api/config.js. `v !== "false"` made an unset
+  // variable mean ON, so a Pages deployment that never set the flags served
+  // demoMode:true and the browser silently wrote quotes and payments to
+  // localStorage instead of the configured backend.
+  const optIn = (v) => v === "true";
+
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const demoMode = optIn(env.NEXT_PUBLIC_DEMO_MODE);
+  const gatewayReady = !!(env.BILLPLZ_API_KEY && env.BILLPLZ_COLLECTION_ID) || !!env.HITPAY_API_KEY;
+  const requestedMode = String(env.NEXT_PUBLIC_PAYMENTS_MODE || "").toLowerCase();
+  const paymentsMode = requestedMode === "all" || !requestedMode
+    ? (gatewayReady ? "all" : "bank_transfer")
+    : requestedMode;
 
   const config = {
     // Supabase (client-safe). Publishable key preferred; legacy anon key
     // remains accepted so existing deployments keep working.
-    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL || "",
+    supabaseUrl,
     supabaseAnonKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+
+    // Stated explicitly so the adapter is chosen by what the deployment
+    // declared, not by which implicit fallback happens to match.
+    mode: !demoMode && supabaseUrl ? "supabase" : "local",
 
     // LLM Provider
     llmProvider: env.NEXT_PUBLIC_LLM_PROVIDER || "openai",
@@ -33,9 +48,10 @@ export async function onRequest(context) {
     appName: "AGMX",
     appUrl: env.NEXT_PUBLIC_APP_URL || "https://agmx.pages.dev",
 
-    demoMode: flag(env.NEXT_PUBLIC_DEMO_MODE),
-    knowledgeRagEnabled: flag(env.NEXT_PUBLIC_KNOWLEDGE_RAG),
-    realtimeEnabled: flag(env.NEXT_PUBLIC_REALTIME),
+    demoMode,
+    paymentsMode,
+    knowledgeRagEnabled: optIn(env.NEXT_PUBLIC_KNOWLEDGE_RAG),
+    realtimeEnabled: optIn(env.NEXT_PUBLIC_REALTIME),
 
     pocketbaseUrl: env.NEXT_PUBLIC_POCKETBASE_URL || "",
     pocketbaseRealtimeOnly: true,

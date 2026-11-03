@@ -7,8 +7,8 @@
   <meta name="description" content="Sebut harga, invois dan pembayaran AGM — AGMX. Sahkan pakej AGM anda dan selesaikan pembayaran dengan selamat.">
   <title>Pembayaran AGM · AGMX</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
-  <script src="theme.js"></script>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/theme.js"></script>
   <style>
     body { background: var(--c-bg); }
     .as-header { background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary)); color: #fff; padding: 18px 0; }
@@ -112,7 +112,7 @@
           <div style="font-size:40px;margin-bottom:10px">🧾</div>
           <h2>Tiada Penilaian Dijumpai</h2>
           <p class="sub" style="max-width:420px;margin:0 auto 18px">Mulakan dengan penilaian AGM percuma — skor kerumitan, saranan pakej dan sebut harga dijana dalam 60 saat.</p>
-          <a href="assessment.html" class="btn btn-primary btn-lg">Mula Penilaian Percuma →</a>
+          <a href="/assessment.html" class="btn btn-primary btn-lg">Mula Penilaian Percuma →</a>
         </div>
       </div>
 
@@ -167,23 +167,23 @@
           <button class="btn btn-ghost" id="inv-print">🖨 Cetak / Simpan Invois</button>
           <button class="btn btn-primary btn-lg" id="inv-pay">Bayar Sekarang →</button>
         </div>
-        <p class="fine">Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada <strong>Dibayar</strong> selepas pembayaran disahkan.</p>
+        <p class="fine">Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada Dibayar selepas pembayaran disahkan.</p>
       </div>
 
       <!-- STEP 3: PAYMENT -->
       <div class="as-card hidden" id="pay-card">
         <span class="section-tag">Langkah 3 · Pembayaran</span>
         <h2>Pilih Kaedah Pembayaran</h2>
-        <p class="sub" id="pay-sub">Semua transaksi dilindungi TLS 1.3. AGMX tidak menyimpan maklumat kad anda.</p>
+        <p class="sub" id="pay-sub">Pemindahan bank ialah satu-satunya kaedah yang diselesaikan pada deployment ini hari ini. FPX, kad dan Billplz disembunyikan sehingga kunci gerbang dikonfigurasi. Kami tidak menyimpan butiran kad anda.</p>
 
         <div class="pay-method" role="radiogroup">
           <label class="pay-pill">
             <input type="radio" name="paymethod" value="fpx" checked>
-            <span><b>🏦 FPX — Perbankan Dalam Talian</b><small>Maybank2u, CIMB Clicks, Bank Islam, muat turun arahan… Pengesahan serta-merta.</small></span>
+            <span><b>🏦 FPX — Perbankan Dalam Talian</b><small>Maybank2u, CIMB Clicks, Bank Islam dan lain-lain. Belum tersedia — pengesahan serta-merta belum didayakan.</small></span>
           </label>
           <label class="pay-pill">
             <input type="radio" name="paymethod" value="card">
-            <span><b>💳 Kad Kredit / Debit</b><small>Visa / Mastercard. 3-D Secure dengan pengesahan bank anda.</small></span>
+            <span><b>💳 Kad Kredit / Debit</b><small>Visa / Mastercard. Belum tersedia — tiada laluan 3-D Secure dikonfigurasi.</small></span>
           </label>
           <label class="pay-pill">
             <input type="radio" name="paymethod" value="bank_transfer">
@@ -191,7 +191,7 @@
           </label>
           <label class="pay-pill">
             <input type="radio" name="paymethod" value="billplz">
-            <span><b>🧾 Billplz</b><small>FPX / kad / e-wallet melalui gerbang berlesen. Pengesahan automatik.</small></span>
+            <span><b>🧾 Billplz</b><small>FPX / kad / e-wallet melalui gerbang berlesen. Belum tersedia — gerbang belum dikonfigurasi dan webhook belum disahkan.</small></span>
           </label>
         </div>
 
@@ -207,8 +207,8 @@
         <div id="bank-details" class="hidden" style="margin-top:16px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:12px;padding:16px">
           <div style="font-size:13px;font-weight:800;margin-bottom:8px">Akaun Bank AGMX</div>
           <div style="font-size:13.5px;line-height:2">
-            <strong>AGMX Technology Sdn Bhd</strong><br>
-            Maybank · <strong>5624 1122 3344</strong><br>
+            <strong>Nombor akaun terimaan dihantar bersama invois anda.</strong><br>
+            Kami tidak memaparkan nombor akaun tetap di halaman ini supaya butiran yang anda gunakan sentiasa sepadan dengan invois yang dikeluarkan.<br>
             Rujukan: <strong id="bank-ref" style="font-variant-numeric:tabular-nums">—</strong>
           </div>
           <p class="fine" style="margin-top:8px">Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.</p>
@@ -246,13 +246,13 @@
           <span class="badge" style="background:var(--c-warning-100);color:#92400E">→ 4 · Persediaan AGM (48 jam)</span>
           <span class="badge">5 · AGM Dijadualkan</span>
         </div>
-        <p class="fine">Pengurus projek AGMX akan menghubungi <strong id="r-contact">—</strong> dalam 48 jam untuk persediaan AGM: import ahli, notis AGM 14 hari (Akta Koperasi 1993 · GP14), dan penerbitan dewan AGM.</p>
+        <p class="fine">Pengurus projek AGMX akan menghubungi <strong id="r-contact">—</strong> dalam 48 jam untuk persediaan AGM: import ahli, notis AGM mengikut tempoh yang dikonfigurasi untuk AGM anda (lalai 21 hari — sahkan minimum dalam UUK anda), dan penerbitan dewan AGM.</p>
 
         <div class="actions">
           <button class="btn btn-ghost" id="r-print">🖨 Cetak Resit</button>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <a href="app.html" class="btn btn-ghost">Lihat Demo Platform</a>
-            <a href="leads.html" class="btn btn-primary">Lead Inbox (Operasi) →</a>
+            <a href="/app.html" class="btn btn-ghost">Lihat Demo Platform</a>
+            <a href="/leads.html" class="btn btn-primary">Lead Inbox (Operasi) →</a>
           </div>
         </div>
       </div>
@@ -261,7 +261,7 @@
       <div class="as-card hidden" id="sub-card">
         <span class="section-tag">Langkah 5 · Langganan</span>
         <h2 id="sub-title">Langganan Governance OS</h2>
-        <p class="sub" id="sub-sub">Sahkan pakej tahunan dengan tempoh percubaan 14 hari. Bil bertolak ansur diterbitkan setiap 1 Januari.</p>
+        <p class="sub" id="sub-sub">Sahkan pakej tahunan. Invois berulang pertama dijadwalkan pada hari langganan dicipta.</p>
 
         <div class="info-grid" id="sub-info"></div>
 
@@ -284,7 +284,7 @@
           <div style="font-size:12px;color:var(--c-text-3)" id="sub-trial"></div>
           <button class="btn btn-primary btn-lg" id="sub-create">Buat Langganan →</button>
         </div>
-        <p class="fine">Langganan bermula pada tarikh diluluskan. Tempoh percubaan 14 hari — dibatalkan dalam tempoh ini tiada caj. Pembaharuan automatik setiap 1 Januari. Dapat dibatalkan bila-bila masa; akses kekal sehingga tamat tempoh bil.</p>
+        <p class="fine">Langganan bermula pada tarikh diluluskan dan berjalan dua belas bulan. Invois tahunan pertama dijadwalkan pada hari ia dicipta, jadi tiada tempoh tanpa invois. Pembaharuan automatik pada akhir tempoh; boleh dimatikan bila-bila masa dan akses kekal sehingga tamat tempoh bil.</p>
       </div>
 
       <!-- STEP 5b: SUBSCRIPTION DETAILS -->
@@ -326,19 +326,22 @@
       <div class="as-card hidden no-print" id="audit-card" style="margin-top:24px">
         <span class="section-tag">Jejak Audit</span>
         <h2>Rekod Transaksi</h2>
-        <p class="sub">Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah <code>audit_events</code> append-only berantai-hash.</p>
+        <p class="sub">Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah audit_events append-only berantai-hash.</p>
         <div id="audit-list"></div>
       </div>
 
   <div class="toast" id="toast"></div>
 
-  <script src="config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
-  <script src="api.js"></script>
-  <script src="checkout.js"></script>
+  <script src="/config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script src="/price-list.js"></script>
+  <script src="/api.js"></script>
+  <script src="/checkout.js"></script>
 
 <script>
 (function () {
-  var MAP = {"Sebut Harga": "Quote", "Invois": "Invoice", "Pembayaran": "Payment", "Resit": "Receipt", "Langganan": "Subscription", "Tiada Penilaian Dijumpai": "No Assessment Found", "Mulakan dengan penilaian AGM percuma — skor kerumitan, saranan pakej dan sebut harga dijana dalam 60 saat.": "Start with the free AGM assessment — complexity score, package recommendation and quote generated in 60 seconds.", "Mula Penilaian Percuma →": "Start Free Assessment →", "Langkah 1 · Sebut Harga": "Step 1 · Quote", "Sebut Harga AGM": "AGM Quote", "Semak pakej dan tambahan pilihan anda.": "Review your package and optional add-ons.", "Item Sebut Harga": "Quote Items", "Keterangan": "Description", "Kuantiti": "Qty", "Harga Unit": "Unit Price", "Jumlah": "Total", "Tambahan Pilihan": "Optional Add-ons", "Terbitkan & Terima Sebut Harga →": "Issue & Accept Quote →", "Sebut harga ini dijana daripada penilaian AGM anda dan sah selama 30 hari. Harga termasuk SST 8% seperti yang dinyatakan. Sebut harga muktamad disahkan oleh pasukan AGMX selepas konsultasi percuma.": "This quote is generated from your AGM assessment and is valid for 30 days. Prices include 8% SST where stated. The final quote is confirmed by the AGMX team after a free consultation.", "Langkah 2 · Invois": "Step 2 · Invoice", "Invois rasmi telah diterbitkan berdasarkan sebut harga yang diterima.": "An official invoice has been issued based on the accepted quote.", "🖨 Cetak / Simpan Invois": "🖨 Print / Save Invoice", "Bayar Sekarang →": "Pay Now →", "Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada <strong>Dibayar</strong> selepas pembayaran disahkan.": "Payment terms: NET 14 days. Your cooperative's status will be updated to <strong>Paid</strong> once payment is verified.", "Langkah 3 · Pembayaran": "Step 3 · Payment", "Pilih Kaedah Pembayaran": "Choose Payment Method", "Semua transaksi dilindungi TLS 1.3. AGMX tidak menyimpan maklumat kad anda.": "All transactions are protected by TLS 1.3. AGMX does not store your card details.", "🏦 FPX — Perbankan Dalam Talian": "🏦 FPX — Online Banking", "Maybank2u, CIMB Clicks, Bank Islam, muat turun arahan… Pengesahan serta-merta.": "Maybank2u, CIMB Clicks, Bank Islam and more. Instant confirmation.", "💳 Kad Kredit / Debit": "💳 Credit / Debit Card", "Visa / Mastercard. 3-D Secure dengan pengesahan bank anda.": "Visa / Mastercard. 3-D Secure with your bank's verification.", "🏛 Pemindahan Bank (Manual)": "🏛 Bank Transfer (Manual)", "Untuk koperasi yang perlu kelulusan lembaga. Disahkan dalam 1 hari bekerja.": "For cooperatives requiring board approval. Verified within 1 business day.", "FPX / kad / e-wallet melalui gerbang berlesen. Pengesahan automatik.": "FPX / cards / e-wallets via a licensed gateway. Automatic confirmation.", "Pilih Bank": "Select Bank", "Akaun Bank AGMX": "AGMX Bank Account", "Rujukan:": "Reference:", "Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.": "Please include the reference number above when transferring. We will verify within 1 business day.", "Jumlah Bayaran:": "Amount Due:", "Pembayaran disahkan oleh pasukan AGMX dalam 1 hari bekerja selepas pemindahan diterima.": "Payment is verified by the AGMX team within 1 business day after the transfer is received.", "Memproses Pembayaran…": "Processing Payment…", "Sila jangan tutup tetingkap ini.": "Please do not close this window.", "Langkah 4 · Selesai": "Step 4 · Done", "Pembayaran Berjaya 🎉": "Payment Successful 🎉", "Terima kasih! AGM koperasi anda kini dijadualkan untuk persediaan.": "Thank you! Your cooperative's AGM is now scheduled for preparation.", "DIBAYAR": "PAID", "Peringkat Seterusnya": "Next Steps", "✓ 2 · Sebut Harga": "✓ 2 · Quote", "✓ 3 · Pembayaran": "✓ 3 · Payment", "→ 4 · Persediaan AGM (48 jam)": "→ 4 · AGM Setup (48h)", "5 · AGM Dijadualkan": "5 · AGM Scheduled", "Pengurus projek AGMX akan menghubungi": "Your AGMX project manager will contact", "dalam 48 jam untuk persediaan AGM: import ahli, notis AGM 14 hari (Akta Koperasi 1993 · GP14), dan penerbitan dewan AGM.": "within 48 hours for AGM setup: member import, the 14-day AGM notice (Cooperative Act 1993 · GP14), and hall launch.", "🖨 Cetak Resit": "🖨 Print Receipt", "Lihat Demo Platform": "View Platform Demo", "Lead Inbox (Operasi) →": "Lead Inbox (Operations) →", "Jejak Audit": "Audit Trail", "Rekod Transaksi": "Transaction Records", "Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah <code>audit_events</code> append-only berantai-hash.": "Every action in the commercial flow is recorded — in production this is a hash-chained append-only <code>audit_events</code> log.", "Langkah 5 · Langganan": "Step 5 · Subscription", "Langganan Governance OS": "Governance OS Subscription", "Sahkan pakej tahunan dengan tempoh percubaan 14 hari. Bil bertolak ansur diterbitkan setiap 1 Januari.": "Confirm annual package with 14-day trial. Recurring invoices issued every Jan 1.", "Pilihan Pakej": "Package Options", "Pakej Terpilih": "Selected Package", "Maklumat Bil": "Billing Info", "Buat Langganan →": "Create Subscription →", "Langganan bermula pada tarikh diluluskan. Tempoh percubaan 14 hari — dibatalkan dalam tempoh ini tiada caj. Pembaharuan automatik setiap 1 Januari. Dapat dibatalkan bila-bila masa; akses kekal sehingga tamat tempoh bil.": "Subscription starts on approval date. 14-day trial — cancel within trial at no charge. Auto-renews every Jan 1. Cancel anytime; access remains until end of billing period.", "Langganan Aktif": "Active Subscription", "Butiran Langganan": "Subscription Details", "Kelola langganan, lihat bil bertolak ansur, dan jadual pembayaran.": "Manage subscription, view recurring invoices, and payment schedules.", "Bil Bertolak Ansur": "Recurring Invoices", "Tarikh Diterbitkan": "Issued Date", "Tarikh Jatuh Tempo": "Due Date", "Amaun": "Amount", "Status": "Status", "Jadual Pembayaran": "Payment Schedule", "Tarikh Dijadualkan": "Scheduled Date", "Bil Berkaitan": "Related Invoice", "Batalkan Langganan": "Cancel Subscription", "Terbitkan Bil Sekarang": "Generate Invoice Now", "Pembatalan berkuat kuasa pada akhir tempoh bil semasa. Akses platform kekal sehingga tamat tempoh. Bil seterusnya tidak diterbitkan.": "Cancellation takes effect at end of current billing period. Platform access remains until period end. No further invoices generated."};
+  var MAP = {"Sebut Harga": "Quote", "Invois": "Invoice", "Pembayaran": "Payment", "Resit": "Receipt", "Langganan": "Subscription", "Tiada Penilaian Dijumpai": "No Assessment Found", "Mulakan dengan penilaian AGM percuma — skor kerumitan, saranan pakej dan sebut harga dijana dalam 60 saat.": "Start with the free AGM assessment — complexity score, package recommendation and quote generated in 60 seconds.", "Mula Penilaian Percuma →": "Start Free Assessment →", "Langkah 1 · Sebut Harga": "Step 1 · Quote", "Sebut Harga AGM": "AGM Quote", "Semak pakej dan tambahan pilihan anda.": "Review your package and optional add-ons.", "Item Sebut Harga": "Quote Items", "Keterangan": "Description", "Kuantiti": "Qty", "Harga Unit": "Unit Price", "Jumlah": "Total", "Tambahan Pilihan": "Optional Add-ons", "Terbitkan & Terima Sebut Harga →": "Issue & Accept Quote →", "Sebut harga ini dijana daripada penilaian AGM anda dan sah selama 30 hari. Harga termasuk SST 8% seperti yang dinyatakan. Sebut harga muktamad disahkan oleh pasukan AGMX selepas konsultasi percuma.": "This quote is generated from your AGM assessment and is valid for 30 days. Prices include 8% SST where stated. The final quote is confirmed by the AGMX team after a free consultation.", "Langkah 2 · Invois": "Step 2 · Invoice", "Invois rasmi telah diterbitkan berdasarkan sebut harga yang diterima.": "An official invoice has been issued based on the accepted quote.", "🖨 Cetak / Simpan Invois": "🖨 Print / Save Invoice", "Bayar Sekarang →": "Pay Now →", "Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada Dibayar selepas pembayaran disahkan.": "Payment terms: NET 14 days. Your cooperative's status will be updated to Paid once payment is verified.", "Langkah 3 · Pembayaran": "Step 3 · Payment", "Pilih Kaedah Pembayaran": "Choose Payment Method", "Pemindahan bank ialah satu-satunya kaedah yang diselesaikan pada deployment ini hari ini. FPX, kad dan Billplz disembunyikan sehingga kunci gerbang dikonfigurasi. Kami tidak menyimpan butiran kad anda.": "Bank transfer is the only method that settles on this deployment today. FPX, cards and Billplz are hidden until gateway keys are configured. We do not store your card details.", "🏦 FPX — Perbankan Dalam Talian": "🏦 FPX — Online Banking", "Maybank2u, CIMB Clicks, Bank Islam dan lain-lain. Belum tersedia — pengesahan serta-merta belum didayakan.": "Maybank2u, CIMB Clicks, Bank Islam and more. Not available yet — instant confirmation is not enabled.", "💳 Kad Kredit / Debit": "💳 Credit / Debit Card", "Visa / Mastercard. Belum tersedia — tiada laluan 3-D Secure dikonfigurasi.": "Visa / Mastercard. Not available yet — no 3-D Secure path is configured.", "🏛 Pemindahan Bank (Manual)": "🏛 Bank Transfer (Manual)", "Untuk koperasi yang perlu kelulusan lembaga. Disahkan dalam 1 hari bekerja.": "For cooperatives requiring board approval. Verified within 1 business day.", "FPX / kad / e-wallet melalui gerbang berlesen. Belum tersedia — gerbang belum dikonfigurasi dan webhook belum disahkan.": "FPX / cards / e-wallets via a licensed gateway. Not available yet — the gateway is not configured and its webhook is not verified.", "Pilih Bank": "Select Bank", "Akaun Bank AGMX": "AGMX Bank Account", "Nombor akaun terimaan dihantar bersama invois anda.": "The receiving account number is sent with your invoice.",
+            "Kami tidak memaparkan nombor akaun tetap di halaman ini supaya butiran yang anda gunakan sentiasa sepadan dengan invois yang dikeluarkan.": "We do not publish a standing account number on this page, so the details you use always match the invoice issued to you.",
+            "Rujukan:": "Reference:", "Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.": "Please include the reference number above when transferring. We will verify within 1 business day.", "Jumlah Bayaran:": "Amount Due:", "Pembayaran disahkan oleh pasukan AGMX dalam 1 hari bekerja selepas pemindahan diterima.": "Payment is verified by the AGMX team within 1 business day after the transfer is received.", "Memproses Pembayaran…": "Processing Payment…", "Sila jangan tutup tetingkap ini.": "Please do not close this window.", "Langkah 4 · Selesai": "Step 4 · Done", "Pembayaran Berjaya 🎉": "Payment Successful 🎉", "Terima kasih! AGM koperasi anda kini dijadualkan untuk persediaan.": "Thank you! Your cooperative's AGM is now scheduled for preparation.", "DIBAYAR": "PAID", "Peringkat Seterusnya": "Next Steps", "✓ 2 · Sebut Harga": "✓ 2 · Quote", "✓ 3 · Pembayaran": "✓ 3 · Payment", "→ 4 · Persediaan AGM (48 jam)": "→ 4 · AGM Setup (48h)", "5 · AGM Dijadualkan": "5 · AGM Scheduled", "Pengurus projek AGMX akan menghubungi": "Your AGMX project manager will contact", "dalam 48 jam untuk persediaan AGM: import ahli, notis AGM mengikut tempoh yang dikonfigurasi untuk AGM anda (lalai 21 hari — sahkan minimum dalam UUK anda), dan penerbitan dewan AGM.": "within 48 hours for AGM setup: member import, the AGM notice sent to the period configured for your AGM (21 days by default — confirm your constitution's minimum), and hall launch.", "🖨 Cetak Resit": "🖨 Print Receipt", "Lihat Demo Platform": "View Platform Demo", "Lead Inbox (Operasi) →": "Lead Inbox (Operations) →", "Jejak Audit": "Audit Trail", "Rekod Transaksi": "Transaction Records", "Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah audit_events append-only berantai-hash.": "Every action in the commercial flow is recorded — in production this is a hash-chained append-only audit_events log.", "Langkah 5 · Langganan": "Step 5 · Subscription", "Langganan Governance OS": "Governance OS Subscription", "Sahkan pakej tahunan. Invois berulang pertama dijadwalkan pada hari langganan dicipta.": "Confirm the annual package. The first recurring invoice is scheduled the day the subscription is created.", "Pilihan Pakej": "Package Options", "Pakej Terpilih": "Selected Package", "Maklumat Bil": "Billing Info", "Buat Langganan →": "Create Subscription →", "Langganan bermula pada tarikh diluluskan dan berjalan dua belas bulan. Invois tahunan pertama dijadwalkan pada hari ia dicipta, jadi tiada tempoh tanpa invois. Pembaharuan automatik pada akhir tempoh; boleh dimatikan bila-bila masa dan akses kekal sehingga tamat tempoh bil.": "Subscription starts on the approval date and runs twelve months. The first annual invoice is scheduled the day it is created, so there is no un-invoiced period. Auto-renewal runs at the end of the period; turn it off anytime and access remains until the period ends.", "Langganan Aktif": "Active Subscription", "Butiran Langganan": "Subscription Details", "Kelola langganan, lihat bil bertolak ansur, dan jadual pembayaran.": "Manage subscription, view recurring invoices, and payment schedules.", "Bil Bertolak Ansur": "Recurring Invoices", "Tarikh Diterbitkan": "Issued Date", "Tarikh Jatuh Tempo": "Due Date", "Amaun": "Amount", "Status": "Status", "Jadual Pembayaran": "Payment Schedule", "Tarikh Dijadualkan": "Scheduled Date", "Bil Berkaitan": "Related Invoice", "Batalkan Langganan": "Cancel Subscription", "Terbitkan Bil Sekarang": "Generate Invoice Now", "Pembatalan berkuat kuasa pada akhir tempoh bil semasa. Akses platform kekal sehingga tamat tempoh. Bil seterusnya tidak diterbitkan.": "Cancellation takes effect at end of current billing period. Platform access remains until period end. No further invoices generated."};
   var lang = "ms";
   try {
     var q = new URLSearchParams(location.search).get("lang");

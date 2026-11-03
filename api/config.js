@@ -11,17 +11,40 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed')
   }
 
-  // Unset means ON, which is what every deployment has done until now — the
-  // previous form OR'd a constant true onto the comparison, so passing
-  // NEXT_PUBLIC_DEMO_MODE=false still left demo mode on. Set it to the
-  // literal "false" to opt out.
-  const flag = (v) => v !== 'false'
+  // Feature flags are opt-IN. They used to be opt-OUT (`v !== 'false'`, so an
+  // unset variable meant ON), and every Vercel deployment has been created
+  // without setting them — which is why the production site reported
+  // demoMode:true and api.js:1578 bound the localStorage adapter: quotes,
+  // invoices and payments were written to the visitor's browser while the page
+  // printed a paid receipt. A backend that exists but is not configured must
+  // look absent, never look like a working one.
+  const optIn = (v) => v === 'true'
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  const demoMode = optIn(process.env.NEXT_PUBLIC_DEMO_MODE)
+
+  // Which gateway methods the checkout page may offer. api/health.js:65 applies
+  // the same presence test to the same variables. checkout.js hides every
+  // gateway option when this is not "all", so an operator can still narrow a
+  // deployment with NEXT_PUBLIC_PAYMENTS_MODE — but asking for "all" without
+  // keys is refused, because that is a bill no server can create.
+  const gatewayReady = !!(process.env.BILLPLZ_API_KEY && process.env.BILLPLZ_COLLECTION_ID)
+    || !!process.env.HITPAY_API_KEY
+  const requestedMode = String(process.env.NEXT_PUBLIC_PAYMENTS_MODE || '').toLowerCase()
+  const paymentsMode = requestedMode === 'all' || !requestedMode
+    ? (gatewayReady ? 'all' : 'bank_transfer')
+    : requestedMode
 
   const config = {
     // Supabase (client-safe). Publishable key preferred; legacy anon key
     // remains accepted so existing deployments keep working.
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    supabaseUrl,
+    supabaseAnonKey: anonKey,
+
+    // Stated explicitly so the adapter is chosen by what the deployment
+    // declared, not by which of two implicit fallbacks happens to match.
+    mode: (!demoMode && supabaseUrl) ? 'supabase' : 'local',
 
     // LLM Provider
     llmProvider: process.env.NEXT_PUBLIC_LLM_PROVIDER || 'openai',
@@ -39,15 +62,14 @@ export default async function handler(req, res) {
     appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://agmx-project.vercel.app',
 
     // Feature flags
-    demoMode: flag(process.env.NEXT_PUBLIC_DEMO_MODE),
+    demoMode,
     // "bank_transfer" hides gateway methods until Billplz/HitPay keys exist.
-    paymentsMode: (process.env.NEXT_PUBLIC_PAYMENTS_MODE || 'all').toLowerCase(),
-    knowledgeRagEnabled: flag(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG),
-    realtimeEnabled: flag(process.env.NEXT_PUBLIC_REALTIME),
+    // An explicit NEXT_PUBLIC_PAYMENTS_MODE can still force a mode, but only
+    // downward: naming "all" without gateway keys would lie.
+    paymentsMode,
+    knowledgeRagEnabled: optIn(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG),
+    realtimeEnabled: optIn(process.env.NEXT_PUBLIC_REALTIME),
 
-    // Legacy PocketBase (optional, for realtime only)
-    pocketbaseUrl: process.env.NEXT_PUBLIC_POCKETBASE_URL || '',
-    pocketbaseRealtimeOnly: true,
   }
 
   res.setHeader('Content-Type', 'application/javascript')

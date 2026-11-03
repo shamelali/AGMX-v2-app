@@ -19,6 +19,8 @@
     "Dashboard": "Papan Pemuka",
     "Your cooperative workspace": "Ruang kerja koperasi anda",
     "Members": "Ahli",
+    "AGM Hall": "Dewan AGM",
+    "Compliance & Audit": "Pematuhan & Audit",
     "Registered in this organization": "Berdaftar dalam organisasi ini",
     "Quorum": "Kuorum",
     "present": "hadir",
@@ -57,6 +59,21 @@
     "The two passwords do not match.": "Kedua-dua kata laluan tidak sama.",
     "Could not update the password.": "Kata laluan tidak dapat dikemas kini.",
     "AGMX API is unavailable.": "API AGMX tidak tersedia.",
+    "Workspace could not be loaded": "Ruang kerja tidak dapat dimuatkan",
+    "You are signed in, but the server did not return your organization's data. Nothing here has been replaced with sample data.":
+      "Anda telah log masuk, tetapi pelayan tidak mengembalikan data organisasi anda. Tiada apa-apa di sini digantikan dengan data contoh.",
+    "Technical detail": "Butiran teknikal",
+    "Logging out…": "Sedang log keluar…",
+    "Could not update the password. The server response is in the browser console.":
+      "Kata laluan tidak dapat dikemas kini. Respons pelayan ada dalam konsol pelayar.",
+    "Authentication could not be restored. Sign in again to open your workspace.":
+      "Pengesahan tidak dapat dipulihkan. Log masuk semula untuk membuka ruang kerja anda.",
+    "Your session has ended. Sign in to open your workspace.":
+      "Sesi anda telah berakhir. Log masuk untuk membuka ruang kerja anda.",
+    "Could not sign you out. You are still signed in — the server response is in the browser console.":
+      "Anda tidak dapat dikeluarkan. Anda masih log masuk — respons pelayan ada dalam konsol pelayar.",
+    "Logout could not be completed. Sign in again to open your workspace.":
+      "Log keluar tidak dapat diselesaikan. Log masuk semula untuk membuka ruang kerja anda.",
   };
   const APP_LANG = (() => {
     try {
@@ -75,10 +92,13 @@
   let session = null;
   let root = null;
   let routeListenerBound = false;
+  let authListenerBound = false;
   let loadSequence = 0;
    const ROUTES = {
      dashboard: "#/dashboard",
      members: "#/members",
+     agm: "#/agm",
+     governance: "#/governance",
      distribution: "#/distribution",
    };
 
@@ -127,7 +147,7 @@
 
    function routeFromHash() {
      const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-     return ["members", "distribution"].includes(route) ? route : "dashboard";
+     return ["members", "agm", "governance", "distribution"].includes(route) ? route : "dashboard";
    }
 
   function routeHref(route) {
@@ -151,6 +171,16 @@
       if (child) parent.appendChild(child);
     });
     return parent;
+  }
+
+  // Shell-level alerts stay inside the existing workspace rather than replacing
+  // it, because "the action failed" is not "you left the organization".
+  function notice(message) {
+    if (!root) return null;
+    const el = node("div", "agmx-boot-notice is-error", message);
+    el.setAttribute("role", "alert");
+    root.prepend(el);
+    return el;
   }
 
   function renderLogin(message) {
@@ -180,9 +210,63 @@
     root.replaceChildren(state);
   }
 
+  // A login card carries the demo workspace button. Offering it to someone who
+  // is already signed in — because a read was refused, not because their
+  // session ended — is how a fabricated organization walks into a live meeting,
+  // so the two cases get two different screens.
+  async function isAuthenticated() {
+    if (!window.AGMX_API || typeof window.AGMX_API.isAuthenticated !== "function") return false;
+    try {
+      return !!(await window.AGMX_API.isAuthenticated());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function renderReadFailure(error) {
+    if (!root) return;
+    const detail = error && error.message ? String(error.message) : String(error || "");
+    if (detail && window.console && console.error) console.error("[app-bootstrap]", detail);
+    setStatus("error", { route: routeFromHash(), source: "supabase", error: detail || null });
+
+    const retry = node("button", "btn btn-primary", "Retry");
+    retry.type = "button";
+    retry.addEventListener("click", () => loadLiveDashboard());
+
+    const signOut = node("button", "btn btn-secondary", "Log out");
+    signOut.type = "button";
+    signOut.addEventListener("click", () => {
+      signOut.disabled = true;
+      Promise.resolve(window.AGMX_API && window.AGMX_API.logout ? window.AGMX_API.logout() : null)
+        .then(renderLogin)
+        .catch(() => {
+          signOut.disabled = false;
+          renderLogin(appText("Logout could not be completed. Sign in again to open your workspace."));
+        });
+    });
+
+    const blocks = [
+      node("h1", "", "Workspace could not be loaded"),
+      node("p", "", "You are signed in, but the server did not return your organization's data. Nothing here has been replaced with sample data."),
+    ];
+    if (detail) {
+      const disclosure = node("details", "");
+      disclosure.appendChild(node("summary", "", "Technical detail"));
+      const pre = node("pre", "agmx-boot-error-detail");
+      pre.textContent = detail;
+      disclosure.appendChild(pre);
+      blocks.push(disclosure);
+    }
+    blocks.push(node("div", "agmx-boot-actions", [retry, signOut]));
+
+    const state = node("div", "agmx-boot-error");
+    append(state, [node("div", "agmx-boot-state", blocks)]);
+    root.replaceChildren(state);
+  }
+
   function sourceBadge(source) {
     const badge = node("span", `agmx-source-badge${source === "demo" ? " is-demo" : ""}`);
-    badge.textContent = source === "demo" ? "Demo data · simulated" : "Live Supabase data";
+    badge.textContent = appText(source === "demo" ? "Demo data · simulated" : "Live Supabase data");
     return badge;
   }
 
@@ -232,6 +316,8 @@
      const links = [
        node("p", "agmx-nav-section-label", "Workspace"),
        navLink("dashboard", "▦", "Dashboard"),
+       navLink("agm", "◉", "AGM Hall"),
+       navLink("governance", "✓", "Compliance & Audit"),
        navLink("members", "♙", "Members"),
      ];
      if (isAdmin(data)) links.push(navLink("distribution", "⇄", "Partners & Federation"));
@@ -250,6 +336,13 @@
    function isAdmin(data) {
      const role = String((data && data.currentUser && data.currentUser.role) || "").toLowerCase();
      return role === "admin" || role.includes("administrator");
+   }
+
+   // Mirrors the governance Edge Function: admin and secretary may run a
+   // meeting; the server enforces it regardless of what this view renders.
+   function isOperator(data) {
+     const role = String((data && data.currentUser && data.currentUser.role) || "").toLowerCase();
+     return isAdmin(data) || role === "secretary" || role.includes("administrator");
    }
 
   function navLink(route, icon, label) {
@@ -593,6 +686,7 @@
     content.replaceChildren();
      if (route === "members") renderMembers(content);
      else if (route === "distribution") renderDistribution(content);
+     else if (route === "agm" || route === "governance") renderGovernance(content, route);
      else renderDashboard(content);
     root.querySelectorAll(".agmx-nav-link").forEach((link) => {
       link.classList.toggle("is-active", link.dataset.route === route);
@@ -600,6 +694,30 @@
       else link.removeAttribute("aria-current");
     });
     setStatus("ready", { route, source: session.source, error: null });
+  }
+
+  function renderGovernance(content, route) {
+    const view = window.AGMX_GOVERNANCE;
+    if (!view || typeof view.renderAgmHall !== "function") {
+      content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", "AGMX API is unavailable.")));
+      return;
+    }
+    const data = session.data || {};
+    const ctx = {
+      data,
+      source: session.source,
+      isAdmin: isOperator(data),
+      api: (window.AGMX_API || {}).governance,
+      reload: loadLiveDashboard,
+    };
+    if (!ctx.api) {
+      content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", "AGMX API is unavailable.")));
+      return;
+    }
+    const render = route === "agm" ? view.renderAgmHall : view.renderGovernanceRegister;
+    Promise.resolve(render(content, ctx)).catch((error) => {
+      content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", errorMessage(error, "Could not load."))));
+    });
   }
 
   function renderShell(data, source) {
@@ -630,7 +748,10 @@
       renderShell(data, "supabase");
     } catch (error) {
       if (sequence !== loadSequence) return;
-      renderLogin(`Live data could not be loaded. ${errorMessage(error, "Please try again or use the explicit demo option.")}`);
+      const signedIn = await isAuthenticated();
+      if (sequence !== loadSequence) return;
+      if (signedIn) renderReadFailure(error);
+      else renderLogin(appText("Your session has ended. Sign in to open your workspace."));
     }
   }
 
@@ -651,7 +772,7 @@
   async function onLogout(event) {
     const button = event.currentTarget;
     button.disabled = true;
-    button.textContent = "Logging out…";
+    button.textContent = appText("Logging out…");
     setStatus("loading", { route: routeFromHash(), source: session && session.source, error: null });
     try {
       if (!window.AGMX_API || typeof window.AGMX_API.logout !== "function") {
@@ -661,8 +782,18 @@
       renderLogin();
     } catch (error) {
       button.disabled = false;
-      button.textContent = "Log out";
-      renderLogin(`Logout could not be completed. ${errorMessage(error, "Please try again.")}`);
+      button.textContent = appText("Log out");
+      const detail = errorMessage(error, "");
+      if (detail && window.console && console.error) console.error("[app-bootstrap]", detail);
+      // A failed sign-out usually leaves the session live, and the login card is
+      // the screen that offers the demo workspace — so ask the server before
+      // changing the view rather than claiming a logout that did not happen.
+      if (await isAuthenticated()) {
+        setStatus("ready", { route: routeFromHash(), source: session && session.source, error: detail || null });
+        notice("Could not sign you out. You are still signed in — the server response is in the browser console.");
+      } else {
+        renderLogin();
+      }
     }
   }
 
@@ -727,7 +858,9 @@
       } catch (error) {
         submit.disabled = false;
         submit.textContent = appText("Save password");
-        status.textContent = errorMessage(error, "Could not update the password.");
+        const detail = errorMessage(error, "");
+        if (detail && window.console && console.error) console.error("[app-bootstrap]", detail);
+        status.textContent = appText("Could not update the password. The server response is in the browser console.");
       }
     });
 
@@ -746,6 +879,19 @@
         throw new Error("AGMX API is unavailable.");
       }
       const restored = await window.AGMX_API.init();
+
+      // Sign-out can happen without this tab being involved: another tab, a
+      // revoked token, an expired session. The rendered workspace belongs to
+      // that identity, so it goes with it — otherwise a meeting-room browser
+      // keeps an AGM on screen after the secretary has signed out, and the
+      // next mutation answers with a raw 401.
+      if (!authListenerBound && typeof window.AGMX_API.onAuthStateChange === "function") {
+        authListenerBound = true;
+        window.AGMX_API.onAuthStateChange((event) => {
+          if (event === "SIGNED_OUT" && session) renderLogin();
+        });
+      }
+
       if (restored && window.AGMX_API.isPasswordRecovery && window.AGMX_API.isPasswordRecovery()) {
         renderPasswordRecovery();
       } else if (restored && await window.AGMX_API.isAuthenticated()) {
@@ -755,7 +901,9 @@
       }
     } catch (error) {
       // Never substitute demo data for a failed restore; demo is opt-in via login.
-      renderLogin(`Authentication could not be restored. ${errorMessage(error, "Please sign in again.")}`);
+      const detail = errorMessage(error, "");
+      if (detail && window.console && console.error) console.error("[app-bootstrap]", detail);
+      renderLogin(appText("Authentication could not be restored. Sign in again to open your workspace."));
     }
   }
 

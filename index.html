@@ -8,24 +8,24 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="content">
   <meta name="apple-mobile-web-app-title" content="AGMX">
-  <link rel="canonical" href="https://agmx-v2-app-shamel-projects.vercel.app/">
+  <link rel="canonical" href="https://agmx-project.vercel.app/">
   <meta property="og:title" content="AGMX · Platform Tadbir Urus AGM">
   <meta property="og:description" content="Rancang AGM, sahkan kuorum, kendalikan undi dan resolusi, dan simpan rekod yang boleh disahkan — dalam satu ruang kerja untuk setiap koperasi.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://agmx-v2-app-shamel-projects.vercel.app/">
-  <meta property="og:image" content="https://agmx-v2-app-shamel-projects.vercel.app/assets/enterprise/01-hero-og-banner.png">
+  <meta property="og:url" content="https://agmx-project.vercel.app/">
+  <meta property="og:image" content="https://agmx-project.vercel.app/assets/enterprise/01-hero-og-banner.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AGMX · Platform Tadbir Urus AGM">
   <meta name="twitter:description" content="Platform AGM untuk koperasi Malaysia dengan pengasingan data dan jejak audit yang boleh disahkan.">
-  <meta name="twitter:image" content="https://agmx-v2-app-shamel-projects.vercel.app/assets/enterprise/01-hero-og-banner.png">
+  <meta name="twitter:image" content="https://agmx-project.vercel.app/assets/enterprise/01-hero-og-banner.png">
   <title>AGMX · Platform Tadbir Urus AGM untuk Koperasi Malaysia</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563EB'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23EA580C'%3EAG%3C/text%3E%3C/svg%3E">
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="/manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <script src="theme.js"></script>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
   <a href="#main" class="skip-link" data-en="Skip to main content">Langkau ke kandungan utama</a>
@@ -50,7 +50,7 @@
         <div class="nav-actions">
           <button type="button" class="btn btn-ghost" style="min-width:96px;font-weight:700" data-agmx-theme-toggle></button>
           <button type="button" id="lang-toggle" class="btn btn-ghost" style="min-width:48px;font-weight:800" aria-label="Tukar bahasa / Change language">EN</button>
-          <a href="app.html" class="btn btn-ghost" data-en="Sample AGM">Contoh AGM</a>
+          <a href="/app.html" class="btn btn-ghost" data-en="Sample AGM">Contoh AGM</a>
           <a href="#demo" class="btn btn-primary" data-en="Book a Demo">Tempah Demo</a>
         </div>
       </nav>
@@ -62,7 +62,7 @@
           <p class="hero-subtitle" data-en="Plan the meeting, verify quorum, run elections and resolutions, and keep an exportable record of what actually happened — in one workspace per cooperative.">Rancang mesyuarat, sahkan kuorum, kendalikan pemilihan dan resolusi, dan simpan rekod yang boleh dieksport tentang apa yang sebenarnya berlaku — dalam satu ruang kerja untuk setiap koperasi.</p>
           <div class="hero-actions">
             <a href="#demo" class="btn btn-primary btn-lg" data-en="Book a Demo">Tempah Demo</a>
-            <a href="app.html" class="btn btn-secondary btn-lg" data-en="Explore a Sample AGM">Teroka Contoh AGM</a>
+            <a href="/app.html" class="btn btn-secondary btn-lg" data-en="Explore a Sample AGM">Teroka Contoh AGM</a>
           </div>
           <p class="hero-proof" data-en="Built for Malaysian cooperatives · BM/EN · Separate, isolated workspace for each cooperative · Data hosted in Singapore">Dibina untuk koperasi Malaysia · BM/EN · Ruang kerja berasingan untuk setiap koperasi · Data disimpan di Singapura</p>
           <div class="hero-status">
@@ -136,8 +136,8 @@
         <article class="availability-card" role="listitem">
           <h3 data-en="Meeting conduct">Kendali mesyuarat</h3>
           <p data-en="Notices, registration, quorum declaration, floor discussion, controlled voting and resolutions.">Notis, pendaftaran, pengisytiharan kuorum, perbahasan dewan, pengundian terkawal dan resolusi.</p>
-          <p class="availability-evidence" data-en="The nine tables behind it exist and are tenant-isolated; the operator and member screens are the next build.">Sembilan jadual di sebaliknya sudah ada dan diasingkan mengikut penyewa; skrin operator dan ahli adalah binaan seterusnya.</p>
-          <span class="status status-build" data-en="In progress">Dalam pembinaan</span>
+          <p class="availability-evidence" data-en="The operator and member screens are built and covered by the offline harnesses; they are not yet deployed to the live site. Two server-side gaps are still open on the list: a failed quorum does not block a vote, and the passed-or-failed test ignores abstentions and the motion type.">Skrin operator dan ahli sudah dibina dan diliputi harness luar talian; ia belum disediakan ke laman langsung. Dua lubang sisi pelayan masih terbuka dalam senarai: kuorum yang gagal tidak menghalang pengundian, dan ujian lulus-atatau-gagal mengabaikan berkecuali serta jenis usul.</p>
+          <span class="status status-build" data-en="Built · not yet deployed">Dibina · belum disediakan</span>
         </article>
         <article class="availability-card" role="listitem">
           <h3 data-en="Minutes &amp; evidence export">Minit &amp; eksport bukti</h3>
@@ -165,7 +165,7 @@
         </article>
         <article class="availability-card" role="listitem">
           <h3 data-en="Languages">Bahasa</h3>
-          <p data-en="This site is fully bilingual. Inside the signed-in workspace the navigation, table headings and buttons switch between Bahasa Melayu and English; loading and error messages still render in English.">Laman ini dwibahasa sepenuhnya. Dalam ruang kerja bersesi, navigasi, tajuk jadual dan butang bertukar antara Bahasa Melayu dan English; mesej pemuatan dan ralat masih dipaparkan dalam Bahasa Inggeris.</p>
+          <p data-en="This site is fully bilingual. Inside the signed-in workspace the navigation, table headings, buttons, form labels, meeting statuses and the messages shown when a read or a write fails all switch between Bahasa Melayu and English. What is not translated: the free-text names the cooperative itself stores, and the technical detail behind a failure, which is the server's own response kept for debugging.">Laman ini dwibahasa sepenuhnya. Dalam ruang kerja bersesi, navigasi, tajuk jadual, butang, label borang, status mesyuarat dan mesej yang muncul apabila bacaan atau tulisan gagal — semuanya bertukar antara Bahasa Melayu dan English. Yang tidak diterjemah: nama teks bebas yang disimpan koperasi sendiri, dan butiran teknikal di sebalik kegagalan, iaitu respons pelayan yang disimpan untuk penyahpepijatan.</p>
           <p class="availability-evidence" data-en="Tamil and Chinese have been quoted in some material; they are not built and should not be sold as included.">Tamil dan Cina pernah disebut dalam bahan tertentu; ia belum dibina dan tidak boleh dijual sebagai termasuk.</p>
           <span class="status status-build" data-en="In progress · partial in the workspace">Dalam pembinaan · separa dalam ruang kerja</span>
         </article>
@@ -232,7 +232,7 @@
       <header class="section-header">
         <span class="section-label" data-en="Security &amp; Trust">Keselamatan &amp; Kepercayaan</span>
         <h2 id="trust-heading" data-en="Trust centre">Pusat kepercayaan</h2>
-        <p class="section-subtitle" data-en="Each control below states its status, the evidence behind it, and how you can check it yourself. Every configuration fact on this page was read from the running project on 1 November 2026.">Setiap kawalan di bawah menyatakan statusnya, bukti di sebaliknya, dan cara anda menyemaknya sendiri. Setiap fakta konfigurasi dalam halaman ini dibaca daripada projek yang berjalan pada 1 November 2026.</p>
+        <p class="section-subtitle" data-en="Each control below states its status, the evidence behind it, and how you can check it yourself. Every configuration fact on this page was read from the running project on 3 November 2026.">Setiap kawalan di bawah menyatakan statusnya, bukti di sebaliknya, dan cara anda menyemaknya sendiri. Setiap fakta konfigurasi dalam halaman ini dibaca daripada projek yang berjalan pada 3 November 2026.</p>
       </header>
 
       <div class="trust-matrix">
@@ -246,7 +246,7 @@
         <article class="trust-row">
           <h3 data-en="Data separation between cooperatives">Pengasingan data antara koperasi</h3>
           <span class="status status-ready" data-en="Available">Sedia</span>
-          <p data-en="PostgreSQL row-level security is switched on for all 47 tables in the application schema. Tenant isolation is one predicate — organization_id equals the signed-in user's organisation — written into 44 policies across 37 tables; the other ten carry no policy and so deny every client read. The commerce API connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada semua 47 jadual dalam skema aplikasi. Pengasingan penyewa ialah satu predikat — organization_id sama dengan organisasi pengguna yang log masuk — ditulis dalam 44 polisi merentas 37 jadual; sepuluh lagi tiada polisi maka menolak setiap bacaan klien. API komersial menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
+          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables holding 47 policies. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual yang memegang 47 polisi. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
           <p class="trust-check" data-en="Check it yourself: ask for the money-flow tenant-isolation test. It signs in as a user with no organisation row and as a second cooperative's admin, and expects 403 on both.">Semak sendiri: minta ujian pengasingan penyewa money-flow. Ia log masuk sebagai pengguna tanpa baris organisasi dan sebagai admin koperasi kedua, dan jangkakan 403 untuk kedua-duanya.</p>
         </article>
 
@@ -281,7 +281,7 @@
         <article class="trust-row">
           <h3 data-en="Subprocessors and AI data handling">Pemproses sub dan pengendalian data AI</h3>
           <span class="status status-ready" data-en="Available · listed">Sedia · disenarai</span>
-          <p data-en="Current subprocessors: Supabase (database, authentication, one deployed Edge Function for quotes and payments), Vercel (hosting), Google (sign-in only), Billplz and HitPay (payment, credentials not configured, so no bill is created). No member data reaches an AI provider: the knowledge service that would send text to a model provider is not deployed, and the commerce function never calls one. Two things contradict the picture rather than the claim — the page's own content policy still lists the model hosts it would use, and the interface flag for that feature reads enabled while it has no service to call.">Pemproses sub semasa: Supabase (pangkalan data, pengesahan, satu Edge Function untuk sebut harga dan pembayaran), Vercel (hos), Google (log masuk sahaja), Billplz dan HitPay (pembayaran, kelayakan tidak dikonfigurasi, jadi tiada bill dicipta). Tiada data ahli sampai ke penyedia AI: perkhidmatan pengetahuan yang akan menghantar teks kepada penyedia model belum disediakan, dan fungsi komersial tidak pernah memanggilnya. Dua perkara bercanggah dengan gambaran itu dan bukan dengan tuntutan ini — dasar kandungan halaman masih menyenaraikan hos model yang akan digunakannya, dan flanta ciri antara muka masih dibaca didayakan sedangkan tiada perkhidmatan untuk dipanggil.</p>
+          <p data-en="Current subprocessors: Supabase (database, authentication, and the two deployed Edge Functions — money-flow for quotes, invoices, payments and subscriptions, governance for running a meeting), Vercel (hosting, plus the read-only config and health routes), Google (sign-in only), Billplz and HitPay (payment — no credentials are configured, so no bill or payment link is created). No member data reaches an AI provider: the knowledge service that would send text to a model provider is not deployed, and the commerce function never calls one. The flag for that service is opt-in and nothing in the browser calls it, so an AI answer cannot be produced on this site today.">Pemproses sub semasa: Supabase (pangkalan data, pengesahan, dan dua Edge Function yang disediakan — money-flow untuk sebut harga, invois, pembayaran dan langganan, governance untuk mengendalikan mesyuarat), Vercel (hos, plus laluan konfigurasi dan kesihatan bacaan-sahaja), Google (log masuk sahaja), Billplz dan HitPay (pembayaran — tiada kelayakan dikonfigurasi, jadi tiada bill atau pautan pembayaran dicipta). Tiada data ahli sampai ke penyedia AI: perkhidmatan pengetahuan yang akan menghantar teks kepada penyedia model belum disediakan, dan fungsi komersial tidak pernah memanggilnya. Flanta ciri bagi perkhidmatan itu ialah opt-in, jadi deployment yang tidak menetapkannya membacanya sebagai mati.</p>
           <p class="trust-check" data-en="If AI features are switched on later, this row changes and we will state what is sent, where it goes, and whether it is used for training.">Jika ciri AI diaktifkan kelak, baris ini berubah dan kami akan nyatakan apa yang dihantar, ke mana ia pergi, dan sama ada ia digunakan untuk latihan model.</p>
         </article>
 
@@ -329,12 +329,12 @@
         <p class="section-subtitle" data-en="No customer references are published yet. These are the samples we can offer instead.">Tiada rujukan pelanggan diterbitkan lagi. Ini sampel yang boleh kami tawarkan sebagai gantinya.</p>
       </header>
       <div class="resources-grid">
-        <a class="resource-card" href="app.html">
+        <a class="resource-card" href="/app.html">
           <h3 data-en="Sample AGM workspace">Ruang kerja AGM contoh</h3>
           <p data-en="Open the workspace with clearly labelled sample records: member directory, attendance and distribution views.">Buka ruang kerja dengan rekod sample yang dilabel nyata: direktori ahli, kehadiran dan pengagihan.</p>
           <span class="resource-link" data-en="Open →">Buka →</span>
         </a>
-        <a class="resource-card" href="assessment.html">
+        <a class="resource-card" href="/assessment.html">
           <h3 data-en="AGM readiness checklist">Semak senarai kesediaan AGM</h3>
           <p data-en="Twelve questions on members, motions, format and current process. Two minutes, no sign-in, and a fixed package recommendation at the end.">Dua belas soalan tentang ahli, usul, format dan proses semasa. Dua minit, tanpa log masuk, dengan saranan pakej tetap di hujungnya.</p>
           <span class="resource-link" data-en="Start →">Mulakan →</span>
@@ -384,75 +384,124 @@
       <header class="section-header">
         <span class="section-label" data-en="Pricing">Harga</span>
         <h2 id="pricing-heading" data-en="Price by the size of your membership">Harga mengikut saiz keanggotaan anda</h2>
-        <p class="section-subtitle" data-en="Annual subscription, 1 January to 31 December. Read the availability table first: an item marked in progress or planned is not contractually included until we announce it shipped.">Langganan tahunan, 1 Januari hingga 31 Disember. Baca jadual kebolehsediaan dahulu: item yang ditandai dalam pembinaan atau dirancang tidak terikat secara kontrak sehingga kami umumkan ia diserahkan.</p>
+        <p class="section-subtitle" data-en="Annual subscription: twelve months from the day it starts, invoiced on that date each year. Read the availability table first: an item marked in progress or planned is not contractually included until we announce it shipped.">Langganan tahunan: dua belas bulan dari hari ia bermula, diinvois pada tarikh yang sama setiap tahun. Baca jadual kebolehsediaan dahulu: item yang ditandai dalam pembinaan atau dirancang tidak terikat secara kontrak sehingga kami umumkan ia diserahkan.</p>
       </header>
-      <div class="pricing-grid">
-        <article class="pricing-card">
-          <div class="plan-badge" data-en="SMALL">KECIL</div>
-          <h3>AGMX Small</h3>
+      <div class="pricing-grid" id="pricing-grid">
+        <article class="pricing-card" data-plan-code="governance_os_essential">
+          <div class="plan-badge" data-en="STARTER">ASAS</div>
+          <h3 data-plan-field="name">Governance OS Essential</h3>
 
-          <div class="price">RM 499<span data-en="/year">/tahun</span></div>
-          <p class="plan-desc" data-en="1–299 members · 2027 subscription">1–299 ahli · langganan 2027</p>
+          <div class="price"><span class="price-value" data-plan-field="price">—</span><span data-en="/year">/tahun</span></div>
+          <p class="plan-desc" data-plan-field="band">—</p>
           <ul class="features">
             <li data-en="Governance workspace for one cooperative">Ruang kerja tadbir urus untuk satu koperasi</li>
             <li data-en="Unlimited stored meeting records">Rekod mesyuarat tersimpan tanpa had</li>
             <li data-en="Append-only audit trail">Jejak audit append-only</li>
-            <li data-en="BM/EN interface — workspace labels and tables, status messages English-only today">Antara muka BM/EN — label dan jadual ruang kerja, mesej status Bahasa Inggeris sahaja buat masa ini</li>
-            <li class="is-roadmap"><span data-en="AI secretary and compliance checks">Setiausaha AI dan semakan pematuhan</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
+            <li data-en="BM/EN interface across labels, tables, statuses and failure messages">Antara muka BM/EN merentas label, jadual, status dan mesej kegagalan</li>
             <li data-en="Email support, next business day">Sokongan e-mel, hari bekerja berikutnya</li>
+            <li class="is-roadmap"><span data-en="AI secretary and compliance checks">Setiausaha AI dan semakan pematuhan</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
           </ul>
           <a href="#demo" class="btn btn-primary btn-block" data-en="Book a Demo">Tempah Demo</a>
         </article>
-        <article class="pricing-card featured">
+        <article class="pricing-card featured" data-plan-code="governance_os_professional">
           <div class="plan-badge popular" data-en="POPULAR">POPULAR</div>
-          <h3>AGMX Growth</h3>
-          <div class="price">RM 1,199<span data-en="/year">/tahun</span></div>
-          <p class="plan-desc" data-en="300–999 members · 2027 subscription">300–999 ahli · langganan 2027</p>
+          <h3 data-plan-field="name">Governance OS Professional</h3>
+          <div class="price"><span class="price-value" data-plan-field="price">—</span><span data-en="/year">/tahun</span></div>
+          <p class="plan-desc" data-plan-field="band">—</p>
           <ul class="features">
-            <li data-en="Everything in Small">Semua dalam Small</li>
+            <li data-en="Everything in Essential">Semua dalam Essential</li>
             <li data-en="Members, attendance and distribution views">Paparan ahli, kehadiran dan pengagihan</li>
-            <li data-en="Lead pipeline CSV export">Eksport CSV saliran prospek</li>
-            <li data-en="Printable invoices and payment receipts">Invois dan resit pembayaran boleh cetak</li>
+            <li data-en="Document vault with a hash per file">Peti dokumen dengan satu hash bagi setiap fail</li>
+            <li data-en="Lead pipeline CSV export, printable invoices and receipts">Eksport CSV saliran prospek, invois dan resit boleh cetak</li>
             <li class="is-roadmap"><span data-en="Member CSV import">Import CSV ahli</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
             <li class="is-roadmap"><span data-en="Digital meeting pack and minutes export">Pek mesyuarat digital dan eksport minit</span><span class="status status-build" data-en="In progress">Dalam pembinaan</span></li>
-            <li data-en="Priority support and guided data load">Sokongan keutamaan dan muat naik data berpandu</li>
+            <li class="is-roadmap"><span data-en="AI compliance agent and API access — no service behind either yet">Ejen pematuhan AI dan akses API — tiada perkhidmatan di sebaliknya lagi</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
           </ul>
-          <a href="assessment.html" class="btn btn-accent btn-block" data-en="Start Free Assessment">Mulakan Penilaian Percuma</a>
+          <a href="/assessment.html" class="btn btn-accent btn-block" data-en="Start Free Assessment">Mulakan Penilaian Percuma</a>
         </article>
-        <article class="pricing-card">
-          <h3>AGMX Enterprise</h3>
-          <div class="price">RM 2,999<span data-en="/year from">/tahun, permulaan</span></div>
-          <p class="plan-desc" data-en="1,000+ members · starting price, final price follows scoping">1,000+ ahli · harga permulaan, harga akhir mengikut skop</p>
+        <article class="pricing-card" data-plan-code="governance_os_enterprise">
+          <h3 data-plan-field="name">Governance OS Enterprise</h3>
+          <div class="price"><span class="price-value" data-plan-field="price">—</span><span data-en="/year">/tahun</span></div>
+          <p class="plan-desc" data-plan-field="band">—</p>
           <ul class="features">
-            <li data-en="Everything in Growth">Semua dalam Growth</li>
+            <li data-en="Everything in Professional">Semua dalam Professional</li>
             <li data-en="Quorum, notice-period and threshold parameters set per cooperative">Parameter kuorum, tempoh notis dan ambang ditetapkan setiap koperasi</li>
-            <li data-en="Federation structure for multiple societies under one roof">Struktur persekutuan untuk pelbagai persatuan di bawah satu bumbung</li>
-            <li class="is-roadmap"><span data-en="Live meeting conduct and hybrid video">Kendali mesyuarat langsung dan video hibrid</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
-            <li class="is-roadmap"><span data-en="API integration to your existing systems">Integrasi API ke sistem sedia ada</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
-            <li class="is-roadmap"><span data-en="Tamil and Chinese interfaces">Antara muka Tamil dan Cina</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
             <li data-en="Onboarding with a named implementation contact">Pengenalan dengan kontak pelaksanaan yang dinamakan</li>
+            <li class="is-roadmap"><span data-en="Meeting conduct screens — built and tested, not yet deployed">Skrin kendali mesyuarat — dibina dan diuji, belum disediakan</span><span class="status status-build" data-en="Built · not deployed">Dibina · belum disediakan</span></li>
+            <li class="is-roadmap"><span data-en="SSO, custom domain, live hybrid video and Tamil/Chinese interfaces">SSO, domain tersuai, video hibrid langsung dan antara muka Tamil/Cina</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
           </ul>
           <a href="#demo" class="btn btn-primary btn-block" data-en="Talk to Sales">Hubungi Jualan</a>
         </article>
-        <article class="pricing-card">
-          <h3>Enterprise+</h3>
-          <div class="price" data-en="Custom">Tersuai</div>
-          <p class="plan-desc" data-en="10,000+ members or a federation of societies">10,000+ ahli atau persekutuan beberapa persatuan</p>
+        <article class="pricing-card" data-plan-code="governance_os_federation">
+          <h3 data-plan-field="name">Governance OS Federation</h3>
+          <div class="price"><span class="price-value" data-plan-field="price">—</span><span data-en="/year">/tahun</span></div>
+          <p class="plan-desc" data-plan-field="band">—</p>
           <ul class="features">
-            <li data-en="Everything scoped in Enterprise">Semua yang diskop dalam Enterprise</li>
-            <li data-en="Scoping before any price is quoted">Pengskopaan sebelum sebarang harga diberikan</li>
+            <li data-en="Everything in Enterprise">Semua dalam Enterprise</li>
+            <li class="is-roadmap"><span data-en="Federation roll-up dashboard and consolidated billing">Papan pemuka konsolidasi persekutuan dan pengebilan gabungan</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
+            <li class="is-roadmap"><span data-en="Multi-cooperative management under one login">Pengurusan berbilang koperasi di bawah satu log masuk</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
             <li data-en="Data-residency and retention requirements agreed in writing">Keperluan kediaman data dan pengekalan dipersetujui bertulis</li>
             <li data-en="Custom integration and migration work, quoted separately">Kerja integrasi dan migrasi tersuai, dicaj berasingan</li>
             <li class="is-roadmap"><span data-en="White-label branding and a written operational SLA">Penjenamaan white-label dan SLA operasi bertulis</span><span class="status status-plan" data-en="Planned">Dirancang</span></li>
-            <li data-en="Named account manager">Pengurus akaun yang dinamakan</li>
           </ul>
           <a href="#demo" class="btn btn-primary btn-block" data-en="Talk to Sales">Hubungi Jualan</a>
         </article>
       </div>
 
+      <p class="pricing-oneoff" id="pricing-oneoff" data-en="Running one meeting rather than subscribing? The managed one-off AGM packages are priced from the same rate card:">Menjalankan satu mesyuarat dan bukan melanggan? Pakej AGM terurus sekali bayaran dihargai daripada kad harga yang sama:</p>
+
+      <p class="pricing-note" data-en="Every figure on this page is read from the plan catalog the ordering system itself prices from, so a card and an invoice cannot disagree. Prices are in ringgit and exclude the 8% tax the server adds when it issues a quote.">Semua angka dalam halaman ini dibaca daripada katalog pelan yang digunakan sistem pesanan untuk mengharga, jadi kad dan invois tidak boleh berbeza. Harga dalam ringgit dan tidak termasuk cukai 8% yang ditambah pelayan apabila ia mengeluarkan sebut harga.</p>
+      <script src="/price-list.js"></script>
+      <script>
+      /* The numbers on the cards come from price-list.js, which mirrors
+         public.plans — the same table money-flow reads to price a quote and
+         to raise a recurring invoice. Written here as Malay text plus a
+         data-en attribute so the language pass at the end of the body can
+         still switch them, and left as an explicit "ask us" if the catalog
+         did not load: a card with no price behind it is a question, a card
+         with a stale price is a mis-quote. */
+      (function () {
+        var catalog = window.AGMX_PRICE_LIST;
+        var cards = document.querySelectorAll("#pricing-grid [data-plan-code]");
+        Array.prototype.forEach.call(cards, function (card) {
+          var plan = catalog && catalog.byCode(card.getAttribute("data-plan-code"));
+          var name = card.querySelector('[data-plan-field="name"]');
+          var price = card.querySelector('[data-plan-field="price"]');
+          var band = card.querySelector('[data-plan-field="band"]');
+          if (!plan) {
+            if (price) price.textContent = "—";
+            if (band) { band.textContent = "Harga atas permintaan"; band.setAttribute("data-en", "Price on request"); }
+            return;
+          }
+          if (name) name.textContent = plan.name;
+          if (price) price.textContent = "RM " + plan.annual.toLocaleString("en-MY");
+          if (band) {
+            band.textContent = "Sehingga " + plan.memberCap.toLocaleString("en-MY") + " ahli · RM" +
+              plan.monthly.toLocaleString("en-MY") + "/bulan, dibilling tahunan";
+            band.setAttribute("data-en", "Up to " + plan.memberCap.toLocaleString("en-MY") +
+              " members · RM" + plan.monthly.toLocaleString("en-MY") + "/month, billed annually");
+          }
+        });
+        var line = document.getElementById("pricing-oneoff");
+        if (catalog && line) {
+          var parts = catalog.services().map(function (p) {
+            return p.name.replace("AGMX ", "") + " — RM" + p.oneoff.toLocaleString("en-MY") +
+              " (up to " + p.memberCap.toLocaleString("en-MY") + " members)";
+          });
+          var lead = line.getAttribute("data-en").split(":")[0];
+          line.setAttribute("data-en", lead + ": " + parts.join(" · "));
+          line.textContent = "Menjalankan satu mesyuarat dan bukan melanggan? Pakej AGM terurus sekali bayaran dihargai daripada kad harga yang sama: " +
+            catalog.services().map(function (p) {
+              return p.name.replace("AGMX ", "") + " — RM" + p.oneoff.toLocaleString("en-MY") +
+                " (sehingga " + p.memberCap.toLocaleString("en-MY") + " ahli)";
+            }).join(" · ");
+        }
+      })();
+      </script>
+
       <div class="scoping-block">
         <h3 data-en="How a larger deployment is scoped">Bagaimana pemasangan lebih besar diskop</h3>
-        <p data-en="A fixed price next to &ldquo;10,000+ members&rdquo; would be a guess. For Enterprise and Enterprise+ we scope first, then quote:">Harga tetap di sebelah &ldquo;10,000+ ahli&rdquo; hanyalah tekaan. Untuk Enterprise dan Enterprise+, kami menetapkan skop dahulu, kemudian memberi harga:</p>
+        <p data-en="A fixed price next to &ldquo;beyond the published cards&rdquo; would be a guess. Above 10,000 members, or where the cooperatives keep separate registers, we scope first, then quote:">Harga tetap di sebelah &ldquo;melebihi kad yang diterbitkan&rdquo; hanyalah tekaan. Di atas 10,000 ahli, atau apabila koperasi menyimpan daftar berasingan, kami menetapkan skop dahulu, kemudian memberi harga:</p>
         <ol class="scope-steps">
           <li data-en="Your register size, meeting format and the constitution clauses that bind you.">Saiz daftar anda, format mesyuarat dan klausa perlembagaan yang mengikat anda.</li>
           <li data-en="What must be retained, for how long, and in which format for the Registrar.">Apa yang mesti dikekalkan, untuk berapa lama, dan dalam format apa untuk Pendaftar.</li>
@@ -496,7 +545,7 @@
         </details>
         <details class="faq-item">
           <summary data-en="How long does implementation take?">Berapa lama pelaksanaan mengambil masa?</summary>
-          <p data-en="Onboarding is loading your member register and configuring your quorum percentage, notice period and rule profile. For one cooperative on the Small or Growth tier, expect days rather than months, because there is no legacy system to migrate.">Pengenalan memuatkan daftar ahli anda dan mengkonfigurasi peratusan kuorum, tempoh notis dan profil peraturan anda. Untuk satu koperasi pada tahap Small atau Growth, jangkakan beberapa hari dan bukan beberapa bulan, kerana tiada sistem legasi untuk dimigrasi.</p>
+          <p data-en="Onboarding is loading your member register and configuring your quorum percentage, notice period and rule profile. For one cooperative on any of the published packages, expect days rather than months, because there is no legacy system to migrate.">Pengenalan memuatkan daftar ahli anda dan mengkonfigurasi peratusan kuorum, tempoh notis dan profil peraturan anda. Untuk satu koperasi pada mana-mana pakej yang dipublikasi, jangkakan beberapa hari dan bukan beberapa bulan, kerana tiada sistem legasi untuk dimigrasi.</p>
         </details>
         <details class="faq-item">
           <summary data-en="Who supports us, and how fast?">Siapa menyokong kami, dan seberapa cepat?</summary>
@@ -518,7 +567,7 @@
         <p class="cta-copy" data-en="Thirty minutes on a shared screen. We show the workspace with sample records, the commercial flow end to end, and the trust centre row by row — including what is not finished. Bring your constitution and we will tell you which parameters it sets.">Tiga puluh minit pada skrin berkongsi. Kami tunjukkan ruang kerja dengan rekod sample, aliran perdagangan hujung ke hujung, dan pusat kepercayaan baris demi baris — termasuk yang belum siap. Bawa perlembagaan anda dan kami beritahu parameter mana yang ia tetapkan.</p>
         <div class="cta-actions">
           <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20ingin%20menempah%20demo%20untuk%20koperasi%20saya." target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" data-en="Book by WhatsApp">Tempah melalui WhatsApp</a>
-          <a href="app.html" class="btn btn-secondary btn-lg" data-en="Open the sample workspace first">Buka ruang kerja sample dahulu</a>
+          <a href="/app.html" class="btn btn-secondary btn-lg" data-en="Open the sample workspace first">Buka ruang kerja sample dahulu</a>
         </div>
         <p class="cta-foot" data-en="No sales sequence, no forced form. A founding cooperative that wants to trial AGMX for its next AGM can start with the free readiness assessment.">Tiada siri jualan, tiada borang paksa. Koperasi pionir yang ingin mencuba AGMX untuk AGM seterusnya boleh bermula dengan penilaian kesediaan percuma.</p>
       </div>
@@ -557,20 +606,20 @@
         </nav>
         <nav class="footer-nav">
           <h4 data-en="Try it">Cuba</h4>
-          <a href="app.html" data-en="Sample AGM">Contoh AGM</a>
-          <a href="assessment.html" data-en="Free assessment">Penilaian percuma</a>
+          <a href="/app.html" data-en="Sample AGM">Contoh AGM</a>
+          <a href="/assessment.html" data-en="Free assessment">Penilaian percuma</a>
           <a href="#demo" data-en="Book a demo">Tempah demo</a>
         </nav>
         <nav class="footer-nav">
           <h4 data-en="Company">Syarikat</h4>
           <a href="https://wa.me/601154034051?text=Salam%20AGMX%2C%20saya%20ingin%20berhubung%20dengan%20pasukan%20anda." target="_blank" rel="noopener noreferrer" data-en="Contact us">Hubungi kami</a>
           <a href="https://dutaintegra.my" target="_blank" rel="noopener noreferrer">Duta Integra</a>
-          <a href="privacy.html" data-en="Privacy">Privasi</a>
-          <a href="terms.html" data-en="Terms">Terma</a>
+          <a href="/privacy.html" data-en="Privacy">Privasi</a>
+          <a href="/terms.html" data-en="Terms">Terma</a>
         </nav>
       </div>
       <div class="footer-bottom">
-        <p data-en="© 2026 AGMX · Duta Integra. Facts on this page describe the deployment as at 1 November 2026.">© 2026 AGMX · Duta Integra. Fakta dalam halaman ini menggambarkan deployment pada 1 November 2026.</p>
+        <p data-en="© 2026 AGMX · Duta Integra. Facts on this page describe the deployment as at 3 November 2026.">© 2026 AGMX · Duta Integra. Fakta dalam halaman ini menggambarkan deployment pada 3 November 2026.</p>
       </div>
     </div>
   </footer>

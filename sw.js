@@ -69,10 +69,76 @@
 // phrasing, which implied a scarcity incentive and a benefit that cannot be
 // contractually substantiated. index.html is precached.
 //
-// Bumped to v33: index.html hero badge dropped "Founding cooperative programme"
-// and canonical/og:url updated to stable production alias
-// agmx-v2-app-shamel-projects.vercel.app. index.html is precached.
-const CACHE = "agmx-v33";
+// Bumped to v34: Sprint 4 Governance OS — the AGM Hall and Compliance & Audit
+// views (governance-ui.js) join the precache, and app.html/app-shell.css/
+// supabase-client.js/app-bootstrap.js changed with them.
+//
+// Bumped to v35: styles.css and app-shell.css now carry the glassmorphism they
+// have advertised in their header comment since the design system was written —
+// translucent chrome over an ambient mesh, with opaque fallbacks for browsers
+// without backdrop-filter, prefers-reduced-transparency, senior mode and print.
+// Both files are precached, so an installed browser keeps the old flat surfaces
+// until this number moves.
+//
+// Bumped to v36: the fetch handler stopped caching the runtime. It cached every
+// same-origin response, cache-first, so /api/config.js — which sets its own
+// Cache-Control: no-store, a header the Cache API ignores — was frozen at
+// whatever it said the first time a visitor loaded the site. That deployment
+// reported demoMode:true, api.js bound the browser-local adapter, and the
+// checkout "paid" into localStorage; a later fix could not reach the client
+// because the worker kept serving the pinned copy. /api/health has the same
+// problem in a worse direction: a 503 is not ok, so it is never stored, and the
+// last healthy 200 is served forever after an outage. /api/* is now network-only.
+// Pages that are not precached (terms, privacy, the marketing pages) are now
+// network-first too — they change without a CACHE bump, which is exactly how
+// v31 and v32 got left behind. And no response is ever stored for a .js/.css/.json
+// path if the body came back text/html: vercel.json rewrites unmatched paths to
+// index.html, so one typo'd asset used to be cached as JavaScript that parses as
+// HTML and survives the deploy that fixes it.
+// Bumped to v37: price-list.js is precached and shipped — it is now the only
+// place a price appears in browser code. The landing page, assessment,
+// checkout and api.js each carried their own book of numbers, and none of
+// them matched public.plans, which is the table money-flow re-prices a quote
+// and a recurring invoice from: the landing page sold a 1,000-member
+// cooperative "RM 2,999/year" while the catalog bills RM 9,600. An installed
+// client keeping the old copy would keep quoting prices nothing can invoice.
+// Bumped to v38: two classes of stale client are dangerous here, so both move.
+// (1) checkout.html, leads.html and assessment.html no longer promise payment
+// rails this deployment cannot run and no longer offer a PocketBase switch —
+// /api/config.js dropped pocketbaseUrl, the FPX/card/Billplz pills that claimed
+// instant confirmation are hidden until gateway keys exist, and the lead inbox
+// now reports backend status instead of inviting an operator to point the
+// workspace at a retired backend. (2) governance-ui.js and app-shell.css change
+// how a compliance result is coloured: the status pill used to be green unless
+// it was amber, so a FAILED statutory rule was drawn on the same green as a
+// pass. An installed copy doing that is an all-clear the meeting record cannot
+// support, which is exactly the failure mode that reaches a regulator.
+// Bumped to v39: assessment.html and leads.html are precached and both changed.
+// (1) The assessment page's demo pipeline card still told a visitor that
+// "PocketBase mode is enabled from the Lead Inbox" — a control v38 deleted. The
+// sentence now says what happens to a submission (browser storage in demo,
+// agm_assessments under a configured Supabase backend), and the four MAP keys
+// whose text nodes no longer exist went with it, so the English page cannot mix
+// a translated half-sentence with an untranslated fragment. (2) leads.html loaded
+// api.js without price-list.js, so RATE_CARD was null and every inbox row fell
+// back to the raw plan code and a zero amount — an operator triaging leads saw
+// "professional_agm · RM0" for a RM3,500 job. The rate card now loads first.
+// Bumped to v40: three precached files moved, all around one recommendation.
+// (1) assessment.js no longer computes its own complexity bands. It takes the
+// band from price-list.js — money-flow's recommendPlan() verbatim — and then
+// lifts it only when the member count exceeds the package's own seeded cap.
+// The old copy disagreed with the server at 34/35 and sold a 1,999-member AGM
+// on a 500-member package, so an installed client kept quoting a package the
+// quote endpoint would not price. (2) price-list.js documents that split, and
+// its comment now states the one thing it had claimed but not delivered.
+// (3) index.html is the published number: it asserted RLS on "all 50 tables in
+// the application schema" while the migrations install 40, so the extra ten
+// were hand-made tables in one production database that a fresh deploy of the
+// documented bundle does not produce. check.sh §23 now compares every
+// table/policy count on the landing page against the generated bundle, and
+// §9 runs the assessment boundary harness that had been failing, unwired, with
+// no rate card installed.
+const CACHE = "agmx-v40";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -80,10 +146,12 @@ const PRECACHE = [
   "/theme.js",
   "/app.js",
   "/app-bootstrap.js",
+  "/governance-ui.js",
   "/app-shell.css",
   "/runtime-diagnostics.js",
   "/styles.css",
   "/data.js",
+  "/price-list.js",
   "/assessment.html",
   "/assessment.js",
   "/checkout.html",
@@ -99,6 +167,28 @@ const PRECACHE = [
   "/manifest.json",
 ];
 
+const PRECACHED = new Set(PRECACHE);
+
+// vercel.json rewrites anything it does not recognise to index.html, so a
+// missing asset answers 200 with an HTML body. Storing that under the asset's
+// URL hands the browser a script that parses as markup, and it keeps being
+// handed out after the deploy that adds the file.
+function mislabelled(pathname, contentType) {
+  return String(contentType || "").toLowerCase().includes("text/html")
+    && /\.(?:js|mjs|css|json)$/.test(pathname);
+}
+
+function fromNetwork(req) {
+  return fetch(req).then((res) => {
+    const path = new URL(req.url).pathname;
+    if (res.ok && !mislabelled(path, res.headers.get("content-type"))) {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(req, copy));
+    }
+    return res;
+  });
+}
+
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting())
@@ -113,15 +203,29 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  if (e.request.url.startsWith(self.location.origin)) {
-    e.respondWith(
-      caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
-        if (res.ok || res.type === "opaque") {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => caches.match("/offline.html")))
-    );
+  const req = e.request;
+  if (req.method !== "GET") return;
+
+  let url;
+  try { url = new URL(req.url); } catch (_) { return; }
+  if (url.origin !== self.location.origin) return;
+
+  // Runtime truth: which backend this build talks to, whether that backend is
+  // up, and what a gateway callback reported. Versioned by the server, not by
+  // this file, so a cached answer is always the wrong answer.
+  if (url.pathname.startsWith("/api/")) return;
+
+  // The app shell is versioned by CACHE: cache-first is correct, and the only
+  // way a stale copy is served is an edit without a bump — which check.sh §7
+  // fails the commit for.
+  if (PRECACHED.has(url.pathname)) {
+    e.respondWith(caches.match(req).then((cached) => cached || fromNetwork(req)));
+    return;
   }
+
+  e.respondWith(
+    fromNetwork(req)
+      .catch(() => caches.match(req))
+      .then((res) => res || caches.match("/offline.html"))
+  );
 });

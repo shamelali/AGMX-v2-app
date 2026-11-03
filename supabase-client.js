@@ -163,10 +163,10 @@ export const db = {
         .from('agms')
         .select('*, settings:agm_settings(*)')
         .eq('organization_id', orgId)
-        .eq('status', 'live')
+        .in('status', ['planned', 'live', 'closed', 'minuted'])
         .order('scheduled_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       return { data, error }
     },
 
@@ -225,7 +225,7 @@ export const db = {
         .from('compliance_findings')
         .select('*, check:compliance_checks(*, rule:compliance_rules(*))')
         .eq('organization_id', orgId)
-        // compliance_findings has no created_at column (schema_final.sql:419)
+        // compliance_findings has no created_at column (migrations/0001_schema.sql:419)
         .order('severity', { ascending: false })
       return { data, error }
     },
@@ -263,6 +263,52 @@ export const db = {
       return resp.json()
     },
   },
+
+  // Governance OS (Sprint 4)
+  // Every mutation goes through the governance Edge Function: the RPCs behind
+  // it enforce quorum maths, voting windows, ballot secrecy and the audit
+  // chain, and the voter's member row is bound to the session — never to a
+  // value in the request body.
+  governance: (() => {
+    async function call(path, body) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/governance${path}`, {
+        method: body ? 'POST' : 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': CONFIG.supabaseAnonKey,
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+      const payload = await resp.json().catch(() => ({}))
+      if (!resp.ok) throw new Error(payload.error || `Governance request failed (${resp.status})`)
+      return payload
+    }
+
+    return {
+      current: () => call('/agm/current'),
+      roster: (agmId) => call(`/agm/${agmId}/roster`),
+      motions: (agmId) => call(`/agm/${agmId}/motions`),
+      resolutions: (agmId) => call(`/agm/${agmId}/resolutions`),
+      compliance: (agmId) => call(`/agm/${agmId}/compliance`),
+      audit: (agmId) => call(`/agm/${agmId}/audit`),
+      actions: () => call('/actions'),
+      documents: () => call('/documents'),
+      createAgm: (input) => call('/agm', input),
+      startAgm: (agmId) => call('/agm/start', { agmId }),
+      closeAgm: (agmId) => call('/agm/close', { agmId }),
+      checkIn: (agmId, memberId, method) => call('/attendance', { agmId, memberId: memberId || null, method: method || 'digital' }),
+      createMotion: (input) => call('/motion', input),
+      openVoting: (motionId) => call('/motion/open-voting', { motionId }),
+      vote: (motionId, choice) => call('/vote', { motionId, choice }),
+      recordResolution: (motionId) => call('/resolution', { motionId }),
+      createAction: (input) => call('/action', input),
+      runCompliance: (agmId) => call('/compliance/run', { agmId }),
+      registerDocument: (input) => call('/document', input),
+    }
+  })(),
 
   // Money Flow (Operator only)
   money: {
@@ -413,6 +459,15 @@ export const AGMX_API = {
   isAuthenticated() {
     return supabase.auth.getSession().then(({ data: { session } }) => !!session)
   },
+
+  // A session can end while the workspace is still on screen — sign-out in
+  // another tab, a revoked token, an expired lockout. app-bootstrap.js has to
+  // be told, or a shared meeting-room browser keeps a rendered AGM open after
+  // the identity behind it is gone.
+  onAuthStateChange(callback) {
+    if (configProblem) return null
+    return supabase.auth.onAuthStateChange((event, session) => callback(event, session))
+  },
   
   getCurrentUser() {
     return auth.getUser()
@@ -422,28 +477,63 @@ export const AGMX_API = {
   async loadDashboard() {
     const { user } = await auth.getUser()
     if (!user) throw new Error('Not authenticated')
-    
-    const { data: profile } = await profile.getCurrent()
-    if (!profile) throw new Error('Profile not found')
-    
-    const orgId = profile.organization_id
-    const [agm, members, agenda, motions] = await Promise.all([
-      db.agm.getCurrent(orgId),
+
+    const { data: row, error } = await profile.getCurrent()
+    if (error || !row) throw new Error('Profile not found')
+
+    const orgId = row.organization_id
+    const [{ data: members }, { data: agm }] = await Promise.all([
       profile.getMembers(orgId),
-      db.agm.getAgenda(profile.agm_id),
-      db.agm.getMotions(profile.agm_id),
+      db.agm.getCurrent(orgId),
     ])
-    
+
+    const [agenda, motions, quorum] = await Promise.all([
+      agm ? db.agm.getAgenda(agm.id) : { data: [] },
+      agm ? db.agm.getMotions(agm.id) : { data: [] },
+      agm
+        ? supabase.from('quorum_snapshots').select('*').eq('agm_id', agm.id)
+            .order('captured_at', { ascending: false }).limit(1).maybeSingle()
+        : { data: null },
+    ])
+
+    const org = row.organization || {}
     return {
-      cooperative: profile.organization,
-      currentUser: { ...profile, id: user.id, email: user.email },
-      members: members.data || [],
-      agm: agm.data,
+      cooperative: {
+        id: orgId,
+        pbId: orgId,
+        name: org.name,
+        shortName: org.name,
+        registrationNo: org.registration_no,
+        state: org.state,
+        zone: org.zone,
+        plan: org.plan,
+        quorumPct: agm ? Number(agm.quorum_pct) : null,
+        members: (members || []).length,
+      },
+      currentUser: { id: user.id, email: user.email, name: row.full_name, role: row.role },
+      members: members || [],
+      agm: agm
+        ? {
+            id: agm.id,
+            pbId: agm.id,
+            title: agm.title,
+            edition: agm.edition,
+            status: agm.status,
+            date: agm.scheduled_at,
+            venue: agm.venue,
+            mode: agm.mode,
+            quorumPct: Number(agm.quorum_pct),
+            quorumPresent: quorum.data ? Number(quorum.data.present) : 0,
+            totalMembers: quorum.data ? Number(quorum.data.total_members) : (members || []).length,
+          }
+        : null,
       agenda: agenda.data || [],
       motions: motions.data || [],
-      // ... other fields for compatibility
     }
   },
+
+  // Governance OS (Sprint 4) — consumed by governance-ui.js
+  governance: db.governance,
 }
 
 // Make available globally for legacy code

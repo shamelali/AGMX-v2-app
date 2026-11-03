@@ -7,8 +7,8 @@
   <meta name="description" content="Lead Inbox AGMX — operasi jualan: penilaian, sebut harga, invois dan pembayaran AGM koperasi.">
   <title>Lead Inbox · AGMX Operasi</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
-  <script src="theme.js"></script>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/theme.js"></script>
   <style>
     body { background: var(--c-bg); }
     .as-header { background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary)); color: #fff; padding: 16px 0; }
@@ -67,7 +67,7 @@
         <button class="backend-chip" id="backend-chip" title="Tukar backend">
           <span class="dot"></span><span id="backend-label">Backend…</span>
         </button>
-        <a href="assessment.html" class="btn btn-sm" style="background:var(--c-accent);color:var(--c-primary-700);font-weight:700">+ Penilaian Baharu</a>
+        <a href="/assessment.html" class="btn btn-sm" style="background:var(--c-accent);color:var(--c-primary-700);font-weight:700">+ Penilaian Baharu</a>
       </div>
     </div>
   </header>
@@ -96,14 +96,14 @@
           </div>
         </div>
         <div style="overflow-x:auto" id="deals-wrap"></div>
-        <p class="fine">⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca <code>agm_assessments</code>, <code>quotes</code>, <code>invoices</code>, <code>payments</code>).</p>
+        <p class="fine">⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca agm_assessments, quotes, invoices, payments).</p>
       </div>
 
       <!-- Audit log -->
       <div class="as-card">
         <span class="section-tag">Jejak Audit</span>
         <h2>Rekod Aktiviti Komersial</h2>
-        <p class="sub">Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: koleksi <code>audit_events</code> berantai-hash SHA-256 di PocketBase.</p>
+        <p class="sub">Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: rekod audit_events berantai-hash SHA-256 di pangkalan data Supabase projek ini.</p>
         <div id="audit-list"></div>
       </div>
 
@@ -112,30 +112,25 @@
 
   <!-- Backend settings -->
   <dialog id="backend-dialog">
-    <h3>Tetapan Backend</h3>
-    <p class="sub">Demo menyimpan data dalam pelayar ini (localStorage). Untuk pengeluaran, sambungkan instans PocketBase — rute aliran wang ada dalam <code>pb_hooks/money_flow.pb.js</code>.</p>
-    <div class="form-row">
-      <div>
-        <label class="label" for="pb-url">URL PocketBase</label>
-        <input class="input" id="pb-url" type="url" placeholder="http://127.0.0.1:8090">
-      </div>
-    </div>
+    <h3>Status Backend</h3>
+    <p class="sub" id="backend-state">Memuat status…</p>
+    <p class="sub">Backend ditetapkan oleh deployment ini (/api/config.js) dan tidak boleh ditukar daripada pelayar. PocketBase telah bersara; rute aliran wang berada pada Edge Function money-flow di Supabase.</p>
+    <p class="fine">Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di app.html — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.</p>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
-      <button class="btn btn-ghost" id="pb-clear">Guna Demo Tempatan</button>
-      <button class="btn btn-primary" id="pb-save">Simpan &amp; Muat Semula</button>
+      <button class="btn btn-primary" id="backend-close">Tutup</button>
     </div>
-    <p class="fine">Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di <code>app.html</code> — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.</p>
   </dialog>
 
   <div class="toast" id="toast"></div>
 
-  <script src="config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
-  <script src="api.js"></script>
-  <script src="leads.js"></script>
+  <script src="/config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script src="/price-list.js"></script>
+  <script src="/api.js"></script>
+  <script src="/leads.js"></script>
 
 <script>
 (function () {
-  var MAP = {"Lead Inbox · Operasi AGMX": "Lead Inbox · AGMX Operations", "+ Penilaian Baharu": "+ New Assessment", "Penilaian Diterima": "Assessments Received", "Nilai Pipeline": "Pipeline Value", "sebut harga + anggaran belum diproses": "quotes + estimates pending", "Hasil Dikutip": "Revenue Collected", "pembayaran berjaya": "successful payments", "Kadar Tutup": "Close Rate", "dibayar ÷ sebut harga diterbitkan": "paid ÷ quotes issued", "Operasi Jualan": "Sales Operations", "Senarai Penilaian & Deal": "Assessments & Deals", "Setiap penilaian AGM dari laman awam muncul di sini. \"Proses\" membawa lead ke aliran sebut harga → invois → pembayaran.": "Every AGM assessment from the public site appears here. \"Process\" takes the lead through quote → invoice → payment.", "↻ Muat Semula": "↻ Reload", "⬇ Eksport CSV": "⬇ Export CSV", "⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca <code>agm_assessments</code>, <code>quotes</code>, <code>invoices</code>, <code>payments</code>).": "⚠️ Demo operations page — in production this is protected by auth + RLS (only AGMX operators can read <code>agm_assessments</code>, <code>quotes</code>, <code>invoices</code>, <code>payments</code>).", "Rekod Aktiviti Komersial": "Commercial Activity Log", "Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: koleksi <code>audit_events</code> berantai-hash SHA-256 di PocketBase.": "All sales-flow events (append-only). In production: a SHA-256 hash-chained <code>audit_events</code> collection on PocketBase.", "Tetapan Backend": "Backend Settings", "Demo menyimpan data dalam pelayar ini (localStorage). Untuk pengeluaran, sambungkan instans PocketBase — rute aliran wang ada dalam <code>pb_hooks/money_flow.pb.js</code>.": "Demo stores data in this browser (localStorage). For production, connect a PocketBase instance — the money-flow routes live in <code>pb_hooks/money_flow.pb.js</code>.", "Guna Demo Tempatan": "Use Local Demo", "Simpan & Muat Semula": "Save & Reload", "Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di <code>app.html</code> — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.": "Operational data (inbox, metrics, audit) requires operator login (admin/secretary) at <code>app.html</code> — the session token is reused automatically. No secrets here.", "lead dari laman awam": "leads from the public site"};
+  var MAP = {"Lead Inbox · Operasi AGMX": "Lead Inbox · AGMX Operations", "+ Penilaian Baharu": "+ New Assessment", "Penilaian Diterima": "Assessments Received", "Nilai Pipeline": "Pipeline Value", "sebut harga + anggaran belum diproses": "quotes + estimates pending", "Hasil Dikutip": "Revenue Collected", "pembayaran berjaya": "successful payments", "Kadar Tutup": "Close Rate", "dibayar ÷ sebut harga diterbitkan": "paid ÷ quotes issued", "Operasi Jualan": "Sales Operations", "Senarai Penilaian & Deal": "Assessments & Deals", "Setiap penilaian AGM dari laman awam muncul di sini. \"Proses\" membawa lead ke aliran sebut harga → invois → pembayaran.": "Every AGM assessment from the public site appears here. \"Process\" takes the lead through quote → invoice → payment.", "↻ Muat Semula": "↻ Reload", "⬇ Eksport CSV": "⬇ Export CSV", "⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca agm_assessments, quotes, invoices, payments).": "⚠️ Demo operations page — in production this is protected by auth + RLS (only AGMX operators can read agm_assessments, quotes, invoices, payments).", "Rekod Aktiviti Komersial": "Commercial Activity Log", "Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: rekod audit_events berantai-hash SHA-256 di pangkalan data Supabase projek ini.": "All sales-flow events (append-only). In production: SHA-256 hash-chained audit_events rows in this project's Supabase database.", "Status Backend": "Backend Status", "Memuat status…": "Loading status…", "Backend ditetapkan oleh deployment ini (/api/config.js) dan tidak boleh ditukar daripada pelayar. PocketBase telah bersara; rute aliran wang berada pada Edge Function money-flow di Supabase.": "The backend is set by this deployment (/api/config.js) and cannot be switched from the browser. PocketBase has been retired; the money-flow routes are the money-flow Edge Function on Supabase.", "Tutup": "Close", "Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di app.html — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.": "Operational data (inbox, metrics, audit) requires operator login (admin/secretary) at app.html — the session token is reused automatically. No secrets here.", "lead dari laman awam": "leads from the public site"};
   var lang = "ms";
   try {
     var q = new URLSearchParams(location.search).get("lang");

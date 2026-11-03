@@ -23,25 +23,43 @@
 
   const API = window.AGMX_COMMERCE;
   const $ = (id) => document.getElementById(id);
-  const PAY_MODE = String((window.AGMX_CONFIG && window.AGMX_CONFIG.paymentsMode) || "all").toLowerCase();
+  /* Fail closed: if /api/config.js never arrived, or arrived without a
+     paymentsMode, "all" would unhide FPX/card/Billplz pills that nothing can
+     settle and print a receipt for a payment no gateway has seen. */
+  const PAY_MODE = String((window.AGMX_CONFIG && window.AGMX_CONFIG.paymentsMode) || "bank_transfer").toLowerCase();
 
-  /* Optional add-ons — DISPLAY COPY of the server-side rate card
-     (pb_hooks/money_flow.pb.js ADDONS). The hook re-prices every
-     quote, so tampering here changes nothing but this screen. */
+  /* Optional add-ons. These three lines came from the PocketBase hook's rate
+     card (archive/pocketbase-v1/pb_hooks/money_flow.lib.js:52), and money-flow
+     has no equivalent: it prices a quote from one plans row and ignores the
+     addon keys this page sends. So on a live order a ticked add-on is a request
+     the team prices by hand, never a line on the invoice — which is why no
+     price is printed next to it. The keys still travel, because the lead keeps
+     them for whoever takes the call. */
+  const LIVE_BACKEND = !!(API && API.mode === "supabase");
   const ADDONS = [
     { key: "facilitator", label: T("Fasilitator AGM Tambahan", "Additional AGM Facilitator"), desc: T("1 fasilitator berpengalaman untuk dewan besar / kawalan kehadiran", "1 experienced facilitator for the hall / attendance control"), price: 800 },
     { key: "translate", label: T("Penterjemahan Simultan BM ⇄ EN", "Simultaneous BM ⇄ EN Interpretation"), desc: T("Terjemahan langsung semasa AGM untuk ahli pelbagai bahasa", "Live interpretation during the AGM for multilingual members"), price: 1200 },
     { key: "printpack", label: T("Pek Mesyuarat Dicetak & Dihantar", "Printed & Delivered Meeting Pack"), desc: T("Pek mesyuarat fizikal dicetak dan dihantar ke dewan AGM", "Physical meeting packs printed and delivered to the AGM hall"), price: 600 },
   ];
 
-  /* Governance OS subscription plans — mirrors server-side plans table
-     (plans.is_subscription=true, billing_cycle='annual'). Prices in MYR/year. */
-  const SUB_PLANS = [
-    { key: "essential", name: T("Essential", "Essential"), monthly: 600, annual: 7200, description: T("Sedia untuk AGM tahunan: notis, agenda, minutes, undian, rekod kehadiran", "Ready for annual AGM: notice, agenda, minutes, voting, attendance records") },
-    { key: "professional", name: T("Professional", "Professional"), monthly: 800, annual: 9600, description: T("Essential + pengurusan matlamat, risiko, polisi, laporan lembaga, aliran kerja kelulusan", "Essential + objectives, risks, policies, board reports, approval workflows") },
-    { key: "enterprise", name: T("Enterprise", "Enterprise"), monthly: 1000, annual: 12000, description: T("Professional + SSO, audit log, API, domain tersuai, sokongan keutamaan, SLA", "Professional + SSO, audit log, API, custom domain, priority support, SLA") },
-    { key: "federation", name: T("Federation", "Federation"), monthly: 1250, annual: 15000, description: T("Enterprise + multi-koperasi, konsolidasi laporan, kawalan akses terpusat, pengurus berdedikasi", "Enterprise + multi-coop, consolidated reporting, centralized access, dedicated manager") },
-  ];
+  /* Governance OS subscriptions — prices and names read from price-list.js,
+     which mirrors the plans rows money-flow bills from. Descriptions stay
+     here, and say what is running rather than what the tier promises. */
+  const RATE_CARD = window.AGMX_PRICE_LIST || null;
+  const SUB_PLAN_COPY = {
+    governance_os_essential: T("Sedia untuk AGM tahunan: notis, agenda, minit, rekod kehadiran dan peti dokumen", "Ready for an annual AGM: notice, agenda, minutes, attendance records and the document vault"),
+    governance_os_professional: T("Essential + laporan lanjut, sokongan keutamaan, dan muat naik data berpandu", "Essential + advanced reporting, priority support and guided data load"),
+    governance_os_enterprise: T("Professional + parameter kuorum/notis/ambang setiap koperasi, kontak pelaksanaan dinamakan. SSO, API dan domain tersuai belum disediakan.", "Professional + per-cooperative quorum, notice and threshold parameters, a named implementation contact. SSO, API and a custom domain are not delivered yet."),
+    governance_os_federation: T("Enterprise + struktur berbilang koperasi. Papan pemuka konsolidasi dan pengebilan gabungan masih dalam reka bentuk — diskop dahulu.", "Enterprise + a multi-cooperative structure. The roll-up dashboard and consolidated billing are still being designed — scoped first."),
+  };
+  const SUB_PLANS = (RATE_CARD ? RATE_CARD.subscriptions() : []).map((p) => ({
+    key: p.key,
+    code: p.code,
+    name: T(p.name.replace("Governance OS ", ""), p.name.replace("Governance OS ", "")),
+    monthly: p.monthly,
+    annual: p.annual,
+    description: SUB_PLAN_COPY[p.code] || p.name,
+  }));
 
   const state = {
     lead: null,
@@ -123,9 +141,14 @@
   });
 
   function computeTotals() {
+    /* money-flow prices a quote from a single plans row and ignores both the
+       items array and the addon keys this page sends, so a live preview that
+       added them would show a total that quietly drops when the server
+       answers. The keys still travel as a request; they are not a line here. */
+    const extras = LIVE_BACKEND ? [] : selectedAddons().map((a) => lineItem(a.label, a.price));
     const items = [
       lineItem(state.lead.pkgName + T(" — perkhidmatan AGM sekali gus", " — one-off AGM service"), state.lead.pkgPrice),
-    ].concat(selectedAddons().map((a) => lineItem(a.label, a.price)));
+    ].concat(extras);
     const subtotal = API.round2(items.reduce((s, it) => s + it.lineTotal, 0));
     const tax = API.round2(subtotal * API.TAX_RATE);
     return { items, subtotal, tax, total: API.round2(subtotal + tax) };
@@ -148,7 +171,9 @@
     $("addon-list").innerHTML = ADDONS.map((a) =>
       `<label class="addon${locked ? "" : ""}" data-addon-card="${a.key}">
          <input type="checkbox" data-addon="${a.key}" ${locked ? "disabled" : ""}>
-         <span><strong style="font-size:13.5px">${a.label}</strong> · <strong style="color:var(--c-primary)">+${RM(a.price)}</strong>
+         <span><strong style="font-size:13.5px">${a.label}</strong> · <strong style="color:var(--c-primary)">${
+           LIVE_BACKEND ? T("dibincang dengan kami", "arranged with us") : "+" + RM(a.price)
+         }</strong>
          <div style="font-size:12px;color:var(--c-text-2);margin-top:2px">${a.desc}</div></span>
        </label>`).join("");
     if (locked) {
@@ -273,12 +298,20 @@
           return;
         }
         if (method !== "bank_transfer") {
+          /* PAY_MODE is derived from gateway key presence, so a non-transfer method
+             here means the pills were unhidden without a working gateway. Refuse
+             rather than print a receipt for a payment no gateway has seen. */
+          if (PAY_MODE !== "all") {
+            throw new Error(T(
+              "kaedah ini belum tersedia pada deployment ini — tiada kunci gerbang pembayaran dikonfigurasi",
+              "this method is not available on this deployment — no payment gateway key is configured"));
+          }
           $("processing-sub").textContent =
             method === "fpx"
-              ? T("Menunggu pengesahan ", "Awaiting confirmation from ") + $("fpx-bank").value + "…"
-              : T("Menunggu pengesahan 3-D Secure bank anda…", "Awaiting your bank's 3-D Secure confirmation…");
+              ? T("Mod demo — menunggu pengesahan ", "Demo mode — awaiting confirmation from ") + $("fpx-bank").value + "…"
+              : T("Mod demo — tiada 3-D Secure sebenar berlaku…", "Demo mode — no real 3-D Secure exchange is happening…");
           setStep(3.5);
-          await new Promise((r) => setTimeout(r, 600)); /* brief hand-off beat */
+          await new Promise((r) => setTimeout(r, 600)); /* simulated hand-off beat, demo only */
         }
         state.payment = await API.payInvoice(state.invoice.number, { method });
         /* Supabase mode hands the payer to the hosted gateway (Billplz /
@@ -349,12 +382,14 @@
       [T("Ahli", "Members"), Number(lead.members).toLocaleString("ms-MY")],
     ]);
 
-    /* Find the matching subscription plan */
-    const planKey = lead.pkgKey.replace("_agm", "");
-    const plan = SUB_PLANS.find((p) => p.key === planKey) || SUB_PLANS[0];
+    /* Find the matching subscription plan. price-list.js is a static sibling
+       file, so an absent catalog means the page was served a truncated bundle —
+       saying so beats rendering a plan list with nothing in it. */
+    const planKey = String(lead.pkgKey || "").replace("_agm", "");
+    const plan = SUB_PLANS.find((p) => p.key === planKey) || SUB_PLANS[0] || null;
 
     /* Render plan cards */
-    $("sub-plan-list").innerHTML = SUB_PLANS.map((p) => {
+    $("sub-plan-list").innerHTML = plan ? SUB_PLANS.map((p) => {
       const isSelected = p.key === plan.key;
       return `<label class="addon${isSelected ? " on" : ""}" data-sub-plan="${p.key}" style="cursor:pointer">
         <input type="radio" name="sub-plan" value="${p.key}" ${isSelected ? "checked" : ""} style="margin-top:3px;accent-color:var(--c-primary);width:16px;height:16px">
@@ -364,7 +399,7 @@
           <div style="font-size:11px;color:var(--c-text-3);margin-top:4px">${T("RM", "RM")}${p.monthly}${T("/bulan (bil tahunan)", "/mo (billed annually)")}</div>
         </span>
       </label>`;
-    }).join("");
+    }).join("") : `<p class="muted">${T("Kad harga langganan tidak dimuatkan. Muat semula halaman ini sebelum meneruskan — kami tidak akan mengagak harganya.", "The subscription rate card did not load. Reload this page before continuing — we will not guess at its prices.")}</p>`;
 
     /* Pre-select the recommended plan */
     const selectedPlan = plan;
@@ -390,11 +425,13 @@
       btn.disabled = true;
       btn.textContent = T("Memproses…", "Processing…");
       try {
-        const selectedKey = document.querySelector('input[name="sub-plan"]:checked').value;
-        const selected = SUB_PLANS.find((p) => p.key === selectedKey);
+        const picker = document.querySelector('input[name="sub-plan"]:checked');
+        /* The plan actually billed is the one the accepted quote carries; the
+           picker only chooses a plan on the demo backend, where no quote exists. */
         state.subscription = await API.createSubscription({
+          quoteRef: state.quote && state.quote.id ? state.quote.id : null,
           leadRef: lead.id,
-          planKey: selectedKey + "_agm",
+          planKey: picker ? picker.value + "_agm" : null,
           billingCycle: "annual",
         });
         showToast(T("Langganan ", "Subscription ") + state.subscription.number + T(" dicipta.", " created."));
@@ -410,22 +447,28 @@
   }
 
   function renderSelectedPlan(plan) {
+    if (!plan) {
+      $("sub-selected-wrap").classList.add("hidden");
+      $("sub-billing").classList.add("hidden");
+      return;
+    }
     $("sub-selected-wrap").classList.remove("hidden");
     $("sub-selected-detail").innerHTML = `
       <strong style="font-size:15px">${plan.name}</strong> — RM${plan.annual.toLocaleString("ms-MY")}${T("/tahun", "/yr")}
       <div style="font-size:12px;color:var(--c-text-2);margin-top:4px">${plan.description}</div>
     `;
     $("sub-billing").classList.remove("hidden");
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 14);
     infoGrid($("sub-billing-info"), [
-      [T("Kitaran Bil", "Billing Cycle"), T("Tahunan (1 Januari – 31 Disember)", "Annual (Jan 1 – Dec 31)")],
+      [T("Kitaran Bil", "Billing Cycle"), T("Tahunan — 12 bulan dari tarikh mula", "Annual — 12 months from the start date")],
       [T("Harga Tahunan", "Annual Price"), `RM${plan.annual.toLocaleString("ms-MY")}`],
-      [T("Tempoh Percubaan", "Trial Period"), `14 ${T("hari", "days")} (${T("tamat", "ends")} ${trialEnd.toLocaleDateString("ms-MY")})`],
-      [T("Pembaharuan Automatik", "Auto Renewal"), T("Ya, setiap 1 Januari", "Yes, every Jan 1")],
-      [T("SST 8%", "Tax 8%"), T("Dikenakan pada setiap bil", "Applied on each invoice")],
+      [T("Invois Pertama", "First Invoice"), T("Dijadwalkan pada hari langganan dicipta", "Scheduled the day the subscription is created")],
+      [T("Pembaharuan Automatik", "Auto Renewal"), T("Ya — tahun kedua bermula sehari selepas tempoh pertama tamat", "Yes — the second year starts the day the first period ends")],
+      [T("Cukai 8%", "Tax 8%"), T("Dikenakan pada setiap invois", "Applied on each invoice")],
     ]);
-    $("sub-trial").textContent = T("Percubaan 14 hari bermula pada tarikh diluluskan. Batalkan dalam tempoh ini untuk elak caj.", "14-day trial starts on approval date. Cancel within trial to avoid charges.");
+    /* The RPC writes trial_ends_at as start + 14 days and schedules the first
+       annual invoice for now() in the same statement, so there is no
+       un-invoiced fortnight to cancel into. */
+    $("sub-trial").textContent = T("Rekod langganan menyimpan tarikh tamat percubaan 14 hari, tetapi invois tahunan pertama sudah dijadwalkan pada hari ia dicipta — jadi tiada tempoh tanpa invois. Membatalkan dalam tempoh ini menghentikan pembaharuan tahun berikutnya, bukan invois yang telah diterbitkan.", "The subscription record stores a 14-day trial end, but the first annual invoice is scheduled the day it is created — there is no un-invoiced period. Cancelling inside it stops next year's renewal, not an invoice already issued.");
   }
 
   async function renderSubscriptionDetail() {
@@ -524,6 +567,8 @@
     "subscription.created": T("Langganan dicipta", "Subscription created"),
     "subscription.cancelled": T("Langganan dibatalkan", "Subscription cancelled"),
     "subscription.invoice_generated": T("Bil bertolak ansur diterbitkan", "Recurring invoice generated"),
+    "recurring_invoice.generated": T("Bil bertolak ansur diterbitkan", "Recurring invoice generated"),
+    "subscription.renewed": T("Langganan diperbaharui", "Subscription renewed"),
   };
 
   async function renderAudit() {
