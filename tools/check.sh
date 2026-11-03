@@ -55,7 +55,7 @@ fi
 # ----------------------------------------------------------------
 head_ "2. JSON validity"
 # ----------------------------------------------------------------
-for f in vercel.json manifest.json package.json sitemap.xml; do
+for f in vercel.json manifest.json package.json .mcp.json sitemap.xml; do
   [ -f "$f" ] || continue
   case "$f" in
     *.xml) continue ;;

@@ -28,7 +28,7 @@ Remove it with `rm .git/hooks/pre-commit`.
 | # | Pass | Guards against |
 |---|---|---|
 | 1 | JavaScript syntax | Typos that blank out `app.js` / `login.js` at runtime |
-| 2 | JSON + XML validity | Malformed `vercel.json` / `manifest.json` breaking deploys |
+| 2 | JSON + XML validity | Malformed `vercel.json` / `manifest.json` breaking deploys, and `.mcp.json` — the project's connector config (Vercel, Playwright). A syntactically broken one is not an error anywhere: the CLI just starts with no connectors, so every later task silently loses the live browser and the deployment API |
 | 3 | Vercel routing + security-header invariants | A legacy `routes` array silently disabling the whole `headers` block (so CSP/X-Frame-Options/HSTS were configured but never sent — found while wiring the live backend); an SPA catch-all moved into `beforeFiles`, the modern shape of the old "every asset resolves to `index.html`" bug; a missing `/sw.js` `Cache-Control` |
 | 4 | HTML asset references | `<script src>` / `<link href>` pointing at files that don't exist (covers `checkout.html` + `leads.html` too; `config.js` is exempt — optional per-deployment, `onerror`-guarded) |
 | 5 | Live host probe | Absolute URLs referencing a Vercel alias that isn't serving (social cards + `robots.txt` pointed at a 404 domain). Hosts appearing **only** in the CSP `connect-src` allow-list (e.g. a PocketBase origin not yet deployed) warn instead of failing |

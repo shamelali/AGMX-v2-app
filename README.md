@@ -137,6 +137,20 @@ node tools/test_domain_packs.js     # the orphaned registry still parses and res
 suites moved to `archive/pocketbase-v1/tools/` — they wipe money-flow collections
 first, so never point them at production.
 
+## Agent connectors
+
+`.mcp.json` is tracked and deliberately holds no credentials:
+
+| Server | What it is | Still needed |
+|---|---|---|
+| `playwright` | `npx @playwright/mcp@latest` driving local chromium — the only way to actually render `app.html` and the AGM Hall, which the 23 static passes cannot do | nothing; works offline |
+| `vercel` | `https://mcp.vercel.com` — deployment status, env vars, logs for `agmx-v2-app` | one-time OAuth consent in the CLI |
+
+Supabase (project `lcrfsqocqavczgnzpadq`) is connected from the developer's own
+CLI config, not this file, so the access token never enters the repository.
+Checklist for anything else that needs a key — `SUPABASE_SECRET_KEY`, Billplz,
+HitPay — is in `VERCEL_ENV.md`.
+
 ## Files
 
 ```
