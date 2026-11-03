@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # AGMX production smoke test — the §127 deployment matrix.
-# Usage: BASE=https://agmx-v2-app.vercel.app bash scripts/smoke-test.sh
+# Usage: BASE=https://agmx-v2-app-ecru.vercel.app bash scripts/smoke-test.sh
 set -u
-BASE="${BASE:-https://agmx-v2-app.vercel.app}"
+BASE="${BASE:-https://agmx-v2-app-ecru.vercel.app}"
 pass=0; fail=0
 check() { # name path expect_status
   local name="$1" path="$2" expect="${3:-200}"

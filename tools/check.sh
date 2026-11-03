@@ -99,7 +99,7 @@ head_ "3. Vercel routing + security-header invariants"
 #      /assessment.html win before index.html is reached.
 if [ -f vercel.json ]; then
   if python3 - <<'PY'
-import json, re, sys
+import json, os, re, sys
 try:
     cfg = json.load(open("vercel.json"))
 except Exception as e:
@@ -161,6 +161,26 @@ else:
     else:
         print("  \033[32m✓\033[0m SPA catch-all is last, serves extensionless routes, "
               "and leaves asset paths to 404")
+
+# --- (d) a rewrite must not target a function's own source path --------------
+# /config.js rewrote to /api/config.js. With outputDirectory "." the function's
+# source is ALSO published at that path, so Vercel's filesystem lookup answered
+# it: the browser got the text of api/config.js — "export default" in a classic
+# <script> is a SyntaxError — and never received window.AGMX_CONFIG. Every page
+# then ran with no backend on a site that looked perfectly healthy. The
+# function's route is extensionless: /api/config.
+fn_shadow = []
+pub_root = (cfg.get("outputDirectory") or ".").rstrip("/") or "."
+for r in after:
+    d = r.get("destination") or ""
+    if pub_root == "." and re.match(r"^/api/[^/]+\.js$", d) and os.path.isfile("." + d):
+        fn_shadow.append(f'{r.get("source")} -> {d}')
+if fn_shadow:
+    fails.append('rewrite(s) target a function\'s own source path, which the filesystem '
+                 'serves instead of running it: ' + "; ".join(fn_shadow)
+                 + ' — drop the ".js" so the route reaches the function (/api/config)')
+else:
+    print("  \033[32m✓\033[0m no rewrite targets a function source path")
 
 # --- headers actually present ------------------------------------
 hdrs = {h.get("source"): {kv.get("key"): kv.get("value") for kv in h.get("headers", [])}
@@ -947,7 +967,7 @@ done
 CFG_HARNESS=$(mktemp /tmp/agmx-cfg-XXXXXX.mjs)
 cat > "$CFG_HARNESS" <<'JS'
 import { pathToFileURL } from "node:url";
-const mk = () => { const r = { b: null, setHeader() {}, status() { return r; }, send(x) { r.b = x; return r; } }; return r; };
+const mk = () => { const r = { b: null, setHeader() {}, status() { return r; }, end(x) { r.b = x; return r; }, send() { throw new Error("api/config.js replied with res.send(): Vercel's Express-like polyfill overwrites Content-Type with text/html, and a <script> served as text/html is blocked by X-Content-Type-Options: nosniff. Reply with res.end() so the application/javascript header survives."); } }; return r; };
 const parse = (js) => JSON.parse(js.replace(/^\s*window\.AGMX_CONFIG\s*=\s*/, "").replace(/;\s*$/, ""));
 const KEYS = [
   "NEXT_PUBLIC_DEMO_MODE", "NEXT_PUBLIC_KNOWLEDGE_RAG", "NEXT_PUBLIC_REALTIME",
@@ -1986,13 +2006,13 @@ SW_CODE=000
 if [ -z "$LIVE_HOST" ]; then
   warn "pass 19 resolved no canonical host — the deployed surface was not verified"
 elif [ "${AGMX_SKIP_NET:-0}" = "1" ]; then
-  warn "AGMX_SKIP_NET=1 — deployed /api/config.js and /sw.js NOT verified; clear it before a release"
+  warn "AGMX_SKIP_NET=1 — deployed /api/config and /sw.js NOT verified; clear it before a release"
 elif ! command -v curl >/dev/null 2>&1; then
   warn "curl not found — the deployed surface was not verified"
 else
   LIVE_TRY=1
   CFG_CODE=$(curl -sL --max-time 20 -o "$LIVE_DIR/api-config.js" -w '%{http_code}' \
-            "https://$LIVE_HOST/api/config.js" 2>/dev/null)
+            "https://$LIVE_HOST/api/config" 2>/dev/null)
   SW_CODE=$(curl -sL --max-time 20 -o "$LIVE_DIR/sw.js" -w '%{http_code}' \
             "https://$LIVE_HOST/sw.js" 2>/dev/null)
 fi
@@ -2086,19 +2106,20 @@ elif live_n == repo_n:
 findings = []
 cfg = None
 if cfg_code != "200":
-    emit("BAD", "GET https://%s/api/config.js → HTTP %s" % (host, cfg_code))
+    emit("BAD", "GET https://%s/api/config → HTTP %s" % (host, cfg_code))
 else:
     txt = (live / "api-config.js").read_text(errors="replace")
     m = re.search(r"AGMX_CONFIG\s*=\s*\{", txt)
     body = balanced(txt, m.end() - 1) if m else None
     if body is None:
-        emit("BAD", "deployed /api/config.js serves no AGMX_CONFIG object (%d bytes) — the config "
+        emit("BAD", "deployed /api/config serves no AGMX_CONFIG object (%d bytes) — the config "
                     "route is not answering" % len(txt))
     else:
         try:
             cfg = json.loads(body.rstrip().rstrip(";"))
         except Exception as exc:
-            emit("BAD", "deployed /api/config.js is not parseable: %s" % exc)
+            emit("BAD", "deployed /api/config is not parseable — is the probe pointed at the "
+                        "static copy of the function instead of its route? %s" % exc)
 
 if cfg is not None:
     if cfg.get("demoMode") is not False:

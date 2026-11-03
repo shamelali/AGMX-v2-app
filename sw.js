@@ -138,7 +138,15 @@
 // table/policy count on the landing page against the generated bundle, and
 // §9 runs the assessment boundary harness that had been failing, unwired, with
 // no rate card installed.
-const CACHE = "agmx-v40";
+// Bumped to v41: index.html and app.html now name the host this deployment
+// actually answers on. Both are precached, so an installed browser would have
+// kept handing out share tags for agmx-project.vercel.app — a retired project
+// that still serves 200, with demoMode:true behind it. The same bump carries
+// the config route: /config.js rewrote to /api/config.js, and with
+// outputDirectory "." the function's own source is published at that path, so
+// visitors received "export default" as a classic <script>, never got
+// window.AGMX_CONFIG, and ran the entire site against no backend at all.
+const CACHE = "agmx-v41";
 const PRECACHE = [
   "/",
   "/index.html",

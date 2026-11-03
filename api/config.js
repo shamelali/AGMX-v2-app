@@ -2,12 +2,19 @@
  * AGMX — Vercel Edge Function: Runtime Config
  * Serves client-side config from Vercel environment variables
  * 
- * GET /api/config.js
+ * GET /api/config  (vercel.json rewrites /config.js here)
  * Returns: window.AGMX_CONFIG = { ... }
+ *
+ * The route must stay extensionless: outputDirectory is ".", so this source file
+ * is also published as the static path /api/config.js, and Vercel's filesystem
+ * lookup runs before rewrites — asking for that path returns this file's own
+ * text instead of its output.
  */
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  // HEAD is a read as much as GET is — probes that check this endpoint with
+  // curl -I would otherwise be told 405 by the site's own config route.
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(405).send('Method Not Allowed')
   }
 
@@ -59,7 +66,7 @@ export default async function handler(req, res) {
 
     // App
     appName: 'AGMX',
-    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://agmx-project.vercel.app',
+    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://agmx-v2-app-ecru.vercel.app',
 
     // Feature flags
     demoMode,
@@ -77,5 +84,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
   const js = `window.AGMX_CONFIG = ${JSON.stringify(config, null, 2)};`
-  res.status(200).send(js)
+  // end(), not send(): Vercel's Express-like res.send() overwrites the
+  // Content-Type with text/html, and a <script> served as text/html under
+  // X-Content-Type-Options: nosniff is refused by the browser — so the page
+  // loads with no window.AGMX_CONFIG at all.
+  res.status(200).end(js)
 }

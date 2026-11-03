@@ -70,7 +70,7 @@ Vercel environment variables and inject them:
 
 ```js
 window.AGMX_CONFIG = {
-  url: "https://pb.agmx-project.vercel.app",   // your PocketBase URL
+  url: "https://pb.agmx-v2-app-ecru.vercel.app",   // your PocketBase URL
   googleClientId: "1234567890-abc.apps.googleusercontent.com",
   appName: "AGMX",
   demoMode: false,   // set true to fall back to data.js when PB is down
