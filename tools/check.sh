@@ -1504,6 +1504,55 @@ else
   else
     bad "index.html needs one rel=canonical pointing at https://$CANON_HOST/ (found $canon)"
   fi
+
+  # The landing page is not the only surface that can point at a retired
+  # deployment, and the one that was missed is the worst place to miss it:
+  # supabase/functions/money-flow/index.ts fell back to an APP_URL of
+  # agmx-project.vercel.app, and the Supabase secret of that name held the same
+  # value, so the checkout link in a quote, the paymentUrl on an invoice and the
+  # gateway's post-payment redirect all led a paying customer to a v31 build
+  # running in demo mode. Passes 19 and 23 stayed green because they read
+  # index.html and the Vercel surface, and the Edge Function appears on neither.
+  # So: sweep every tracked file. archive/ and any doc that opens with a
+  # superseded banner are history and may name old hosts; a live file may name
+  # exactly one. This comment is written without a scheme for that reason —
+  # the rule has no exemptions, not even for the checker.
+  STRAY_HOSTS=$(python3 - "$CANON_HOST" <<'PY'
+import pathlib, re, subprocess, sys
+
+canon = sys.argv[1]
+pat = re.compile(rb"https://([a-z0-9][a-z0-9.-]*)\.vercel\.app")
+files = subprocess.run(["git", "ls-files", "-z"], capture_output=True).stdout.split(b"\0")
+for f in files:
+    name = f.decode(errors="replace")
+    if not name or name.startswith("archive/"):
+        continue
+    p = pathlib.Path(name)
+    if not p.is_file():
+        continue
+    data = p.read_bytes()
+    # A history banner, not the word anywhere: the first 12 lines only, so an
+    # ops doc cannot exempt itself by using "superseded" in passing prose.
+    head = b"\n".join(data.split(b"\n")[:12])
+    if re.search(rb"superseded", head, re.I):
+        continue
+    hosts = set()
+    for m in pat.finditer(data):
+        # CANON_HOST carries the .vercel.app suffix; the capture is the label
+        # before it, so rebuild the whole host before comparing.
+        full = m.group(1).decode() + ".vercel.app"
+        if full != canon and not full.endswith("." + canon):
+            hosts.add(full)
+    if hosts:
+        print(f"{name}\t{' '.join(sorted(hosts))}")
+PY
+) || true
+  if [ -n "$STRAY_HOSTS" ]; then
+    bad "live files name a vercel.app host that is not $CANON_HOST"
+    printf '%s\n' "$STRAY_HOSTS" | sed 's/^/      /'
+  else
+    ok "no live file names a vercel.app host other than $CANON_HOST"
+  fi
 fi
 
 # ----------------------------------------------------------------
@@ -2168,6 +2217,32 @@ while IFS=$'\t' read -r kind text; do
 done < "$LIVE_OUT"
 rm -f "$LIVE_OUT"; rm -rf "$LIVE_DIR"
 [ "$LIVE_RC" -eq 0 ] || bad "pass 23 could not complete (python exit $LIVE_RC)"
+
+# The config the *server* reads. Everything above judges what the browser gets;
+# money-flow builds its checkout links from the APP_URL secret, and that secret
+# survives every redeploy — so a tree that names one host and a project that
+# answers another is invisible to passes 19 and 23 until a customer follows a
+# link to the wrong site. `supabase secrets list` prints only a sha256 digest of
+# each value, which is exactly enough to compare a public URL without ever
+# reading a secret.
+if [ -n "$LIVE_HOST" ] && [ "${AGMX_SKIP_NET:-0}" != "1" ] && command -v supabase >/dev/null 2>&1; then
+  SB_REF=$(python3 -c 'import json;print(json.load(open("supabase/.temp/linked-project.json"))["ref"])' 2>/dev/null || true)
+  SB_LIST=""
+  if [ -n "$SB_REF" ]; then
+    SB_LIST=$(supabase secrets list --project-ref "$SB_REF" 2>/dev/null || true)
+  fi
+  APP_URL_DIGEST=$(printf '%s\n' "$SB_LIST" | awk -F'|' '$1 ~ /APP_URL/ {gsub(/[[:space:]]/,"",$2); print $2}')
+  WANT_APP_URL=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(("https://"+sys.argv[1]).encode()).hexdigest())' "$LIVE_HOST")
+  if [ -z "$SB_REF" ]; then
+    warn "no supabase/.temp/linked-project.json — run \`supabase link\` to verify the deployed APP_URL"
+  elif [ -z "$APP_URL_DIGEST" ]; then
+    warn "APP_URL was not read from project $SB_REF (unauthenticated CLI, or the secret is unset) — money-flow then uses the host compiled into it"
+  elif [ "$APP_URL_DIGEST" = "$WANT_APP_URL" ]; then
+    ok "the deployed APP_URL secret digests to https://$LIVE_HOST — the links money-flow generates are this site"
+  else
+    bad "APP_URL on project $SB_REF is not https://$LIVE_HOST (digest $APP_URL_DIGEST) — every quote link, paymentUrl and gateway redirect points at another deployment"
+  fi
+fi
 
 # ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"

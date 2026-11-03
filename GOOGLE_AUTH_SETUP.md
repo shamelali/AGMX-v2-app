@@ -1,5 +1,15 @@
 # Google Auth for AGMX (PocketBase)
 
+> **SUPERSEDED — the Google provider is configured in Supabase Auth, not
+> PocketBase.** PocketBase was retired as the backend; the browser now signs in
+> through `supabase-client.js` (`auth.signInWithGoogle()` → Supabase's OAuth
+> redirect), so the provider credentials live in
+> Supabase Dashboard → Authentication → Sign In / Providers → Google, with the
+> site URL and redirect URLs set on the same page. Nothing below this banner
+> describes the running system; §1 (creating an OAuth client in Google Cloud)
+> is still how the client ID is obtained, and `googleClientId` is empty on the
+> live deployment because that Supabase provider has never been configured.
+
 Setup in two places: **Google Cloud Console** and your **PocketBase server**.
 
 ---
@@ -70,7 +80,7 @@ Vercel environment variables and inject them:
 
 ```js
 window.AGMX_CONFIG = {
-  url: "https://pb.agmx-v2-app-ecru.vercel.app",   // your PocketBase URL
+  url: "http://127.0.0.1:8090",   // your PocketBase URL
   googleClientId: "1234567890-abc.apps.googleusercontent.com",
   appName: "AGMX",
   demoMode: false,   // set true to fall back to data.js when PB is down

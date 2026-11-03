@@ -36,7 +36,7 @@ const BILLPLZ_X_SIGNATURE = Deno.env.get("BILLPLZ_X_SIGNATURE") || ""
 const HITPAY_API_KEY = Deno.env.get("HITPAY_API_KEY") || ""
 const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
 const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
-const APP_URL = Deno.env.get("APP_URL") || "https://agmx-project.vercel.app"
+const APP_URL = Deno.env.get("APP_URL") || "https://agmx-v2-app-ecru.vercel.app"
 
 // Use service_role key (auto-injected by Supabase Edge Functions runtime)
 const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
