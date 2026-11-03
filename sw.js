@@ -68,7 +68,11 @@
 // the "founding cooperative price" and "includes Q4 2026 access at no charge"
 // phrasing, which implied a scarcity incentive and a benefit that cannot be
 // contractually substantiated. index.html is precached.
-const CACHE = "agmx-v32";
+//
+// Bumped to v33: index.html hero badge dropped "Founding cooperative programme"
+// and canonical/og:url updated to stable production alias
+// agmx-v2-app-shamel-projects.vercel.app. index.html is precached.
+const CACHE = "agmx-v33";
 const PRECACHE = [
   "/",
   "/index.html",
