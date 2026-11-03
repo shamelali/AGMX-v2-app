@@ -2065,6 +2065,23 @@ elif ! command -v curl >/dev/null 2>&1; then
   warn "curl not found — the deployed surface was not verified"
 else
   LIVE_TRY=1
+  # The content probes below fetch with -L, so a canonical host that merely
+  # redirected still passed. That is exactly what happened when Vercel
+  # reassigned this project's production alias: sitemap.xml and rel=canonical
+  # kept publishing a host that only answered 307, every shared link and
+  # payment redirect went through it, and only pass 5 noticed. The URL the
+  # product publishes must be the URL that answers, so the first hop is judged
+  # on its own, without following anything.
+  CANON_CODE=$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "https://$LIVE_HOST/" 2>/dev/null)
+  CANON_LOC=$(curl -sI --max-time 20 "https://$LIVE_HOST/" 2>/dev/null \
+              | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r\n')
+  if [ "$CANON_CODE" = "200" ]; then
+    ok "https://$LIVE_HOST/ answers 200 on the first hop — the published host is the serving host"
+  elif [ -n "$CANON_LOC" ]; then
+    bad "https://$LIVE_HOST/ is a $CANON_CODE redirect to $CANON_LOC — publish the host that answers, not an alias that forwards to it"
+  else
+    bad "https://$LIVE_HOST/ answered HTTP $CANON_CODE — the canonical host is not serving this product"
+  fi
   CFG_CODE=$(curl -sL --max-time 20 -o "$LIVE_DIR/api-config.js" -w '%{http_code}' \
             "https://$LIVE_HOST/api/config" 2>/dev/null)
   SW_CODE=$(curl -sL --max-time 20 -o "$LIVE_DIR/sw.js" -w '%{http_code}' \
