@@ -1,4 +1,7 @@
 {
+  "buildCommand": "echo 'static site - no build'",
+  "outputDirectory": ".",
+  "framework": null,
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },
     { "source": "/config.js", "destination": "/api/config.js" },
