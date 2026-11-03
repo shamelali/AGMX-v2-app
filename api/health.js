@@ -21,8 +21,10 @@ const PROBE_TIMEOUT_MS = 5000;
 
 function supabaseSettings() {
   const url = String(process.env[SUPABASE_URL_ENV] || "").trim().replace(/\/+$/, "");
-  const keyName = SUPABASE_KEY_ENVS.find((name) => String(process.env[name] || "").trim());
-  return { url, key: keyName ? String(process.env[keyName]).trim() : "" };
+  const keyName = SUPABASE_KEY_ENVS.find((name) => String(process.env[name] || "").trim()) || null;
+  // The name is reported, never the value: without it a 401 here is
+  // indistinguishable from a database that is genuinely down.
+  return { url, key: keyName ? String(process.env[keyName]).trim() : "", keyName };
 }
 
 // PostgREST answers 200 for an existing table (RLS may return zero rows) and
@@ -45,19 +47,30 @@ async function restProbe(url, key, table) {
 }
 
 async function databaseStatus() {
-  const { url, key } = supabaseSettings();
+  const { url, key, keyName } = supabaseSettings();
   if (!url || !key) {
     return { configured: false, ok: false, latencyMs: null, error: "Supabase is not configured" };
   }
   const probe = await restProbe(url, key, "organizations");
   if (probe.ok) {
-    return { configured: true, ok: true, latencyMs: probe.latencyMs };
+    return { configured: true, ok: true, latencyMs: probe.latencyMs, credential: keyName };
   }
+  // 42501 is not an outage. `grant select ... to authenticated` is the only
+  // table grant in supabase/migrations/0001_schema.sql, so a publishable key is
+  // refused on every table by design and no probe can pass with one; calling
+  // that "unreachable" sends the operator to check the network.
+  const refused = probe.status === 401 || probe.status === 403;
   return {
     configured: true,
     ok: false,
     latencyMs: probe.latencyMs,
-    error: probe.status === 404 ? "Supabase schema is not applied" : "Supabase is unreachable",
+    credential: keyName,
+    status: probe.status,
+    error: probe.status === 404
+      ? "Supabase schema is not applied"
+      : refused
+        ? `PostgREST refused the probe (401/403): this check needs a secret key, and ${keyName} only reaches authenticated-granted tables. Set SUPABASE_SECRET_KEY.`
+        : "Supabase is unreachable",
   };
 }
 
@@ -75,6 +88,8 @@ async function knowledgeStatus(database) {
   const missing = NVIDIA_ENV.filter((name) => !String(process.env[name] || "").trim());
   const configured = missing.length === 0;
   const schema = { configured: database.configured, ready: false, missing: [], invalid: [] };
+  // knowledge_chunks is an authenticated-granted table too, so this probe is
+  // only meaningful once the database check is holding a secret key.
   if (database.ok) {
     const { url, key } = supabaseSettings();
     const probe = await restProbe(url, key, "knowledge_chunks");
