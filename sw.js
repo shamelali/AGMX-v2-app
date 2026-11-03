@@ -146,7 +146,7 @@
 // outputDirectory "." the function's own source is published at that path, so
 // visitors received "export default" as a classic <script>, never got
 // window.AGMX_CONFIG, and ran the entire site against no backend at all.
-const CACHE = "agmx-v41";
+const CACHE = "agmx-v42";
 const PRECACHE = [
   "/",
   "/index.html",
