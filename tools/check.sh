@@ -451,12 +451,17 @@ AK="AK""IA[0-9A-Z]{16}"
 PEM="-----BEGIN [A-Z ]*PR""IVATE KEY-----"
 JWT="eyJ""hbGciOi[A-Za-z0-9_-]{10,}\."
 NV="nv""api-[A-Za-z0-9_-]{32,}"
+# Supabase's non-JWT credential formats. The legacy service_role key is a JWT
+# and $JWT already catches it; these are the current ones, which nothing here
+# matched — a sb_secret_ key pasted into any tracked file used to pass this pass.
+SB_SEC="sb""_secret_[A-Za-z0-9_-]{20,}"
+SB_PAT="sb""p_[A-Za-z0-9_-]{20,}"
 # This script and its documentation legitimately contain the patterns.
 SELF="^tools/check\.sh$|^tools/CHECKS\.md$"
 
 LEAKS=$(git ls-files -z 2>/dev/null \
         | grep -zvE "$SELF" \
-        | xargs -0 grep -lIE "($SK_P|$AK|$PEM|$JWT|$NV)" 2>/dev/null || true)
+        | xargs -0 grep -lIE "($SK_P|$AK|$PEM|$JWT|$NV|$SB_SEC|$SB_PAT)" 2>/dev/null || true)
 
 if [ -n "$LEAKS" ]; then
   bad "possible secrets in: $(echo "$LEAKS" | tr '\n' ' ')"
