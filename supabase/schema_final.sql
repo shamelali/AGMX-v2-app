@@ -13,12 +13,12 @@
 -- `drop ... if exists` first, or guarded by an exception handler.
 --
 -- Sources:
---   0001_schema.sql  (871 lines)
+--   0001_schema.sql  (845 lines)
 --   0002_knowledge.sql  (154 lines)
 --   0003_plans_seed.sql  (17 lines)
 --   0004_revoke_non_dml_privileges.sql  (7 lines)
---   0005_pin_function_search_path.sql  (45 lines)
---   0006_subscriptions_billing.sql  (405 lines)
+--   0005_pin_function_search_path.sql  (43 lines)
+--   0006_subscriptions_billing.sql  (413 lines)
 --   0007_governance_rpc.sql  (497 lines)
 -- ============================================================
 
@@ -44,33 +44,7 @@ create extension if not exists "vector";
 -- ------------------------------------------------------------
 create or replace function public.generate_ref(prefix text)
 returns text language sql volatile as $$
-  select $1 || '-' || to_base36(extract(epoch from now())::bigint) || '-' || upper(substring(md5(random()::text) from 1 for 6));
-$$;
-
-create or replace function public.to_base36(n bigint)
-returns text language sql immutable as $$
-  select case
-    when n = 0 then '0'
-    else (
-      select string_agg(
-        chr(c + case when c < 10 then 48 else 55 end),
-        ''
-        order by pos desc
-      )
-      from (
-        select
-          mod(
-            div(n::numeric, power(36::numeric, p::numeric)),
-            36::numeric
-          )::int as c,
-          p as pos
-        from generate_series(
-          0,
-          floor(log(n::numeric) / log(36::numeric))::int
-        ) as p
-      ) as digits
-    )
-  end;
+  select $1 || '-' || to_hex(extract(epoch from now())::bigint) || '-' || upper(substring(md5(random()::text) from 1 for 6));
 $$;
 
 -- ------------------------------------------------------------
@@ -1118,8 +1092,6 @@ alter function public.check_rate_limit(text, integer, interval)
   set search_path to 'public', 'pg_catalog';
 alter function public.generate_ref(text)
   set search_path to 'public', 'pg_catalog';
-alter function public.to_base36(bigint)
-  set search_path to 'public', 'pg_catalog';
 alter function public.raise_append_only()
   set search_path to 'public', 'pg_catalog';
 alter function public.profiles_protect_privileged_columns()
@@ -1299,14 +1271,22 @@ declare
   v_sub public.subscriptions%rowtype;
   v_period_end date;
 begin
-  -- Get quote with plan
-  select q.*, p.* into v_quote, v_plan
-  from public.quotes q
-  join public.plans p on p.id = (select plan_id from public.quote_items where quote_id = q.id limit 1)
-  where q.id = p_quote_id and q.organization_id = p_organization_id;
+  -- Get quote
+  select * into v_quote from public.quotes
+  where id = p_quote_id and organization_id = p_organization_id;
 
   if not found then
-    raise exception 'Quote not found or plan missing';
+    raise exception 'Quote not found';
+  end if;
+
+  -- Get plan
+  select p.* into v_plan from public.plans p
+  join public.quote_items qi on qi.quote_id = p_quote_id
+  where p.id = qi.plan_id
+  limit 1;
+
+  if not found then
+    raise exception 'Plan missing';
   end if;
 
   if not v_plan.is_subscription then

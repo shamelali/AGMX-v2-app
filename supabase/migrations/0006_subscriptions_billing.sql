@@ -152,14 +152,22 @@ declare
   v_sub public.subscriptions%rowtype;
   v_period_end date;
 begin
-  -- Get quote with plan
-  select q.*, p.* into v_quote, v_plan
-  from public.quotes q
-  join public.plans p on p.id = (select plan_id from public.quote_items where quote_id = q.id limit 1)
-  where q.id = p_quote_id and q.organization_id = p_organization_id;
+  -- Get quote
+  select * into v_quote from public.quotes
+  where id = p_quote_id and organization_id = p_organization_id;
 
   if not found then
-    raise exception 'Quote not found or plan missing';
+    raise exception 'Quote not found';
+  end if;
+
+  -- Get plan
+  select p.* into v_plan from public.plans p
+  join public.quote_items qi on qi.quote_id = p_quote_id
+  where p.id = qi.plan_id
+  limit 1;
+
+  if not found then
+    raise exception 'Plan missing';
   end if;
 
   if not v_plan.is_subscription then

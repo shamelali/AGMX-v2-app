@@ -21,8 +21,6 @@ alter function public.check_rate_limit(text, integer, interval)
   set search_path to 'public', 'pg_catalog';
 alter function public.generate_ref(text)
   set search_path to 'public', 'pg_catalog';
-alter function public.to_base36(bigint)
-  set search_path to 'public', 'pg_catalog';
 alter function public.raise_append_only()
   set search_path to 'public', 'pg_catalog';
 alter function public.profiles_protect_privileged_columns()

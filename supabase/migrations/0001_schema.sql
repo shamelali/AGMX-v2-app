@@ -16,33 +16,7 @@ create extension if not exists "vector";
 -- ------------------------------------------------------------
 create or replace function public.generate_ref(prefix text)
 returns text language sql volatile as $$
-  select $1 || '-' || to_base36(extract(epoch from now())::bigint) || '-' || upper(substring(md5(random()::text) from 1 for 6));
-$$;
-
-create or replace function public.to_base36(n bigint)
-returns text language sql immutable as $$
-  select case
-    when n = 0 then '0'
-    else (
-      select string_agg(
-        chr(c + case when c < 10 then 48 else 55 end),
-        ''
-        order by pos desc
-      )
-      from (
-        select
-          mod(
-            div(n::numeric, power(36::numeric, p::numeric)),
-            36::numeric
-          )::int as c,
-          p as pos
-        from generate_series(
-          0,
-          floor(log(n::numeric) / log(36::numeric))::int
-        ) as p
-      ) as digits
-    )
-  end;
+  select $1 || '-' || to_hex(extract(epoch from now())::bigint) || '-' || upper(substring(md5(random()::text) from 1 for 6));
 $$;
 
 -- ------------------------------------------------------------
