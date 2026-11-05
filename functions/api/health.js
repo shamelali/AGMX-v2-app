@@ -13,11 +13,22 @@ const SUPABASE_KEY_ENVS = [
 
 const NVIDIA_ENV = ["NVIDIA_API_KEY", "NVIDIA_BASE_URL"];
 
-const BILLPLZ_ENV = [
-  "BILLPLZ_API_KEY",
-  "BILLPLZ_COLLECTION_ID",
-  "BILLPLZ_X_SIGNATURE_KEY",
-  "BILLPLZ_CALLBACK_URL",
+// Both ports must answer this the same way or the two backends disagree about
+// whether money can move, so the shape lives twice: api/health.js holds the
+// explanation of needed vs callback, and why HitPay is checked first.
+const GATEWAYS = [
+  {
+    name: "hitpay",
+    needed: ["HITPAY_API_KEY"],
+    callback: ["HITPAY_SALT"],
+    urlEnv: "HITPAY_API_BASE_URL",
+  },
+  {
+    name: "billplz",
+    needed: ["BILLPLZ_API_KEY", "BILLPLZ_COLLECTION_ID"],
+    callback: ["BILLPLZ_X_SIGNATURE_KEY", "BILLPLZ_CALLBACK_URL"],
+    urlEnv: "BILLPLZ_API_BASE_URL",
+  },
 ];
 
 const PROBE_TIMEOUT_MS = 5000;
@@ -65,12 +76,18 @@ async function databaseStatus(env) {
 }
 
 function paymentStatus(env) {
-  const missing = BILLPLZ_ENV.filter((name) => !String(env[name] || "").trim());
+  const has = (name) => !!String(env[name] || "").trim();
+  const ready = GATEWAYS.find((gateway) => gateway.needed.every(has));
+  const chosen = ready || GATEWAYS[0];
+  const missing = [...chosen.needed, ...chosen.callback].filter((name) => !has(name));
+  const url = String(env[chosen.urlEnv] || "");
   return {
-    provider: "billplz",
-    configured: missing.length === 0,
+    provider: ready ? ready.name : null,
+    can_charge: Boolean(ready),
+    configured: Boolean(ready) && missing.length === 0,
     missing,
-    mode: String(env.BILLPLZ_API_BASE_URL || "").includes("sandbox") ? "sandbox" : "live",
+    mode: ready ? (url.includes("sandbox") ? "sandbox" : "live") : null,
+    note: "scope: this platform's environment variables, not the Supabase Edge Function's",
   };
 }
 

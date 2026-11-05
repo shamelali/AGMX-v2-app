@@ -2268,9 +2268,10 @@ if cfg is not None:
                          "wire: %s)" % (behind, "; ".join(findings), live_pays))
     else:
         if cfg.get("paymentsMode") == "all":
-            emit("WARN", "https://%s reports paymentsMode \"all\" — that promises card and Billplz "
-                         "confirmation, so confirm the gateway keys are really configured before an "
-                         "invoice depends on it" % host)
+            emit("WARN", "https://%s reports paymentsMode \"all\" — that promises a real gateway "
+                         "(HitPay, or Billplz on an older deployment), so confirm /api/health "
+                         "checks.payments answers configured:true for it before an invoice depends "
+                         "on the payment; this pass reads /api/config only" % host)
         emit("OK", "https://%s: demoMode false, mode supabase, paymentsMode %s"
              % (host, live_pays))
 out.close()

@@ -10,11 +10,29 @@ const SUPABASE_KEY_ENVS = [
 
 const NVIDIA_ENV = ["NVIDIA_API_KEY", "NVIDIA_BASE_URL"];
 
-const BILLPLZ_ENV = [
-  "BILLPLZ_API_KEY",
-  "BILLPLZ_COLLECTION_ID",
-  "BILLPLZ_X_SIGNATURE_KEY",
-  "BILLPLZ_CALLBACK_URL",
+// Gateways in the order this product ships them. HitPay is first because
+// Billplz was retired after a key leaked; its variables stay readable so an
+// older deployment reports what it actually holds instead of being reported as
+// unconfigured.
+//   needed   — enough to ask a customer for money
+//   callback — enough to believe the notification that says the money arrived
+// `configured` used to mean "all four BILLPLZ_* names are set", a test no
+// correct HitPay deployment can pass: /api/config published paymentsMode "all"
+// from HITPAY_API_KEY while /api/health answered configured:false about a
+// gateway it had never looked for. Both endpoints now read the same variables.
+const GATEWAYS = [
+  {
+    name: "hitpay",
+    needed: ["HITPAY_API_KEY"],
+    callback: ["HITPAY_SALT"],
+    urlEnv: "HITPAY_API_BASE_URL",
+  },
+  {
+    name: "billplz",
+    needed: ["BILLPLZ_API_KEY", "BILLPLZ_COLLECTION_ID"],
+    callback: ["BILLPLZ_X_SIGNATURE_KEY", "BILLPLZ_CALLBACK_URL"],
+    urlEnv: "BILLPLZ_API_BASE_URL",
+  },
 ];
 
 const PROBE_TIMEOUT_MS = 5000;
@@ -74,13 +92,30 @@ async function databaseStatus() {
   };
 }
 
-function paymentStatus() {
-  const missing = BILLPLZ_ENV.filter((name) => !String(process.env[name] || "").trim());
+function paymentStatus(env = process.env) {
+  const has = (name) => !!String(env[name] || "").trim();
+  const ready = GATEWAYS.find((gateway) => gateway.needed.every(has));
+  // When nothing can charge, report against the gateway this product ships,
+  // so `missing` names the variables an operator should actually set.
+  const chosen = ready || GATEWAYS[0];
+  const missing = [...chosen.needed, ...chosen.callback].filter((name) => !has(name));
+  const url = String(env[chosen.urlEnv] || "");
   return {
-    provider: "billplz",
-    configured: missing.length === 0,
+    provider: ready ? ready.name : null,
+    // Split in two, because half a gateway is the dangerous shape: bills can be
+    // created and paid while the callback that marks them paid is unverifiable,
+    // and a single boolean previously hid that behind one word.
+    can_charge: Boolean(ready),
+    configured: Boolean(ready) && missing.length === 0,
     missing,
-    mode: String(process.env.BILLPLZ_API_BASE_URL || "").includes("sandbox") ? "sandbox" : "live",
+    // Both Vercel gateway endpoints default to their live host, so an unset URL
+    // means live here. money-flow defaults to sandbox and names its variable
+    // HITPAY_API_URL instead; this probe reports the mode its platform implies.
+    mode: ready ? (url.includes("sandbox") ? "sandbox" : "live") : null,
+    // Read alongside `configured`, never instead of it: money-flow runs in
+    // Supabase with its own HITPAY_* secrets, and nothing on this side of that
+    // boundary can prove they exist.
+    note: "scope: this platform's environment variables, not the Supabase Edge Function's",
   };
 }
 
