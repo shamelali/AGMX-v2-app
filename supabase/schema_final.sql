@@ -19,8 +19,8 @@
 --   0004_revoke_non_dml_privileges.sql  (7 lines)
 --   0005_pin_function_search_path.sql  (43 lines)
 --   0006_subscriptions_billing.sql  (413 lines)
---   0007_governance_rpc.sql  (516 lines)
---   0008_governance_bugfixes.sql  (148 lines)
+--   0007_governance_rpc.sql  (518 lines)
+--   0008_governance_bugfixes.sql  (149 lines)
 -- ============================================================
 
 
@@ -1767,6 +1767,7 @@ declare
   v_motion public.motions%rowtype;
   v_agm public.agms%rowtype;
   v_settings public.agm_settings%rowtype;
+  v_satisfied boolean;
 begin
   select * into v_motion from public.motions where id = p_motion_id;
   if not found then return jsonb_build_object('error', 'Motion not found'); end if;
@@ -1825,6 +1826,7 @@ declare
   v_ya int;
   v_tidak int;
   v_kecuali int;
+  v_valid int;
   v_passed boolean;
   v_res_id uuid;
 begin
@@ -2145,6 +2147,7 @@ declare
   v_tidak int;
   v_kecuali int;
   v_valid int;
+  v_existing jsonb;
   v_passed boolean;
   v_res_id uuid;
 begin
@@ -2159,8 +2162,8 @@ begin
   if exists (select 1 from public.resolutions where motion_id = p_motion_id) then
     select jsonb_build_object('id', id, 'passed', passed, 'ya', votes_ya, 'tidak', votes_tidak,
       'kecuali', votes_kecuali, 'duplicate', true)
-    into v_res_id from public.resolutions where motion_id = p_motion_id order by minuted_at limit 1;
-    return v_res_id;
+    into v_existing from public.resolutions where motion_id = p_motion_id order by minuted_at limit 1;
+    return v_existing;
   end if;
 
   select status into v_agm_status from public.agms where id = v_motion.agm_id;

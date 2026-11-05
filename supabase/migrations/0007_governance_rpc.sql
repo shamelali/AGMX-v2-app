@@ -229,6 +229,7 @@ declare
   v_motion public.motions%rowtype;
   v_agm public.agms%rowtype;
   v_settings public.agm_settings%rowtype;
+  v_satisfied boolean;
 begin
   select * into v_motion from public.motions where id = p_motion_id;
   if not found then return jsonb_build_object('error', 'Motion not found'); end if;
@@ -287,6 +288,7 @@ declare
   v_ya int;
   v_tidak int;
   v_kecuali int;
+  v_valid int;
   v_passed boolean;
   v_res_id uuid;
 begin

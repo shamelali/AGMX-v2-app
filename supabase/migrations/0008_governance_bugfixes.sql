@@ -86,6 +86,7 @@ declare
   v_tidak int;
   v_kecuali int;
   v_valid int;
+  v_existing jsonb;
   v_passed boolean;
   v_res_id uuid;
 begin
@@ -100,8 +101,8 @@ begin
   if exists (select 1 from public.resolutions where motion_id = p_motion_id) then
     select jsonb_build_object('id', id, 'passed', passed, 'ya', votes_ya, 'tidak', votes_tidak,
       'kecuali', votes_kecuali, 'duplicate', true)
-    into v_res_id from public.resolutions where motion_id = p_motion_id order by minuted_at limit 1;
-    return v_res_id;
+    into v_existing from public.resolutions where motion_id = p_motion_id order by minuted_at limit 1;
+    return v_existing;
   end if;
 
   select status into v_agm_status from public.agms where id = v_motion.agm_id;
