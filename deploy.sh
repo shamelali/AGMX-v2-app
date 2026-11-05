@@ -9,7 +9,11 @@
 set -euo pipefail
 
 # --- Config ---
-TEAM_SLUG="duta-integra"
+# "duta-integra" was here for months, and it is not a team this credential has:
+# `vercel team ls` returns only shamel-projects, so every deploy.sh run either
+# failed the scope check or pointed at a project the account does not own, while
+# agmx-v2-app kept serving from shamel-projects.
+TEAM_SLUG="shamel-projects"
 GITHUB_ORG="shamelali"
 GITHUB_REPO="AGMX-v2-app"
 

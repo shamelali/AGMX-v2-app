@@ -57,21 +57,69 @@
       dropped a prospect's own record, and `log_audit()`'s chain head read meant
       **no governance audit event was ever written**. Fixed in `0007`/`0008`/`0009`.
 
+## ✅ Closed 2026-11-05 — production caught up with this tree
+
+- [x] 🔴 **Production was running the pre-fix governance SQL.** `0007`–`0009` are
+      recorded in `supabase_migrations.schema_migrations`, so `supabase db push`
+      called them applied and skipped them — but `0007` and `0008` had each been
+      edited in place *after* their first apply. `pg_proc.prosrc` showed the truth:
+      `cast_vote` still calling `max(boolean)` (every ballot errors), its quorum
+      guard still `select coalesce(max(satisfied), false) into v_satisfied` (an AGM
+      with no attendance fails **open**), `log_audit()` still reading the chain head
+      with a no-row `SELECT INTO` — so `audit_events` held **0 rows** — and
+      `record_resolution` assigning jsonb into a `uuid`. Re-applied
+      `0007`→`0008`→`0009`→`0010` in order against `jchfalaibabmszewemat`; every
+      definition is `create or replace` and every table held 0 rows, so nothing was
+      at risk. All 22 bundle-defined functions now match `schema_final.sql` by body
+      hash, and §24's journey is the proof the same text produces votes and a
+      chained audit trail.
+- [x] 📥 **`0010_white_label_branding.sql` captured from production.** It had been
+      applied there a day earlier with no file in this tree, while this list
+      asserted no branding column existed anywhere.
+- [x] 🔗 **`supabase link` run** — §23 can now read the deployed `APP_URL` and
+      confirms it digests to `agmx-v2.vercel.app`, so the receipt links
+      money-flow generates point at this site.
+- [x] 🚀 **`4b7422d` deployed to production** via `vercel --prod`. `/api/health`
+      answers `payments {provider:"hitpay", can_charge:true, configured:true}`
+      instead of calling a working HitPay integration an unconfigured Billplz;
+      `HITPAY_API_KEY` and `HITPAY_SALT` are confirmed present as Production
+      secrets.
+- [x] 🩺 **`check.sh` §26 added** (`tools/test_production_drift.mjs`) — hashes
+      `pg_proc.prosrc` against the generated bundle and reconciles the versions
+      recorded in `supabase_migrations.schema_migrations` with the files that
+      describe them. Passes 21/24/25 read files, so they agreed with each other the
+      whole time. Proven to detect both failure modes: a mutated body is named, and
+      hiding `0010` reports the version as remote-only. An unlinked project warns
+      instead of failing, so the pre-commit hook stays green without credentials.
+      Suite: 79 passed · 3 warnings · 0 failed.
+
 ## 📋 Remaining
 
-- [ ] 🔴 **Apply migrations 0007–0009 to production** (`supabase db push --project-ref
-      jchfalaibabmszewemat`). The fixes are proven offline only — **no remote
-      project has been touched**, so production still cannot record a vote or an
-      AGM audit event. Operator action; it carries real money and an audited
-      record, so it is not automated here.
+- [ ] 🏭 **GitHub Actions is locked for billing, so CI deploys nothing.** Every run
+      on `master` fails in ~2s with *"The job was not started because your account
+      is locked due to a billing issue."* Deploys are CLI-only until that clears.
+      `deploy.sh` and `deploy.yml` both named team `duta-integra`, which this
+      credential does not have (`vercel team ls` returns only `shamel-projects`,
+      where `agmx-v2-app` lives) — corrected, but CI cannot run it yet.
+      Side effect to expect: deploying from a linked worktree leaves
+      `deployment.commit` **null**, because Vercel attaches VCS metadata only from a
+      real `.git` directory. Deploy from the primary checkout when the live commit
+      needs to be identifiable.
+- [ ] 🧠 RAG is disabled where it can be seen: `/api/health` reports
+      `knowledge {configured:false, missing:["NVIDIA_API_KEY","NVIDIA_BASE_URL"]}`
+      while `/api/config` publishes `knowledgeRagEnabled:true`. Neither Vercel
+      variable is set; the working key lives in Supabase project secrets, which no
+      Vercel-side probe can read. Either set the two vars or stop advertising the
+      feature as enabled on this surface.
 - [ ] 🌐 Custom domain configuration for agmx-v2.vercel.app — needs the owner's
       hostname plus Vercel and DNS actions, then `check.sh` §19 (canonical host is
       derived from `sitemap.xml`) and §23 (live probes assume `*.vercel.app`) both
       change.
-- [ ] 🎨 White-label co-op portal configuration — **unbuilt**: no branding or theme
-      column exists in the schema, so this is a scope decision first (which fields,
-      which pages, who may upload a logo, and what a co-op's own domain does to
-      §19/§23).
+- [ ] 🎨 White-label co-op portal — **the schema exists, the portal does not.**
+      `0010` gives `organizations.logo_url` and `primary_color` (default `#2563EB`),
+      but no page reads either column, nothing uploads a logo, and no policy says
+      who may. Still a scope decision first (which fields, which pages, who uploads,
+      and what a co-op's own domain does to §19/§23).
 
 ---
 

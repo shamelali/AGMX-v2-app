@@ -62,7 +62,7 @@ without reading the note below.
 **A. Supabase CLI (preferred)** — `supabase/migrations/` is the source of truth:
 ```bash
 supabase link --project-ref YOUR_PROJECT_REF
-supabase db push          # applies migrations/0001…0007 in filename order
+supabase db push          # applies migrations/0001…0010 in filename order
 ```
 
 **B. Dashboard SQL editor** — paste `supabase/schema_final.sql` as one script.
@@ -87,6 +87,29 @@ failed run will not abort on `42710 duplicate_table`.
 > safe (everything is guarded), but the CLI will then think a migration is
 > unapplied — check the live function list rather than the CLI's diff if the two
 > disagree.
+
+> **`db push` compares version numbers, not content.** A recorded version means the
+> CLI skips that file forever, so editing a migration *after* it has been pushed
+> cannot be repaired by pushing again. This is exactly how production came to run
+> the pre-fix bodies of `cast_vote`, `log_audit` and `record_resolution` while
+> `supabase migration list` reported 0007–0009 applied: both `0007` and `0008` were
+> corrected in place after their first apply. Re-apply the SQL to converge —
+> `supabase db query --linked -f supabase/migrations/0007_governance_rpc.sql`, then
+> `0008`, `0009`, `0010` — every definition is `create or replace`, so order is the
+> only thing that matters. Then prove it by body rather than by the CLI — that is
+> what `tools/check.sh` pass 26 does, comparing md5 over
+> `select proname, md5(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`
+> against the same hash taken over each body in `schema_final.sql`, and comparing the
+> versions recorded in `supabase_migrations.schema_migrations` to the files that
+> describe them.
+
+> **A migration applied outside `supabase/migrations/` is invisible to every check
+> in this repository.** Version `0010` (`white_label_branding`, adding
+> `organizations.logo_url` and `primary_color`) sat in production for a day with no
+> file here, while `TODO.md` asserted no branding column existed anywhere.
+> `check.sh` compares the generated bundle to `migrations/*.sql`, so it can only
+> detect a schema the repository already describes; reading `schema_migrations`
+> against the linked project is the only thing that finds one.
 
 `schema.sql` / `knowledge_schema.sql` are the earlier pair and are **not** a
 valid install for a new project: RLS is enabled on all 33 tables with zero
@@ -399,7 +422,7 @@ supabase start  # Requires Docker
 AGMX-v2-app/
 ├── supabase/
 │   ├── config.toml             # CLI project config; declares verify_jwt per function
-│   ├── migrations/             # 0001…0007 — the source of truth for the schema
+│   ├── migrations/             # 0001…0010 — the source of truth for the schema
 │   ├── schema_final.sql        # GENERATED from migrations/ in order — paste this one, never edit
 │   ├── archive/                # superseded schemas — history only, never apply
 │   └── functions/

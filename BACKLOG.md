@@ -48,7 +48,7 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 | ID | Title | Deliverable | State |
 |----|-------|-------------|-------|
 | SP4-01 | Meetings, resolutions, compliance, documents, actions, audit | Beyond AGM day | Done — plpgsql enforcement, exercised by §24/§25 |
-| SP4-02 | Apply the governance SQL fixes to production | `supabase db push` | **Open — operator action; no remote project has been touched** |
+| SP4-02 | Apply the governance SQL fixes to production | re-apply `0007`→`0010` as SQL | Done 2026-11-05 — `db push` could not have done it: the versions were already recorded while `0007`/`0008` had been edited in place, so production still ran the pre-fix bodies. Verified by `prosrc` hash against the bundle |
 
 ## Sprint 5+ — Partner & Federation
 
@@ -63,12 +63,19 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 |----|-------|-------------|-------|
 | SP6-01 | §9 acceptance journey as a repository check | `tools/test_agm_journey.mjs` | Done — `check.sh` §24, 120 assertions |
 | SP6-02 | Deploy bundle rerun-safety | `tools/test_bundle_replay.mjs` | Done — `check.sh` §25 |
+| SP6-03 | The live project still runs this tree's SQL | `tools/test_production_drift.mjs` | Done — `check.sh` §26: 22 function bodies by `prosrc` hash, recorded migration versions against the files that describe them. Exists because §24/§25 read files and so agreed with themselves while production ran the pre-fix `cast_vote` and `log_audit` |
 
 ## Immediate Next Actions (unchecked)
 
-- [ ] Apply migrations 0007–0009 to project `jchfalaibabmszewemat` (SP4-02)
+- [ ] Clear the GitHub Actions billing lock — CI deploys nothing until it does, so
+      production moves only by `vercel --prod --scope=shamel-projects`
 - [ ] Custom domain — owner's hostname, Vercel + DNS, then rewrite §19/§23
-- [ ] White-label co-op portal — needs a scope decision; no branding/theme fields exist in the schema
+- [ ] White-label co-op portal — the schema arrived as `0010`
+      (`organizations.logo_url`, `primary_color`), but no page reads either column
+      and no policy says who may set one, so the scope decision is still open
+- [ ] Set `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` on the Vercel project, or stop
+      publishing `knowledgeRagEnabled:true` from `/api/config` while `/api/health`
+      reports knowledge unconfigured on the same host
 - [ ] Set the `DEPLOY.md` secrets in the Supabase project
 
 ## Deployment Smoke-Test Matrix

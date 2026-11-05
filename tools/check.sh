@@ -2406,6 +2406,46 @@ else
 fi
 
 # ----------------------------------------------------------------
+head_ "26. The linked project still runs the SQL in this repository"
+# ----------------------------------------------------------------
+# Passes 21, 24 and 25 all read files, so they agree with one another no matter what
+# a live database holds. And `supabase db push` compares *version numbers*, not
+# content: edit a migration after its first apply and the CLI skips it forever.
+# Production ran `cast_vote` with `max(boolean)` — an aggregate Postgres does not
+# have, so every ballot errored — and `log_audit()`'s no-row chain-head read, which
+# wrote no audit event at all, while `supabase migration list` reported 0007-0009
+# applied and three status docs insisted no remote project had been touched. Version
+# 0010 had been applied in the dashboard with no file here, so nothing in this suite
+# could have seen that either.
+#
+# This reads the live catalog instead: md5 over pg_proc.prosrc against the same hash
+# of each body in the generated bundle, plus recorded migration versions against the
+# files that describe them. It needs credentials, so an unreadable project is a
+# warning (exit 2) rather than a failure — the pre-commit hook on a machine with no
+# project linked must not go red for the wrong reason.
+if [ ! -f tools/test_production_drift.mjs ]; then
+  warn "tools/test_production_drift.mjs not found"
+elif ! command -v supabase >/dev/null 2>&1; then
+  warn "supabase CLI not installed — the linked project was not compared with this tree"
+elif [ "${AGMX_SKIP_NET:-0}" = "1" ]; then
+  warn "AGMX_SKIP_NET=1 — production drift not checked; clear it before a release"
+elif [ ! -f supabase/.temp/linked-project.json ] || [ ! -f supabase/.temp/project-ref ]; then
+  warn "no linked project — run \`supabase link\` to compare the live catalog with supabase/schema_final.sql"
+else
+  if OUT=$(node tools/test_production_drift.mjs 2>&1); then
+    ok "$(printf '%s\n' "$OUT" | tail -1)"
+  else
+    CODE=$?
+    if [ "$CODE" -eq 2 ]; then
+      warn "production drift not checked — $(printf '%s\n' "$OUT" | head -1)"
+    else
+      bad "the linked project does not match the SQL this repository deploys"
+      printf '%s\n' "$OUT" | grep -E '^  DRIFT|^  note' | head -12 | sed 's/^/      /'
+    fi
+  fi
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then

@@ -186,22 +186,35 @@ Done since the 2026-08-12 plan:
 
 Open, in order:
 
-- [ ] **Apply the governance SQL fixes to the production project.** Migration
-      `0009_audit_all_stages.sql` and the corrected `0007`/`0008` (undeclared
-      plpgsql variables, `max(boolean)`, a quorum guard that failed *open*, a
-      jsonb-into-uuid assignment, `log_audit()`'s chain head) exist in this tree
-      and are proven by §24/§25 — but **no remote project has been touched**.
-      Until `supabase db push` runs against `jchfalaibabmszewemat`, production
-      still 500s on every ballot. This is an operator action with real money on
-      it, so it is deliberately not automated here.
+- [x] **Governance SQL fixes are live on `jchfalaibabmszewemat`** (2026-11-05).
+      `supabase migration list` reported `0007`–`0009` applied, and that is the
+      trap: the CLI compares **version numbers**, not content, and both `0007` and
+      `0008` had been corrected in place after their first apply. `pg_proc.prosrc`
+      proved production was still running the defective text — `cast_vote` calling
+      `max(boolean)`, its quorum guard reading a variable that stays NULL with no
+      snapshot (fails *open*), `log_audit()` hashing a NULL chain head so
+      `audit_events` held 0 rows, and `record_resolution` assigning jsonb into a
+      `uuid`. Fixed by re-applying `0007`→`0008`→`0009`→`0010` as SQL; every
+      definition is `create or replace` and every table was empty, so the repair
+      carried no data risk. All 22 bundle functions now match by body hash, and
+      `check.sh` §26 keeps comparing them — `pg_proc.prosrc` hashes against the
+      bundle, recorded versions against the files — so this cannot silently reopen.
+      `DEPLOY.md` records why `db push` could never have done this.
+- [ ] **GitHub Actions is locked for billing, so CI deploys nothing.** Runs on
+      `master` fail in ~2s with "The job was not started because your account is
+      locked due to a billing issue." `4b7422d` reached production by CLI instead.
+      `deploy.sh` and `deploy.yml` named team `duta-integra`, which this credential
+      does not have; both now say `shamel-projects`, where `agmx-v2-app` lives.
 - [ ] Custom domain for `agmx-v2.vercel.app`. Needs the owner's hostname plus
       Vercel and DNS actions, and then two checks rewritten: §19 derives the
       canonical host from `sitemap.xml`, and §23's live probes assume a
       `*.vercel.app` shape.
-- [ ] White-label co-op portal. Unbuilt: there is no branding or theme column
-      anywhere in the schema, so this is a scope decision (which fields, which
-      pages, who uploads the logo, what a co-op's own domain does to §19/§23)
-      before it is a task.
+- [ ] White-label co-op portal. The columns exist — `0010`, applied to production
+      a day before any file described it here, adds `organizations.logo_url` and
+      `primary_color` — but the portal does not: no page reads either column,
+      nothing uploads a logo, and no policy governs who may set one. Still a scope
+      decision (which fields, which pages, who uploads the logo, what a co-op's own
+      domain does to §19/§23) before it is a task.
 - [ ] Production secrets: `MIGRATION_PASSWORD`, `SERVICE_ROLE_KEY`,
       `DATABASE_URL`, `HITPAY_*` and `DEEPSEEK_API_KEY` are listed in `DEPLOY.md`
       and must be set in the Supabase project, not in this repository.
