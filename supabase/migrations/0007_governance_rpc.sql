@@ -251,6 +251,12 @@ begin
     return jsonb_build_object('error', 'Member not eligible');
   end if;
 
+  -- quorum guard: a failed quorum blocks all voting
+  select coalesce(max(satisfied), false) into v_satisfied from public.quorum_snapshots where agm_id = v_motion.agm_id;
+  if not v_satisfied then
+    return jsonb_build_object('error', 'Quorum not satisfied — voting blocked');
+  end if;
+
   -- double-vote guard (unique constraint on motion_id, voter_id)
   begin
     insert into public.votes (organization_id, agm_id, motion_id, voter_id, choice)
@@ -311,7 +317,20 @@ begin
   into v_ya, v_tidak, v_kecuali
     from public.votes where motion_id = p_motion_id;
 
-  v_passed := v_ya > v_tidak;
+  -- valid votes exclude abstentions (kecuali) from the denominator
+  v_valid := v_ya + v_tidak;
+
+  -- motion-type-specific passing thresholds, abstention-aware
+  if v_motion.type = 'financial' then
+    -- 2/3 supermajority of valid votes
+    v_passed := v_valid > 0 and v_ya * 3 >= 2 * v_valid;
+  elsif v_motion.type = 'election' then
+    -- plurality: yes must exceed both no and abstain
+    v_passed := v_ya > v_tidak and v_ya > v_kecuali;
+  else
+    -- ordinary / resolution: simple majority of valid votes
+    v_passed := v_valid > 0 and v_ya > v_tidak;
+  end if;
 
   insert into public.resolutions (agm_id, organization_id, motion_id, title, passed, votes_ya, votes_tidak, votes_kecuali, minuted_at)
   values (v_motion.agm_id, v_motion.organization_id, v_motion.id, v_motion.title, v_passed, v_ya, v_tidak, v_kecuali, now())
