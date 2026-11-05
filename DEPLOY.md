@@ -144,8 +144,9 @@ supabase link --project-ref YOUR_PROJECT_REF
 # the AGM Hall UI and none of its RPCs: every write answered PGRST202.
 supabase functions deploy governance
 supabase functions deploy money-flow
-# Optional — the knowledge store is not reachable from the browser today, and
-# NEXT_PUBLIC_KNOWLEDGE_RAG must be "true" before either is called.
+# Optional — the knowledge store is not reachable from the browser today:
+# supabase-client.js exposes knowledge.query/ingest, no UI code calls either,
+# and NEXT_PUBLIC_KNOWLEDGE_RAG gates nothing (see the flags section below).
 supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
 ```
@@ -280,7 +281,9 @@ checkout printed "DIBAYAR ✓" receipts for payments stored only in the visitor'
 
 ```
 NEXT_PUBLIC_DEMO_MODE=true    # every write stays in this browser; demo only
-NEXT_PUBLIC_KNOWLEDGE_RAG=true  # requires knowledge-query deployed
+NEXT_PUBLIC_KNOWLEDGE_RAG=true  # not a behaviour switch — it only changes what
+                                # /api/config publishes. Nothing reads it; the
+                                # RAG room is Planned (README), not gated here.
 NEXT_PUBLIC_REALTIME=true       # requires wss://*.supabase.co in the CSP
 ```
 
