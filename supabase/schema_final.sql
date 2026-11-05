@@ -22,6 +22,7 @@
 --   0007_governance_rpc.sql  (535 lines)
 --   0008_governance_bugfixes.sql  (157 lines)
 --   0009_audit_all_stages.sql  (25 lines)
+--   0010_white_label_branding.sql  (19 lines)
 -- ============================================================
 
 
@@ -2264,3 +2265,27 @@ grant execute on function public.record_resolution(uuid) to service_role;
 -- ============================================================
 
 alter table public.audit_events alter column organization_id drop not null;
+
+
+-- ============================================================
+-- 0010_white_label_branding.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 7: White-Label Co-op Portal
+-- Adds branding fields to organizations table:
+--   logo_url   — co-op logo image URL (optional)
+--   primary_color — co-op primary brand color (default #2563EB)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Add branding columns to organizations
+-- ------------------------------------------------------------
+alter table public.organizations
+  add column if not exists logo_url text,
+  add column if not exists primary_color text not null default '#2563EB';
+
+-- ------------------------------------------------------------
+-- Comment for documentation
+-- ------------------------------------------------------------
+comment on column public.organizations.logo_url is 'Cooperative logo image URL for white-label portal';
+comment on column public.organizations.primary_color is 'Co-op primary brand color (hex) for white-label portal';
