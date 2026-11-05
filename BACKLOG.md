@@ -74,9 +74,11 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 - [ ] White-label co-op portal — the schema arrived as `0010`
       (`organizations.logo_url`, `primary_color`), but no page reads either column
       and no policy says who may set one, so the scope decision is still open
-- [ ] Set `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` on the Vercel project, or stop
-      publishing `knowledgeRagEnabled:true` from `/api/config` while `/api/health`
-      reports knowledge unconfigured on the same host
+- [ ] Set a provider key on both platforms to turn the knowledge room on:
+      `NVIDIA_NIM_API_KEY` (or `NGC_API_KEY`) with `LLM_PROVIDER=nvidia`, or
+      `OPENAI_API_KEY` with `LLM_PROVIDER=openai`. `/api/config` publishes
+      `knowledgeRagEnabled:false` until one exists, and `/api/health` reports the
+      same absence by the same names
 - [ ] Set the `DEPLOY.md` secrets in the Supabase project
 
 ## Deployment Smoke-Test Matrix

@@ -49,7 +49,7 @@ Nothing in this repository may claim a capability by showing a screen for it.
 | Document register | Live, metadata only | `register_document` (`0007:448-470`) stores a typed path and an optional hand-typed sha256. **There is no upload** — no `storage.from()` in this repo |
 | Subscription + recurring invoices + payment schedule | Built, **not reachable** | the screens, the client contract (`tools/test_subscription_client.js`) and the RPCs exist, but `create_subscription_from_quote` requires `plans.is_subscription`, and every `*_agm` plan row is `false` — so a subscription started from an AGM quote cannot complete |
 | AI copilot (chairman, secretary/minutes, compliance, question organiser) | Planned | `copilot.js` is loaded by **no** page and calls `api.canQueryKnowledge` / `api.queryKnowledge`, which `supabase-client.js` does not define. No speech-to-text exists |
-| RAG knowledge room | Planned | `knowledge-query` / `knowledge-ingest` are not deployed. `knowledgeRagEnabled` is produced by `api/config.js` and read by nothing |
+| RAG knowledge room | Deployed, **off** | `knowledge-query` / `knowledge-ingest` are deployed and load; a non-POST answers 405 with the provider they select. No provider key exists on either platform, so `/api/config` publishes `knowledgeRagEnabled:false` — the flag needs the opt-in **and** a key this platform can see |
 | Federation / multi-org roll-up, distribution portal | Built, not reachable | tables and RLS exist; `AGMX_API.loadDistributionPortal` is never defined, so the route always renders "Distribution data unavailable" (`app-bootstrap.js:518-526, 741-743`) |
 | SSO, custom domain, public API | Planned | marketing text only |
 | 5 hall layouts, speaker queue, video, live captions, "panic button" | Planned | no code; the landing page says so plainly |
@@ -74,7 +74,10 @@ name the functions read appears in `DEPLOY.md`.
 - `money-flow` — quotes, invoices, payments, subscriptions, pipeline. Deployed,
   `verify_jwt = false` (it authenticates prospects by their assessment token).
 - `governance` — running a meeting. Deployed, `verify_jwt = true`.
-- `knowledge-query`, `knowledge-ingest` — **not deployed**.
+- `knowledge-query`, `knowledge-ingest` — deployed. They select the provider
+  named by `LLM_PROVIDER` and report readiness on a non-POST; with no provider
+  key a real query answers `503 LLM_NOT_CONFIGURED` and names the missing
+  variable instead of failing at import.
 - `/api/config.js` and `/api/health` on Vercel are read-only: they expose the
   publishable key, the mode the deployment declared, and a probe result.
 

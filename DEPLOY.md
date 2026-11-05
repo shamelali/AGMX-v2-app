@@ -171,9 +171,9 @@ supabase link --project-ref YOUR_PROJECT_REF
 # the AGM Hall UI and none of its RPCs: every write answered PGRST202.
 supabase functions deploy governance
 supabase functions deploy money-flow
-# Optional — the knowledge store is not reachable from the browser today:
+# The knowledge store is not reachable from the browser today:
 # supabase-client.js exposes knowledge.query/ingest, no UI code calls either,
-# and NEXT_PUBLIC_KNOWLEDGE_RAG gates nothing (see the flags section below).
+# and knowledgeRagEnabled stays false until a provider key exists (flags below).
 supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
 ```
@@ -188,17 +188,24 @@ supabase functions deploy knowledge-ingest
 | `knowledge-query` / `knowledge-ingest` | **true** | Run as the caller so RLS scopes retrieval and ingest to one organisation. |
 
 Secrets — each name below is the exact string `Deno.env.get()` reads in that
-function's source. `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided by
-the Edge Runtime on every project; set them explicitly only if a function logs
-that they are undefined.
+function's source. `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
+`SUPABASE_ANON_KEY` are provided by the Edge Runtime on every project; set them
+explicitly only if a function logs that they are undefined.
 
 ```bash
 # governance + money-flow (server-only tenant writes)
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...   # already provided by the runtime; pin it if you rotate keys
 supabase secrets set APP_URL=https://your-production-host   # money-flow builds receipt/return URLs from it
 
-# knowledge-query + knowledge-ingest read SUPABASE_SECRET_KEY, not SUPABASE_ANON_KEY
+# knowledge-query + knowledge-ingest read SUPABASE_SECRET_KEY and fall back to
+# the runtime's SUPABASE_SERVICE_ROLE_KEY. The Edge Runtime injects only the
+# latter, so a function that reads the former alone throws at import and every
+# request answers 500 WORKER_ERROR with no handler and no log line.
 supabase secrets set SUPABASE_SECRET_KEY=eyJ...
+
+# knowledge-query also reads SUPABASE_ANON_KEY, to build a client that carries
+# the caller's JWT — knowledge_search derives the tenant from auth.uid(), so a
+# service-role client would return zero rows. The runtime injects this one.
 
 # Billplz — leave unset and /api/config.js reports paymentsMode: bank_transfer
 supabase secrets set BILLPLZ_API_KEY=...
@@ -296,8 +303,11 @@ NEXT_PUBLIC_APP_URL=https://agmx-v2.vercel.app
 ```
 
 Feature flags are opt-IN: leave them unset for a real deployment. `demoMode`,
-`knowledgeRagEnabled` and `realtimeEnabled` all default to `false`, and
-`api/config.js` publishes `mode:"supabase"` as soon as
+`knowledgeRagEnabled` and `realtimeEnabled` all default to `false`. `knowledgeRagEnabled`
+additionally requires a provider key this platform can see — `OPENAI_API_KEY`, or
+`NVIDIA_NIM_API_KEY`/`NGC_API_KEY` for the provider `LLM_PROVIDER` names — so it
+cannot be switched on by a flag alone. `api/config.js` publishes `mode:"supabase"`
+as soon as
 `NEXT_PUBLIC_SUPABASE_URL` is set with demo mode off — that is the only switch
 `api.js` looks at when it chooses an adapter.
 
@@ -432,8 +442,8 @@ AGMX-v2-app/
 │   └── functions/
 │       ├── governance/         # AGM Hall RPCs (attendance, motions, votes, resolutions, compliance)
 │       ├── money-flow/         # Assessment → Quote → Invoice → Payment
-│       ├── knowledge-query/    # AI Copilot RAG queries (not deployed)
-│       └── knowledge-ingest/   # Document indexing pipeline (not deployed)
+│       ├── knowledge-query/    # AI Copilot RAG queries
+│       └── knowledge-ingest/   # Document indexing pipeline
 ├── tools/build_schema_bundle.py # regenerates supabase/schema_final.sql
 ├── supabase/functions/_shared/llm.ts  # Unified LLM client (OpenAI + NVIDIA NIM)
 ├── vercel.json                 # Vercel config (rewrites, headers, CSP)

@@ -43,6 +43,22 @@ export default async function handler(req, res) {
     ? (gatewayReady ? 'all' : 'bank_transfer')
     : requestedMode
 
+  // Which retrieval provider the knowledge functions will use, and whether this
+  // platform holds the key it reads. supabase/functions/_shared/llm.ts selects on
+  // LLM_PROVIDER and then needs OPENAI_API_KEY, or NVIDIA_NIM_API_KEY/NGC_API_KEY;
+  // NVIDIA_API_KEY and NVIDIA_BASE_URL — the names api/health.js tested — belong to
+  // no code path. knowledgeRagEnabled used to be a copy of NEXT_PUBLIC_KNOWLEDGE_RAG,
+  // so a deployment advertised a knowledge room whose two Edge Functions answered
+  // HTTP 500 to every request. Same rule as paymentsMode a few lines above: the
+  // flag may narrow a capability, never invent one. Scope caveat: the keys live in
+  // the Supabase project's secrets, so this is this platform's view of them.
+  const llmProvider = String(process.env.LLM_PROVIDER || process.env.NEXT_PUBLIC_LLM_PROVIDER || 'openai').toLowerCase()
+  const PROVIDER_KEYS = {
+    openai: ['OPENAI_API_KEY'],
+    nvidia: ['NVIDIA_NIM_API_KEY', 'NGC_API_KEY'],
+  }
+  const ragReady = (PROVIDER_KEYS[llmProvider] || []).some((name) => !!String(process.env[name] || '').trim())
+
   const config = {
     // Supabase (client-safe). Publishable key preferred; legacy anon key
     // remains accepted so existing deployments keep working.
@@ -54,7 +70,7 @@ export default async function handler(req, res) {
     mode: (!demoMode && supabaseUrl) ? 'supabase' : 'local',
 
     // LLM Provider
-    llmProvider: process.env.NEXT_PUBLIC_LLM_PROVIDER || 'openai',
+    llmProvider,
     // OpenAI (client-safe, only model names)
     openaiEmbeddingModel: process.env.NEXT_PUBLIC_OPENAI_EMBEDDING_MODEL || 'text-embedding-3-large',
     openaiChatModel: process.env.NEXT_PUBLIC_OPENAI_CHAT_MODEL || 'gpt-4o-mini',
@@ -74,7 +90,8 @@ export default async function handler(req, res) {
     // An explicit NEXT_PUBLIC_PAYMENTS_MODE can still force a mode, but only
     // downward: naming "all" without gateway keys would lie.
     paymentsMode,
-    knowledgeRagEnabled: optIn(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG),
+    // Requires both the operator's opt-in and a provider key this platform can see.
+    knowledgeRagEnabled: optIn(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG) && ragReady,
     realtimeEnabled: optIn(process.env.NEXT_PUBLIC_REALTIME),
 
   }

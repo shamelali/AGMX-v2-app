@@ -8,7 +8,16 @@ const SUPABASE_KEY_ENVS = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];
 
-const NVIDIA_ENV = ["NVIDIA_API_KEY", "NVIDIA_BASE_URL"];
+// Retrieval providers, in the order llm.ts selects them. `needed` names the
+// variables supabase/functions/_shared/llm.ts actually reads. This replaced
+// NVIDIA_ENV = ["NVIDIA_API_KEY", "NVIDIA_BASE_URL"]: no code path ever looked for
+// those names, so health reported configured:false (and provider "…+nvidia") about a
+// provider it had never checked, while /api/config published
+// knowledgeRagEnabled:true. Same shape as GATEWAYS below, same lesson.
+const LLM_PROVIDERS = [
+  { name: "openai", needed: ["OPENAI_API_KEY"] },
+  { name: "nvidia", needed: ["NVIDIA_NIM_API_KEY", "NGC_API_KEY"] },
+];
 
 // Gateways in the order this product ships them. HitPay is first because
 // Billplz was retired after a key leaked; its variables stay readable so an
@@ -120,8 +129,16 @@ function paymentStatus(env = process.env) {
 }
 
 async function knowledgeStatus(database) {
-  const missing = NVIDIA_ENV.filter((name) => !String(process.env[name] || "").trim());
-  const configured = missing.length === 0;
+  const has = (name) => !!String(process.env[name] || "").trim();
+  const chosenName = String(process.env.LLM_PROVIDER || process.env.NEXT_PUBLIC_LLM_PROVIDER || "openai").toLowerCase();
+  const chosen = LLM_PROVIDERS.find((provider) => provider.name === chosenName) || LLM_PROVIDERS[0];
+  const present = chosen.needed.filter((name) => has(name));
+  // llm.ts takes the first of these names that is set, and /api/config publishes
+  // the room when any one of them is present. Health must not demand the alias
+  // as well, or a deployment holding NVIDIA_NIM_API_KEY would report
+  // unconfigured while the site on the same host advertises the room.
+  const configured = present.length > 0;
+  const missing = configured ? [] : chosen.needed;
   const schema = { configured: database.configured, ready: false, missing: [], invalid: [] };
   // knowledge_chunks is an authenticated-granted table too, so this probe is
   // only meaningful once the database check is holding a secret key.
@@ -132,12 +149,13 @@ async function knowledgeStatus(database) {
     if (!probe.ok) schema.invalid = ["KNOWLEDGE_SCHEMA"];
   }
   return {
-    provider: "supabase-pgvector+nvidia",
+    provider: `supabase-pgvector+${chosen.name}`,
     configured,
     ready: configured && schema.ready,
     missing,
     invalid: [],
     schema,
+    note: "scope: this platform's environment variables, not the Supabase Edge Function's",
   };
 }
 

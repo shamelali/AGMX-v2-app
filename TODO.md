@@ -123,12 +123,14 @@
       only place REPO_AND_VERCEL_STATUS.md permits writing. §27 is the read-only
       substitute: it proves the live bodies and that `cast_vote` executes, but no
       check here has yet recorded a real ballot in a real-time-shaped database.
-- [ ] 🧠 RAG is disabled where it can be seen: `/api/health` reports
-      `knowledge {configured:false, missing:["NVIDIA_API_KEY","NVIDIA_BASE_URL"]}`
-      while `/api/config` publishes `knowledgeRagEnabled:true`. Neither Vercel
-      variable is set; the working key lives in Supabase project secrets, which no
-      Vercel-side probe can read. Either set the two vars or stop advertising the
-      feature as enabled on this surface.
+- [x] 🧠 RAG now advertises only what exists: `/api/config` publishes
+      `knowledgeRagEnabled:false` because no provider key exists on this
+      platform, and `/api/health` reports the same absence by the real variable
+      names (`NVIDIA_NIM_API_KEY`/`NGC_API_KEY` for `LLM_PROVIDER=nvidia`).
+      Both knowledge functions are deployed and load — a non-POST answers 405
+      with the provider they select, and a query without a key answers
+      `503 LLM_NOT_CONFIGURED` naming the missing variable. Remaining work is to
+      set a provider key on both platforms, not to change the flag's meaning.
 - [ ] 🌐 Custom domain configuration for agmx-v2.vercel.app — needs the owner's
       hostname plus Vercel and DNS actions, then `check.sh` §19 (canonical host is
       derived from `sitemap.xml`) and §23 (live probes assume `*.vercel.app`) both

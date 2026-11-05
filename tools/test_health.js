@@ -9,7 +9,16 @@ const SUPABASE_ENV = [
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];
-const NVIDIA_ENV = ["NVIDIA_API_KEY", "NVIDIA_BASE_URL"];
+// The names the retrieval code actually reads (supabase/functions/_shared/llm.ts),
+// plus the provider selector and the openai key. The handler picks a provider by
+// LLM_PROVIDER, so any of these left in the shell would change the case under test.
+const LLM_ENV = [
+  "LLM_PROVIDER",
+  "NEXT_PUBLIC_LLM_PROVIDER",
+  "OPENAI_API_KEY",
+  "NVIDIA_NIM_API_KEY",
+  "NGC_API_KEY",
+];
 // Cleared too, so the payments assertions describe the handler and not the
 // shell it happens to run in: the assertions below check which gateway the
 // handler selects, and a HITPAY_API_KEY left in a developer's or CI
@@ -24,7 +33,7 @@ const PAYMENT_ENV = [
   "BILLPLZ_CALLBACK_URL",
   "BILLPLZ_API_BASE_URL",
 ];
-const ALL_ENV = [...SUPABASE_ENV, ...NVIDIA_ENV, ...PAYMENT_ENV];
+const ALL_ENV = [...SUPABASE_ENV, ...LLM_ENV, ...PAYMENT_ENV];
 
 function response() {
   return {
@@ -53,20 +62,37 @@ async function run() {
     assert.equal(payload.checks.payments.can_charge, false);
     assert.equal(payload.checks.payments.configured, false);
     assert.deepEqual(payload.checks.payments.missing, ["HITPAY_API_KEY", "HITPAY_SALT"]);
-    assert.equal(payload.checks.knowledge.provider, "supabase-pgvector+nvidia");
+    assert.equal(payload.checks.knowledge.provider, "supabase-pgvector+openai");
     assert.equal(payload.checks.knowledge.configured, false);
     assert.equal(payload.checks.knowledge.ready, false);
-    assert.deepEqual(payload.checks.knowledge.missing, ["NVIDIA_API_KEY", "NVIDIA_BASE_URL"]);
+    assert.deepEqual(payload.checks.knowledge.missing, ["OPENAI_API_KEY"]);
     assert.deepEqual(payload.checks.knowledge.invalid, []);
     assert.equal(payload.checks.knowledge.schema.ready, false);
 
-    process.env.NVIDIA_API_KEY = "test-nvidia-key";
-    process.env.NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
+    process.env.OPENAI_API_KEY = "test-openai-key";
     const knowledgeOnly = response();
     await health({ method: "GET" }, knowledgeOnly);
     const knowledgePayload = JSON.parse(knowledgeOnly.body);
     assert.equal(knowledgePayload.checks.knowledge.configured, true);
     assert.equal(knowledgePayload.checks.knowledge.ready, false, "schema cannot be ready without a database");
+
+    // The nvidia branch reads NVIDIA_NIM_API_KEY/NGC_API_KEY and never the
+    // openai key, so a provider switch must not report an openai key as enough.
+    process.env.LLM_PROVIDER = "nvidia";
+    delete process.env.OPENAI_API_KEY;
+    const nvidiaMissing = response();
+    await health({ method: "GET" }, nvidiaMissing);
+    const nvidiaPayload = JSON.parse(nvidiaMissing.body);
+    assert.equal(nvidiaPayload.checks.knowledge.provider, "supabase-pgvector+nvidia");
+    assert.equal(nvidiaPayload.checks.knowledge.configured, false);
+    assert.deepEqual(nvidiaPayload.checks.knowledge.missing, ["NVIDIA_NIM_API_KEY", "NGC_API_KEY"]);
+    process.env.NVIDIA_NIM_API_KEY = "test-nvidia-key";
+    const nvidiaReady = response();
+    await health({ method: "GET" }, nvidiaReady);
+    assert.equal(JSON.parse(nvidiaReady.body).checks.knowledge.configured, true);
+    delete process.env.LLM_PROVIDER;
+    delete process.env.NVIDIA_NIM_API_KEY;
+    process.env.OPENAI_API_KEY = "test-openai-key";
 
     // Healthy path: both REST probes answer 200, no network involved.
     const requested = [];

@@ -1027,6 +1027,7 @@ const KEYS = [
   "NEXT_PUBLIC_DEMO_MODE", "NEXT_PUBLIC_KNOWLEDGE_RAG", "NEXT_PUBLIC_REALTIME",
   "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "NEXT_PUBLIC_PAYMENTS_MODE", "BILLPLZ_API_KEY", "BILLPLZ_COLLECTION_ID", "HITPAY_API_KEY",
+  "LLM_PROVIDER", "NEXT_PUBLIC_LLM_PROVIDER", "OPENAI_API_KEY", "NVIDIA_NIM_API_KEY", "NGC_API_KEY",
 ];
 const reset = () => { for (const k of KEYS) delete process.env[k]; };
 const mod = await import(pathToFileURL(process.cwd() + "/api/config.js").href);
@@ -1096,6 +1097,53 @@ const cfCfg2 = parse(await (await cf.onRequest({
   env: { NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co" },
 })).text());
 if (cfCfg2.mode !== "supabase") fail(`functions/config.js.js served mode:${cfCfg2.mode} with a Supabase URL`);
+
+// 7. Retrieval is a capability, not a switch. NEXT_PUBLIC_KNOWLEDGE_RAG=true used
+//    to be copied straight into knowledgeRagEnabled, which is how production came to
+//    advertise a knowledge room while its two Edge Functions threw at module scope
+//    and answered HTTP 500 to every request. The flag may now only narrow: without a
+//    key for the provider llm.ts will actually use, the config must say false.
+reset();
+process.env.NEXT_PUBLIC_KNOWLEDGE_RAG = "true";
+cfg = await read();
+if (cfg.knowledgeRagEnabled !== false) fail(`knowledgeRagEnabled was ${cfg.knowledgeRagEnabled} with NEXT_PUBLIC_KNOWLEDGE_RAG=true and no provider key — the flag widened a capability`);
+process.env.OPENAI_API_KEY = "k";
+cfg = await read();
+if (cfg.knowledgeRagEnabled !== true) fail(`knowledgeRagEnabled was ${cfg.knowledgeRagEnabled} with the opt-in and an OPENAI_API_KEY present`);
+delete process.env.OPENAI_API_KEY;
+// The nvidia branch reads NVIDIA_NIM_API_KEY/NGC_API_KEY, never NVIDIA_API_KEY, so
+// selecting nvidia must not find the openai key.
+process.env.LLM_PROVIDER = "nvidia";
+process.env.OPENAI_API_KEY = "k";
+cfg = await read();
+if (cfg.knowledgeRagEnabled !== false) fail(`knowledgeRagEnabled was ${cfg.knowledgeRagEnabled} with LLM_PROVIDER=nvidia and only an OPENAI_API_KEY — health would call it configured for a provider it cannot use`);
+if (cfg.llmProvider !== "nvidia") fail(`llmProvider was ${cfg.llmProvider} while LLM_PROVIDER=nvidia — /api/config and llm.ts would disagree`);
+process.env.NVIDIA_NIM_API_KEY = "n";
+cfg = await read();
+if (cfg.knowledgeRagEnabled !== true) fail(`knowledgeRagEnabled was ${cfg.knowledgeRagEnabled} with LLM_PROVIDER=nvidia and NVIDIA_NIM_API_KEY present`);
+reset();
+const cfRag = (e) => cf.onRequest({ request: { method: "GET" }, env: { NEXT_PUBLIC_KNOWLEDGE_RAG: "true", ...e } });
+const cfCfg3 = parse(await (await cfRag({})).text());
+if (cfCfg3.knowledgeRagEnabled !== false) fail(`functions/config.js.js served knowledgeRagEnabled:${cfCfg3.knowledgeRagEnabled} with no provider key — the two emitters disagree`);
+const cfCfg4 = parse(await (await cfRag({ OPENAI_API_KEY: "k" })).text());
+if (cfCfg4.knowledgeRagEnabled !== true) fail(`functions/config.js.js served knowledgeRagEnabled:${cfCfg4.knowledgeRagEnabled} with a provider key present`);
+
+// 8. The two health ports must test the same provider names as the two config
+//    emitters: health answering configured:false about NVIDIA_API_KEY is what let
+//    the contradiction survive its own checks. No Supabase URL here on purpose —
+//    databaseStatus() short-circuits without one, so this stays an offline pass.
+reset();
+process.env.OPENAI_API_KEY = "k";
+const vercelHealth = await import(pathToFileURL(process.cwd() + "/api/health.js").href);
+const hv = mk();
+await vercelHealth.default({ method: "GET" }, hv);
+const hvcfg = JSON.parse(hv.b);
+if (hvcfg.checks?.knowledge?.configured !== true) fail(`api/health.js reported knowledge.configured ${hvcfg.checks?.knowledge?.configured} with OPENAI_API_KEY present — it tests a different variable name than /api/config`);
+if (hvcfg.checks?.knowledge?.provider !== "supabase-pgvector+openai") fail(`api/health.js named provider ${hvcfg.checks?.knowledge?.provider} with no LLM_PROVIDER set, but llm.ts defaults to openai`);
+const cfHealth = await import(pathToFileURL(process.cwd() + "/functions/api/health.js").href);
+const hc = await cfHealth.onRequest({ request: { method: "GET" }, env: { OPENAI_API_KEY: "k" } });
+const hccfg = JSON.parse(await hc.text());
+if (hccfg.checks?.knowledge?.configured !== true) fail(`functions/api/health.js reported knowledge.configured ${hccfg.checks?.knowledge?.configured} with OPENAI_API_KEY present — the two health ports disagree`);
 JS
 CFG_ERR=$(node "$CFG_HARNESS" 2>&1); CFG_RC=$?
 rm -f "$CFG_HARNESS"
@@ -1112,6 +1160,21 @@ else
       bad "config flag behaviour check failed: ${CFG_ERR%%$'\n'*}"
       ;;
   esac
+fi
+
+# The health ports had a second failure the harness above could not see: they
+# demanded every alias of a provider key while llm.ts takes the first one that is
+# set, so a deployment holding NVIDIA_NIM_API_KEY was reported unconfigured
+# while /api/config on the same host advertised the room. This file drives the
+# real handler and both ports.
+if [ -f tools/test_health.js ]; then
+  if OUT=$(node tools/test_health.js 2>&1); then
+    ok "tools/test_health.js (both health ports name the variables the code reads)"
+  else
+    bad "tools/test_health.js failed — ${OUT%%$'\n'*}"
+  fi
+else
+  warn "tools/test_health.js not found"
 fi
 
 # ----------------------------------------------------------------
@@ -2106,6 +2169,7 @@ LIVE_HOST="${CANON_HOST:-}"
 LIVE_TRY=0
 CFG_CODE=000
 SW_CODE=000
+HEALTH_CODE=000
 if [ -z "$LIVE_HOST" ]; then
   warn "pass 19 resolved no canonical host — the deployed surface was not verified"
 elif [ "${AGMX_SKIP_NET:-0}" = "1" ]; then
@@ -2135,9 +2199,14 @@ else
             "https://$LIVE_HOST/api/config" 2>/dev/null)
   SW_CODE=$(curl -sL --max-time 20 -o "$LIVE_DIR/sw.js" -w '%{http_code}' \
             "https://$LIVE_HOST/sw.js" 2>/dev/null)
+  # /api/health is the same deployment accounting for itself. /api/config alone can
+  # only report what the site offers; the health route is what makes "we accept card
+  # payments" and "the knowledge room is live" into claims that can be disproved.
+  HEALTH_CODE=$(curl -sL --max-time 20 -o "$LIVE_DIR/api-health.json" -w '%{http_code}' \
+               "https://$LIVE_HOST/api/health" 2>/dev/null)
 fi
-python3 - "$LIVE_OUT" "$LIVE_HOST" "$LIVE_TRY" "$CFG_CODE" "$SW_CODE" "$LIVE_DIR" <<'PY'
-import json, pathlib, re, sys
+python3 - "$LIVE_OUT" "$LIVE_HOST" "$LIVE_TRY" "$CFG_CODE" "$SW_CODE" "$LIVE_DIR" "$HEALTH_CODE" <<'PY'
+import json, pathlib, re, sys, urllib.error, urllib.request
 
 out = open(sys.argv[1], "w")
 def emit(kind, text):
@@ -2192,6 +2261,7 @@ else:
 host, tried = sys.argv[2], sys.argv[3] == "1"
 cfg_code, sw_code = sys.argv[4] or "000", sys.argv[5] or "000"
 live = pathlib.Path(sys.argv[6])
+health_code = sys.argv[7] or "000"
 if not tried:
     out.close()
     sys.exit(0)
@@ -2241,6 +2311,28 @@ else:
             emit("BAD", "deployed /api/config is not parseable — is the probe pointed at the "
                         "static copy of the function instead of its route? %s" % exc)
 
+# --- 2b. the deployment's own account of itself ------------------------------
+# /api/config states what the site offers; /api/health states what it can do, read
+# from the same variables on the same platform. Asking both is what turns "paymentsMode
+# all promises a real gateway, confirm it yourself" into a check this repository runs.
+# A degraded site still answers 503 with a body, so both codes are read; anything else
+# means the route is not there at all.
+health = None
+if health_code in ("200", "503"):
+    try:
+        health = json.loads((live / "api-health.json").read_text(errors="replace"))
+    except Exception as exc:
+        emit("BAD", "https://%s/api/health answered %s with a body that is not JSON (%s) — a "
+                    "health route that cannot be read looks like a passing check while proving "
+                    "nothing" % (host, health_code, exc))
+elif cfg is not None:
+    emit("WARN" if not strict else "BAD",
+         "https://%s/api/health answered HTTP %s while /api/config answered 200 — the deployment "
+         "advertises capabilities it cannot account for%s"
+         % (host, health_code,
+            "; 404 usually means this tree's api/health.js has not been deployed"
+            if health_code == "404" else ""))
+
 if cfg is not None:
     if cfg.get("demoMode") is not False:
         findings.append("demoMode is %s — api.js binds the Supabase adapter only when it is false, "
@@ -2255,6 +2347,106 @@ if cfg is not None:
         findings.append("the installed worker still caches /api/* — a client that loaded this build "
                         "keeps its stale config and its stale health probe even after a fixed deploy")
     live_pays = json.dumps(cfg.get("paymentsMode"))
+
+    # Two endpoints, one truth each. Each finding below is a sentence the site says
+    # about itself that its own health route contradicts.
+    if health is not None:
+        pays = (health.get("checks") or {}).get("payments") or {}
+        know = (health.get("checks") or {}).get("knowledge") or {}
+        offering_gateway = cfg.get("paymentsMode") == "all"
+        if offering_gateway and not pays.get("provider"):
+            findings.append("reports paymentsMode \"all\" while its own /api/health finds no "
+                            "gateway provider at all (missing %s) — checkout would offer a bill "
+                            "no server can create" % json.dumps(pays.get("missing") or []))
+        elif offering_gateway and pays.get("can_charge") is False:
+            findings.append('reports paymentsMode "all" while /api/health says can_charge:false '
+                            "(missing %s)" % json.dumps(pays.get("missing") or []))
+        # A gateway that can create a bill but cannot verify the callback marks invoices
+        # paid on nothing, so it is named even though the two statements do not contradict
+        # each other and it is a legitimate mid-setup state.
+        if offering_gateway and pays.get("can_charge") is True and pays.get("configured") is False:
+            emit("WARN", "https://%s can charge through %s (%s) but reports configured:false — %s "
+                         "missing, so the payment callback cannot be verified yet"
+                 % (host, pays.get("provider"), pays.get("mode"),
+                    json.dumps(pays.get("missing") or [])))
+        if cfg.get("knowledgeRagEnabled") is True and know.get("ready") is not True:
+            findings.append("advertises the knowledge room (knowledgeRagEnabled:true) while /api/health "
+                            "reports ready:%s — configured:%s, missing %s, knowledge_chunks probe %s. "
+                            "The knowledge functions cannot embed a question without a provider key"
+                            % (json.dumps(know.get("ready")), json.dumps(know.get("configured")),
+                               json.dumps(know.get("missing") or []),
+                               json.dumps((know.get("schema") or {}).get("ready"))))
+        if know.get("provider") and cfg.get("llmProvider") and \
+           not str(know.get("provider")).endswith(str(cfg.get("llmProvider"))):
+            findings.append("tells the browser it uses llmProvider %s while /api/health resolved %s — "
+                            "the two read different variables for the same decision"
+                            % (json.dumps(cfg.get("llmProvider")), json.dumps(know.get("provider"))))
+
+    # --- 2c. the deployed knowledge function must load, and must be the provider
+    # the site names. /api/config and /api/health both run on the site's own
+    # platform; the Edge Function runs on Supabase's. A module-scope throw in
+    # the function (a secret read at import time that the runtime does not
+    # inject) makes every request a bare 500 WORKER_ERROR, while the site
+    # keeps advertising the feature. GET is used because the function answers
+    # a non-POST with 405 before it touches the database, so the probe cannot
+    # write a row; the key it carries is the publishable one the site already
+    # publishes, so this check needs no secret of its own.
+    su = str(cfg.get("supabaseUrl") or "")
+    anon = str(cfg.get("supabaseAnonKey") or "")
+    if su.startswith("https://") and anon:
+        fn_url = su.rstrip("/") + "/functions/v1/knowledge-query"
+        req = urllib.request.Request(fn_url, method="GET",
+                                     headers={"Authorization": "Bearer " + anon,
+                                              "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                fn_code = resp.getcode()
+                fn_body = resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            fn_code = exc.code
+            fn_body = exc.read().decode("utf-8", "replace")
+        except Exception as exc:
+            fn_code = 0
+            fn_body = str(exc)
+        try:
+            fn_json = json.loads(fn_body)
+        except Exception:
+            fn_json = None
+        if fn_code == 500 or (isinstance(fn_json, dict) and fn_json.get("code") == "WORKER_ERROR"):
+            emit("BAD", "%s answered HTTP %s — the deployed knowledge function cannot load, so every "
+                        "knowledge request is a 500 regardless of what the site advertises%s"
+                 % (fn_url, fn_code,
+                    " (%s)" % fn_body[:200] if fn_code == 500 and fn_body else ""))
+        elif fn_code == 405:
+            fn_provider = (fn_json or {}).get("provider")
+            if not fn_provider:
+                emit("WARN", "%s answered 405 without naming its provider — the deployed build predates "
+                             "the readiness report, so this check cannot confirm which provider it uses"
+                     % fn_url)
+            elif cfg.get("llmProvider") and fn_provider != str(cfg.get("llmProvider")):
+                findings.append("publishes llmProvider %s while the deployed knowledge function selects %s — "
+                                "the browser and the function read different variables for the same decision"
+                                % (json.dumps(cfg.get("llmProvider")), json.dumps(fn_provider)))
+            else:
+                emit("OK", "%s loads and selects provider %s, matching the site's llmProvider"
+                     % (fn_url, json.dumps(fn_provider)))
+        elif fn_code in (401, 403):
+            emit("WARN", "%s answered HTTP %s — the publishable key the site publishes cannot open this "
+                         "function, so the deployed knowledge function could not be checked"
+                     % (fn_url, fn_code))
+        elif fn_code == 404:
+            emit("WARN", "%s answered 404 — no knowledge-query function is deployed on this project"
+                 % fn_url)
+        elif fn_code == 0:
+            emit("WARN", "%s could not be reached (%s) — the deployed knowledge function could not be checked"
+                 % (fn_url, fn_body[:120]))
+        else:
+            emit("WARN", "%s answered HTTP %s where a 405 was expected — the deployed knowledge function "
+                         "answers in a shape this check does not understand" % (fn_url, fn_code))
+    elif su:
+        emit("WARN", "%s publishes no supabaseAnonKey — the deployed knowledge function could not be checked"
+             % su)
+
     if findings:
         if strict:
             for f in findings:
@@ -2267,13 +2459,16 @@ if cfg is not None:
                          "Deploy this tree and each one becomes a hard check. (paymentsMode on the "
                          "wire: %s)" % (behind, "; ".join(findings), live_pays))
     else:
-        if cfg.get("paymentsMode") == "all":
-            emit("WARN", "https://%s reports paymentsMode \"all\" — that promises a real gateway "
-                         "(HitPay, or Billplz on an older deployment), so confirm /api/health "
-                         "checks.payments answers configured:true for it before an invoice depends "
-                         "on the payment; this pass reads /api/config only" % host)
-        emit("OK", "https://%s: demoMode false, mode supabase, paymentsMode %s"
-             % (host, live_pays))
+        paid = "paymentsMode %s" % live_pays
+        if health is not None:
+            pays = (health.get("checks") or {}).get("payments") or {}
+            if cfg.get("paymentsMode") == "all":
+                paid += ", gateway %s confirmed by /api/health" % json.dumps(pays.get("provider"))
+            else:
+                paid += " (%s), no gateway offered" % json.dumps(pays.get("provider"))
+            if cfg.get("knowledgeRagEnabled") is not True:
+                paid += ", knowledgeRagEnabled false"
+        emit("OK", "https://%s: demoMode false, mode supabase, %s" % (host, paid))
 out.close()
 sys.exit(0)
 PY
@@ -2483,6 +2678,106 @@ else
     fi
   fi
 fi
+
+# ----------------------------------------------------------------
+head_ "28. No Edge Function can fail to load"
+# ----------------------------------------------------------------
+# knowledge-query and knowledge-ingest answered HTTP 500
+# {"code":"WORKER_ERROR","message":"Function exited due to an error (please check
+# logs)"} to every request — including a GET, which their own source rejects with
+# 405 — because one line each read
+#   const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!
+# The Edge Runtime injects SUPABASE_SERVICE_ROLE_KEY and exposes no secret called
+# SUPABASE_SECRET_KEY, so createClient() threw `supabaseKey is required.` while the
+# module was still evaluating. No handler ran, so there was no status the response
+# could explain, no JSON body, and no console.error line — the logs the platform
+# points you at stay empty. Every behaviour assertion in this repository is about
+# the handler, and a module-scope throw leaves the handler never called.
+#
+# `!` on an environment read asserts that the variable is certainly set, which is
+# only knowable from the deployed project, so this pass asks the project: it reads
+# the names `supabase secrets list` reports (Supabase includes the runtime-injected
+# ones in that list) and rejects any assertion naming something else. Without a
+# readable project the same finding is a warning, never a green tick.
+SECRETS_TXT=$(mktemp /tmp/agmx-secrets-XXXXXX.txt)
+DENO_ENV_OUT=$(mktemp /tmp/agmx-denoenv-XXXXXX.txt)
+: > "$SECRETS_TXT"
+if command -v supabase >/dev/null 2>&1 && [ -f supabase/.temp/project-ref ] \
+   && [ "${AGMX_SKIP_NET:-0}" != "1" ]; then
+  NO_COLOR=1 supabase secrets list --project-ref "$(cat supabase/.temp/project-ref)" 2>/dev/null \
+    | tr '│' '|' > "$SECRETS_TXT" || true
+fi
+python3 - "$DENO_ENV_OUT" "$SECRETS_TXT" <<'PY'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+live = set()
+for line in pathlib.Path(sys.argv[2]).read_text(errors="replace").splitlines():
+    m = re.match(r"^ *([A-Z][A-Z0-9_]+) *\|", line)
+    if m and m.group(1) != "NAME":
+        live.add(m.group(1))
+
+# Names the Edge Runtime gives every function without being told. Recorded here as
+# the fallback for an unreadable project, and taken from what this project's own
+# `secrets list` reports — Supabase's documentation lists SUPABASE_SECRET_KEY for
+# the management API, which is not the same thing as the function's environment.
+INJECTED = {"SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY",
+            "SUPABASE_DB_URL", "SUPABASE_JWKS", "SUPABASE_PUBLISHABLE_KEYS",
+            "SUPABASE_SECRET_KEYS"}
+allowed = INJECTED | live
+
+files = sorted(pathlib.Path("supabase/functions").rglob("*.ts"))
+QUOTE = "[\"']"
+ASSERTION = re.compile("Deno\\.env\\.get\\(\\s*" + QUOTE + "([A-Z][A-Z0-9_]+)" + QUOTE +
+                       "\\s*\\)\\s*!")
+offenders, checked = [], 0
+for f in files:
+    src = f.read_text(errors="replace").replace("\r", "")
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    src = "\n".join(re.sub(r"//.*$", "", l) for l in src.split("\n"))
+    for m in ASSERTION.finditer(src):
+        checked += 1
+        if m.group(1) not in allowed:
+            offenders.append("%s reads %s" % (f, m.group(1)))
+
+if offenders:
+    detail = ", ".join(sorted(set(offenders)))
+    if live:
+        emit("BAD", "Edge Function(s) assert an environment variable the linked project does not "
+                    "expose: %s — createClient()/a required value then throws while the module is "
+                    "loading, and the runtime answers 500 WORKER_ERROR to every request with no "
+                    "handler and no log line" % detail)
+    else:
+        emit("WARN", "%s is asserted with `!` but the project's secret list could not be read to "
+                     "confirm it exists — run `supabase link`, or read it as a risk that the "
+                     "function throws at module scope" % detail)
+elif checked:
+    emit("OK", "%d `Deno.env.get(...)!` assertion(s) in supabase/functions checked against the "
+               "%d name(s) the Edge Runtime exposes%s"
+         % (checked, len(allowed),
+            "" if live else " (fallback list: the project's own secrets were not read)"))
+else:
+    emit("WARN", "no `Deno.env.get(...)!` assertion found in %d .ts file(s) — either every one is "
+                 "gone or this scan stopped matching; confirm by hand before trusting the line"
+         % len(files))
+out.close()
+sys.exit(0)
+PY
+DENOENV_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 28 emitted an unrecognised result line: $kind";;
+  esac
+done < "$DENO_ENV_OUT"
+rm -f "$DENO_ENV_OUT" "$SECRETS_TXT"
+[ "$DENOENV_RC" -eq 0 ] || bad "pass 28 could not complete (python exit $DENOENV_RC)"
 
 # ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"

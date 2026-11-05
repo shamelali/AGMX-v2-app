@@ -26,6 +26,17 @@ export async function onRequest(context) {
     ? (gatewayReady ? "all" : "bank_transfer")
     : requestedMode;
 
+  // Retrieval is a capability, not a flag: the knowledge Edge Functions need a
+  // provider key, and api/config.js documents why NEXT_PUBLIC_KNOWLEDGE_RAG alone
+  // cannot turn them on. Both emitters feed the same window.AGMX_CONFIG, so they
+  // derive it the same way.
+  const llmProvider = String(env.LLM_PROVIDER || env.NEXT_PUBLIC_LLM_PROVIDER || "openai").toLowerCase();
+  const PROVIDER_KEYS = {
+    openai: ["OPENAI_API_KEY"],
+    nvidia: ["NVIDIA_NIM_API_KEY", "NGC_API_KEY"],
+  };
+  const ragReady = (PROVIDER_KEYS[llmProvider] || []).some((name) => !!String(env[name] || "").trim());
+
   const config = {
     // Supabase (client-safe). Publishable key preferred; legacy anon key
     // remains accepted so existing deployments keep working.
@@ -37,7 +48,7 @@ export async function onRequest(context) {
     mode: !demoMode && supabaseUrl ? "supabase" : "local",
 
     // LLM Provider
-    llmProvider: env.NEXT_PUBLIC_LLM_PROVIDER || "openai",
+    llmProvider,
     openaiEmbeddingModel: env.NEXT_PUBLIC_OPENAI_EMBEDDING_MODEL || "text-embedding-3-large",
     openaiChatModel: env.NEXT_PUBLIC_OPENAI_CHAT_MODEL || "gpt-4o-mini",
     nvidiaNimBaseUrl: env.NEXT_PUBLIC_NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1",
@@ -50,7 +61,7 @@ export async function onRequest(context) {
 
     demoMode,
     paymentsMode,
-    knowledgeRagEnabled: optIn(env.NEXT_PUBLIC_KNOWLEDGE_RAG),
+    knowledgeRagEnabled: optIn(env.NEXT_PUBLIC_KNOWLEDGE_RAG) && ragReady,
     realtimeEnabled: optIn(env.NEXT_PUBLIC_REALTIME),
 
     pocketbaseUrl: env.NEXT_PUBLIC_POCKETBASE_URL || "",
