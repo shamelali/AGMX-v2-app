@@ -101,7 +101,11 @@ failed run will not abort on `42710 duplicate_table`.
 > `select proname, md5(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`
 > against the same hash taken over each body in `schema_final.sql`, and comparing the
 > versions recorded in `supabase_migrations.schema_migrations` to the files that
-> describe them.
+> describe them. Pass 27 goes one step further and calls the live `cast_vote` with an
+> unknown motion id: its first statement selects that motion and returns when no row
+> matches, so the call proves the live function is the repaired one without writing
+> anything — `votes` and `audit_events` are counted before and after to show that,
+> because an append-only audit row written in error could not be taken back.
 
 > **A migration applied outside `supabase/migrations/` is invisible to every check
 > in this repository.** Version `0010` (`white_label_branding`, adding

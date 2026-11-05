@@ -199,12 +199,21 @@ Open, in order:
       carried no data risk. All 22 bundle functions now match by body hash, and
       `check.sh` §26 keeps comparing them — `pg_proc.prosrc` hashes against the
       bundle, recorded versions against the files — so this cannot silently reopen.
-      `DEPLOY.md` records why `db push` could never have done this.
+      §27 then reads the live bodies as text and calls `cast_vote` with an unknown
+      motion, which returns on its first statement: 12 assertions that the repaired
+      path is what production runs, with `votes` and `audit_events` counted before
+      and after to prove the probe wrote nothing. `DEPLOY.md` records why `db push`
+      could never have done this.
 - [ ] **GitHub Actions is locked for billing, so CI deploys nothing.** Runs on
       `master` fail in ~2s with "The job was not started because your account is
       locked due to a billing issue." `4b7422d` reached production by CLI instead.
       `deploy.sh` and `deploy.yml` named team `duta-integra`, which this credential
       does not have; both now say `shamel-projects`, where `agmx-v2-app` lives.
+- [ ] **Supabase branching needs the Pro plan** — create answers 402
+      `entitlement_required`, so §9's journey cannot be replayed on a copy of
+      production, which is the only place this repository permits writing. §27 is the
+      read-only substitute: no check here has recorded a real ballot in a live,
+      production-shaped database yet.
 - [ ] Custom domain for `agmx-v2.vercel.app`. Needs the owner's hostname plus
       Vercel and DNS actions, and then two checks rewritten: §19 derives the
       canonical host from `sitemap.xml`, and §23's live probes assume a

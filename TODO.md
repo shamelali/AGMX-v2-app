@@ -89,9 +89,21 @@
       recorded in `supabase_migrations.schema_migrations` with the files that
       describe them. Passes 21/24/25 read files, so they agreed with each other the
       whole time. Proven to detect both failure modes: a mutated body is named, and
-      hiding `0010` reports the version as remote-only. An unlinked project warns
+      hiding `0010` reports it as remote-only. An unlinked project warns
       instead of failing, so the pre-commit hook stays green without credentials.
-      Suite: 79 passed · 3 warnings · 0 failed.
+- [x] 🩺 **`check.sh` §27 added** (`tools/test_production_ballot_path.mjs`) — the live
+      ballot path, proven read-only. `cast_vote`'s first statement selects a motion by
+      id and returns when none matches, so a random uuid exercises the production
+      function without reaching an insert, and `votes`/`audit_events` are counted
+      before and after to prove that (an append-only `audit_events` row written in
+      error could never be taken back). It also reads the live bodies as text rather
+      than trusting §26's hash: the defective `coalesce(max(satisfied), false) into`
+      guard is gone, the fixed latest-snapshot read is there, `log_audit()` matches a
+      NULL organization and seeds its own chain head, and this engine has no
+      `max(boolean)` at all — so the text production ran was fatal there, not untidy.
+      It paid for itself immediately by failing on its own first assertion: `max(`
+      matched the fix's explanatory comment, so prose about a defect was being read as
+      the defect. Suite: 80 passed · 3 warnings · 0 failed.
 
 ## 📋 Remaining
 
@@ -105,6 +117,12 @@
       `deployment.commit` **null**, because Vercel attaches VCS metadata only from a
       real `.git` directory. Deploy from the primary checkout when the live commit
       needs to be identifiable.
+- [ ] ☁️ **Supabase branching needs the Pro plan** — create answers 402
+      `entitlement_required` ("Branching is supported only on the Pro plan or above"),
+      so §9's journey cannot be replayed against a copy of production, which is the
+      only place REPO_AND_VERCEL_STATUS.md permits writing. §27 is the read-only
+      substitute: it proves the live bodies and that `cast_vote` executes, but no
+      check here has yet recorded a real ballot in a real-time-shaped database.
 - [ ] 🧠 RAG is disabled where it can be seen: `/api/health` reports
       `knowledge {configured:false, missing:["NVIDIA_API_KEY","NVIDIA_BASE_URL"]}`
       while `/api/config` publishes `knowledgeRagEnabled:true`. Neither Vercel

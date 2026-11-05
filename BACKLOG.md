@@ -64,6 +64,7 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 | SP6-01 | §9 acceptance journey as a repository check | `tools/test_agm_journey.mjs` | Done — `check.sh` §24, 120 assertions |
 | SP6-02 | Deploy bundle rerun-safety | `tools/test_bundle_replay.mjs` | Done — `check.sh` §25 |
 | SP6-03 | The live project still runs this tree's SQL | `tools/test_production_drift.mjs` | Done — `check.sh` §26: 22 function bodies by `prosrc` hash, recorded migration versions against the files that describe them. Exists because §24/§25 read files and so agreed with themselves while production ran the pre-fix `cast_vote` and `log_audit` |
+| SP6-04 | The live ballot path is the repaired one | `tools/test_production_ballot_path.mjs` | Done — `check.sh` §27: 12 read-only assertions against the linked project, `votes`/`audit_events` counted before and after to prove the probe wrote nothing. A ballot actually recorded still needs a branch, and branching needs the Pro plan |
 
 ## Immediate Next Actions (unchecked)
 

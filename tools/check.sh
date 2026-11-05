@@ -2446,6 +2446,45 @@ else
 fi
 
 # ----------------------------------------------------------------
+head_ "27. The live ballot path is the repaired one, proven write-free"
+# ----------------------------------------------------------------
+# Supabase branching answers 402 entitlement_required — "Branching is supported only
+# on the Pro plan or above" — so the journey cannot be replayed on a copy of
+# production the way REPO_AND_VERCEL_STATUS.md demands (its live suites must never
+# point at production). This is what is left, and it is read-only by construction:
+# cast_vote's first statement selects a motion by id and returns when no row matches,
+# so a random uuid exercises the live function without reaching an insert. votes and
+# audit_events are counted before and after to prove that, because audit_events is
+# append-only by trigger — a row written in error could not be taken back afterwards.
+#
+# It reads the live bodies as text rather than trusting pass 26's hash, and states
+# what the hash is standing for: the defective `coalesce(max(satisfied), false) into`
+# guard is gone, the fixed latest-snapshot read is present, log_audit() matches a NULL
+# organization and seeds its own chain head, and this engine has no max(boolean) at
+# all — so the text production used to run was fatal here, not merely untidy.
+if [ ! -f tools/test_production_ballot_path.mjs ]; then
+  warn "tools/test_production_ballot_path.mjs not found"
+elif ! command -v supabase >/dev/null 2>&1; then
+  warn "supabase CLI not installed — the live ballot path was not exercised"
+elif [ "${AGMX_SKIP_NET:-0}" = "1" ]; then
+  warn "AGMX_SKIP_NET=1 — live ballot path not exercised; clear it before a release"
+elif [ ! -f supabase/.temp/linked-project.json ] || [ ! -f supabase/.temp/project-ref ]; then
+  warn "no linked project — run \`supabase link\` to exercise the live ballot path"
+else
+  if OUT=$(node tools/test_production_ballot_path.mjs 2>&1); then
+    ok "$(printf '%s\n' "$OUT" | tail -1)"
+  else
+    CODE=$?
+    if [ "$CODE" -eq 2 ]; then
+      warn "live ballot path not exercised — $(printf '%s\n' "$OUT" | head -1)"
+    else
+      bad "the live project does not run the repaired ballot path"
+      printf '%s\n' "$OUT" | grep -E '^  FAIL|live Postgres' | head -10 | sed 's/^/      /'
+    fi
+  fi
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then
