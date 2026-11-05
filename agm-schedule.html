@@ -67,9 +67,9 @@
         </div>
       </section>
 
-      <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;background:#fff;">
+      <section style="border:1px solid #e5e7eb;border-radius=12px;padding:1.5rem;margin-bottom:1.5rem;background:#fff;">
         <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Agenda Awal</h2>
-        <p style="color:#666;font-size:0.875rem;margin-bottom:1rem;">Agenda akan dicipta secara automatik berdasarkan templat AGM piawais. Anda boleh menambah atau memadam item selepas AGM dicipta.</p>
+        <p style="color:#666;font-size:0.875rem;margin-bottom:1rem;">Agenda akan dicipta secara automatik berdasarkan templat AGM piawais.</p>
         <div id="agendaPreview" style="display:flex;flex-direction:column;gap:0.5rem;max-height:300px;overflow-y:auto;border:1px solid #d1d5db;border-radius:6px;padding:0.75rem;background:#f8fafc;">
           <div style="font-size:0.875rem;color:#64748b;">AG-01 • Pembukaan dan sijil kehadiran</div>
           <div style="font-size:0.875rem;color:#64748b;">AG-02 • Lulusan minit AGM lepas</div>
@@ -96,6 +96,27 @@
     const form = document.getElementById('agmForm');
     const btn = document.getElementById('createBtn');
     const msg = document.getElementById('createMsg');
+
+    /* Pre-fill from sessionStorage (set by checkout receipt) or URL params */
+    const params = new URLSearchParams(location.search);
+    const stored = sessionStorage.getItem("agmx_lead_for_agm");
+    const lead = stored ? JSON.parse(stored) : null;
+    if (stored) sessionStorage.removeItem("agmx_lead_for_agm");
+
+    if (lead) {
+      document.getElementById('title').value = (lead.coopName || 'Koperasi') + ' — AGM Tahunan';
+      document.getElementById('edition').value = '16';
+      document.getElementById('fiscalYear').value = 'FY2026';
+      const d = new Date();
+      d.setDate(d.getDate() + 21); /* default 21 notice days */
+      document.getElementById('scheduledAt').value = d.toISOString().slice(0, 16);
+      msg.textContent = 'Isikan butir AGM bagi ' + escapeHtml(lead.coopName || 'koperasi anda') + '.';
+      msg.style.color = '#16a34a';
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

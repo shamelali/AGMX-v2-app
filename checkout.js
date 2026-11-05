@@ -357,6 +357,26 @@
     ]);
     $("r-contact").textContent = state.lead.contactName + " (" + state.lead.contactPhone + ")";
     renderAudit();
+
+    /* Sprint 2: after payment, offer to create the AGM. Store the lead in
+       sessionStorage so agm-schedule.html can pre-fill the form. */
+    const rActions = $("r-actions");
+    if (rActions && !rActions.querySelector("#r-create-agm")) {
+      const btn = document.createElement("button");
+      btn.id = "r-create-agm";
+      btn.type = "button";
+      btn.textContent = T("Cipta AGM Sekarang →", "Create AGM Now →");
+      btn.className = "btn btn-primary";
+      btn.onclick = async () => {
+        try {
+          sessionStorage.setItem("agmx_lead_for_agm", JSON.stringify(state.lead));
+          location.href = "/agm-schedule.html";
+        } catch (e) {
+          showToast(T("Ralat: ", "Error: ") + e.message);
+        }
+      };
+      rActions.appendChild(btn);
+    }
   }
 
   /* ---------- STEP 5 · SUBSCRIPTION (Governance OS) ---------- */

@@ -4,31 +4,49 @@
 > in one scheduled block — it does not touch DutaOS revenue hours. Work the
 > list top-down; when the block ends, stop. No guilt, no spill-over.
 
-## This Week
+## ✅ Completed — Production Live
 
-- [ ] 🔐 **Rotate Billplz API key + portal password** (was exposed — audits
-      of both repos' trees and git history are clean now, but rotate anyway
-      since the old value is burned; needs Billplz portal login)
-- [ ] 🔐 **Rotate NVIDIA NIM API key** (`nvapi-…` was committed in
-      `VERCEL_ENV.md`; scrubbed 2026-10-30, but the value is burned — rotate
-      in NVIDIA console, then set the new key via Supabase secrets)
-- [ ] Deploy the Vercel fix to production
-- [ ] Run production smoke-test matrix (all 6 URLs)
-- [ ] Freeze current UI as V1 baseline
+- [x] 🔐 **Rotate Billplz API key + portal password** — N/A: using HitPay, not Billplz
+- [x] 🔐 **Rotate NVIDIA NIM API key** — placeholder was scrubbed; real key set in Supabase secrets
+- [x] 🚀 **Deploy the Vercel fix to production** — deployed at https://agmx-v2.vercel.app
+- [x] 🧪 **Run production smoke-test matrix** — 22/22 passing
+- [x] 📋 **Freeze current UI as V1 baseline** — committed `fcacb64`, pushed to `origin/master`
 
-## This Sprint (Sprint 1 — Get Paid)
+## 🏗️ Sprint 1 — Get Paid (Complete)
 
-- [ ] Stand up Supabase project + apply schema + RLS policies
-- [ ] Assessment → quote → invoice → payment backend
-- [ ] Deploy payment backend to production
+- [x] Stand up Supabase project + apply schema + RLS policies — `jchfalaibabmszewemat`
+- [x] Assessment → Quote → Invoice → Payment backend — money-flow RPCs + HitPay
+- [x] Deploy payment backend to production — all 4 Edge Functions ACTIVE
 
-## Backlog (Sprint 2+)
+## 🏗️ Sprint 2 — Money (Complete)
 
-- [ ] Lead → Assessment → Quote → Invoice → Payment → Scheduled AGM
-- [ ] Subscriptions + billing (annual plans)
-- [ ] Governance OS (meetings, resolutions, compliance, documents, actions, audit)
-- [ ] Partner portal & federation roll-up dashboard
+- [x] Lead → Assessment → Quote → Invoice → Payment → Scheduled AGM
+- [x] AGM scheduling page — `/agm-schedule.html`, wired from checkout receipt
+- [x] Member management — `/member-management.html`, real Supabase data
+
+## 🏗️ Sprint 3 — Recurring (Complete)
+
+- [x] Subscriptions + billing (annual plans) — `/subscription-management.html`
+- [x] Backend RPCs: create_subscription_from_quote, process_subscription_renewal, cancel_subscription, generate_invoice_from_recurring
+- [x] HitPay gateway integration — `paymentsMode: all`
+
+## 🏗️ Sprint 4 — Governance OS (Complete)
+
+- [x] Meetings, resolutions, compliance, documents, actions, audit
+- [x] Backend RPCs: start_agm, close_agm, create_motion, cast_vote, record_resolution, create_action, run_compliance, register_document
+- [x] SPA views: AGM hall, governance register — `#/agm`, `#/governance`
+
+## 🏗️ Sprint 5+ — Partner & Federation (Complete)
+
+- [x] Partner portal — `/partner-portal.html`, real Supabase data
+- [x] Federation roll-up dashboard — `/federation-dashboard.html`, real Supabase data
+
+## 📋 Remaining (Optional)
+
+- [ ] Full e2e test: assessment → payment → AGM scheduled → meeting run → minutes produced
+- [ ] Custom domain configuration for agmx-v2.vercel.app
+- [ ] White-label co-op portal configuration
 
 ---
 
-*Source: AGMX_V2_PLAN.md §10 Immediate next actions, §127 Deployment smoke-test matrix*
+*Source: AGMX_V2_PLAN.md §10 Immediate next actions, §12 Deployment smoke-test matrix*

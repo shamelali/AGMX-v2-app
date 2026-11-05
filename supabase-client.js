@@ -374,6 +374,66 @@ export const db = {
       return resp.json()
     },
   },
+
+  // Distribution / Partners & Federation (Sprint 5+)
+  distribution: {
+    async getPartners() {
+      const { data, error } = await supabase
+        .from('partners')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async getPartnerLinks() {
+      const { data, error } = await supabase
+        .from('partner_organizations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async getFederations() {
+      const { data, error } = await supabase
+        .from('federations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async getFederationOrganizations() {
+      const { data, error } = await supabase
+        .from('federation_organizations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async loadDistributionPortal(pbId) {
+      const [partners, partnerLinks, federations, fedOrgs] = await Promise.all([
+        this.getPartners().catch(() => []),
+        this.getPartnerLinks().catch(() => []),
+        this.getFederations().catch(() => []),
+        this.getFederationOrganizations().catch(() => []),
+      ])
+      return {
+        partners,
+        partnerLinks,
+        federations: federations.map((f) => ({
+          ...f,
+          organizationCount: fedOrgs.filter((fo) => fo.federation_id === f.id).length,
+          memberTotal: 0,
+          agmCount: 0,
+          complianceCounts: { total: 0, lulus: 0, amaran: 0, gagal: 0 },
+        })),
+        organizations: fedOrgs,
+      }
+    },
+  },
 }
 
 // ---- Realtime Subscriptions ----

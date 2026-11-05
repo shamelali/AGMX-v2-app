@@ -21,9 +21,10 @@
       <button onclick="location.reload()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Muat Semula</button>
     </header>
 
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:2rem;background:#fff;">
+    <section id="sub-section" style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:2rem;background:#fff;">
       <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Langganan Terkini</h2>
-      <div id="subscriptionCard" style="display:none;">
+      <div id="sub-loading" style="padding:2rem;text-align:center;color:#64748b;">Memuatkan langganan...</div>
+      <div id="sub-card" style="display:none;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Teras</div><div style="font-weight:600;color:#1e293b;" id="subPlan">-</div></div>
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Status</div><div style="font-weight:600;" id="subStatus">-</div></div>
@@ -34,7 +35,7 @@
         </div>
         <div style="display:flex;gap:0.5rem;">
           <button id="btnCancel" style="padding:0.5rem 1rem;border:1px solid #dc2626;border-radius:6px;background:#fff;color:#dc2626;font-size:0.875rem;cursor:pointer;">Batalkan</button>
-          <button id="btnRenew" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Pembaharuan</button>
+          <button id="btnGenInv" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Terbitkan Bil Sekarang</button>
         </div>
       </div>
       <div id="noSubscription" style="padding:2rem;text-align:center;color:#64748b;display:none;">
@@ -45,31 +46,122 @@
       </div>
     </section>
 
-    <section style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
+    <section id="ri-section" style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;display:none;">
       <h2 style="margin:0 0 1rem 0;padding:1rem 1.5rem;font-size:1.1rem;color:#374151;border-bottom:1px solid #e5e7eb;">Invois Berulang</h2>
       <div id="recurringInvoices" style="padding:1rem;">
-        <div style="padding:2rem;text-align:center;color:#64748b;">Memuatkan invois berulang...</div>
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Nombor Invois</th>
+              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Diterbitkan</th>
+              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Tamat Tempoh</th>
+              <th style="padding:0.75rem;text-align:right;border-bottom:1px solid #e5e7eb;color:#64748b;">Jumlah</th>
+              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="ri-table-body"></tbody>
+        </table>
       </div>
     </section>
   </main>
   <script type="module">
-    import { AGMX_API } from './supabase-client.js';
+    import { AGMX_COMMERCE } from './api.js';
 
-    const card = document.getElementById('subscriptionCard');
+    const API = AGMX_COMMERCE;
+    const subCard = document.getElementById('subCard');
     const noSub = document.getElementById('noSubscription');
-    const invContainer = document.getElementById('recurringInvoices');
+    const subLoading = document.getElementById('subLoading');
+    const riSection = document.getElementById('riSection');
+    const riTableBody = document.getElementById('riTableBody');
 
     async function load() {
-      if (!AGMX_API || !AGMX_API.isAuthenticated()) return;
-      const profile = await AGMX_API.profile.getCurrent();
-      const orgId = profile?.organization?.id;
-      if (!orgId) return;
-
       try {
-        const subs = await AGMX_API.governance.actions();
-      } catch(e) {}
+        if (!API || !API.isAuthenticated) {
+          subLoading.textContent = 'Sila log masuk terlebih dahulu.';
+          return;
+        }
 
-      invContainer.innerHTML = '<div style="padding:2rem;text-align:center;color:#64748b;">Butiran langganan akan dipaparkan selepas integrasi penuh.</div>';
+        const isAuth = await API.isAuthenticated();
+        if (!isAuth) {
+          subLoading.textContent = 'Sesi tidak sah. Sila log masuk.';
+          return;
+        }
+
+        /* Get the lead to find subscription reference */
+        const lead = await API.getAssessment();
+        if (!lead) {
+          subLoading.textContent = 'Tiada penilaian jumpa.';
+          return;
+        }
+
+        const subId = lead.subscriptionId;
+        subLoading.style.display = 'none';
+
+        if (!subId) {
+          noSub.style.display = 'block';
+          return;
+        }
+
+        /* Load subscription details */
+        const sub = await API.getSubscription(subId);
+        if (!sub) {
+          subLoading.textContent = 'Gagal memuatkan butiran langganan.';
+          return;
+        }
+
+        subCard.style.display = 'block';
+        riSection.style.display = 'block';
+
+        document.getElementById('subPlan').textContent = sub.planName || sub.planKey;
+        document.getElementById('subStatus').textContent = sub.status;
+        document.getElementById('subCycle').textContent = sub.billingCycle;
+        document.getElementById('subStart').textContent = sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString('ms-MY') : '—';
+        document.getElementById('subEnd').textContent = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString('ms-MY') : '—';
+        document.getElementById('subAutoRenew').textContent = sub.autoRenew ? 'Ya' : 'Tidak';
+
+        /* Cancel button */
+        document.getElementById('btnCancel').onclick = async () => {
+          if (!confirm('Batalkan langganan ini? Akses kekal sehingga tamat tempoh bil semasa.')) return;
+          try {
+            await API.cancelSubscription(sub.id);
+            alert('Langganan dibatalkan.');
+            location.reload();
+          } catch (e) {
+            alert('Ralat: ' + e.message);
+          }
+        };
+
+        /* Generate recurring invoice */
+        document.getElementById('btnGenInv').onclick = async () => {
+          try {
+            const inv = await API.generateRecurringInvoice(sub.id);
+            alert('Bil ' + inv.number + ' diterbitkan.');
+            location.reload();
+          } catch (e) {
+            alert('Ralat: ' + e.message);
+          }
+        };
+
+        /* Render recurring invoices */
+        const rows = (sub.recurringInvoices || []).map((ri) => {
+          const statusClass = ri.status === 'paid' ? 'success' : ri.status === 'pending' ? 'warning' : 'text';
+          return `<tr>
+            <td>${escapeHtml(ri.number || '—')}</td>
+            <td class="num">${ri.issuedAt ? new Date(ri.issuedAt).toLocaleDateString('ms-MY') : '—'}</td>
+            <td class="num">${ri.dueAt ? new Date(ri.dueAt).toLocaleDateString('ms-MY') : '—'}</td>
+            <td class="num" style="text-align:right">RM ${Number(ri.amount || 0).toLocaleString('ms-MY', {minimumFractionDigits:2})}</td>
+            <td><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;background:var(--c-${statusClass}-100);color:var(--c-${statusClass}-700)">${ri.status}</span></td>
+          </tr>`;
+        }).join('');
+        riTableBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:var(--c-text-3);padding:20px">Tiada bil bertolak ansur lagi.</td></tr>`;
+
+      } catch (e) {
+        subLoading.textContent = 'Ralat memuatkan: ' + (e.message || e);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
     }
 
     load();

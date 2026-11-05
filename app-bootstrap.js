@@ -583,81 +583,19 @@
    }
 
    function renderAgmSchedule(content) {
-     const data = session.data || {};
-     const cooperative = data.cooperative || {};
-     const heading = node("div", "agmx-page-heading");
-     const title = node("div", "");
-     append(title, [
-       node("h1", "", __(navLabel("agmSchedule"))),
-       node("p", "", "Cipta mesyuarat tahunan koperasi baharu selepas pembayaran sebut harga."),
-     ]);
-     heading.append(node("div", "", title), sourceBadge(session.source));
-     content.appendChild(heading);
-
-     const iframe = node("iframe", "agmx-embed");
-     iframe.src = "/agm-schedule.html";
-     iframe.style.width = "100%";
-     iframe.style.height = "700px";
-     iframe.style.border = "none";
-     iframe.style.borderRadius = "8px";
-     content.appendChild(iframe);
+     location.href = '/agm-schedule.html';
    }
 
    function renderSubscription(content) {
-     const heading = node("div", "agmx-page-heading");
-     const title = node("div", "");
-     append(title, [
-       node("h1", "", __(navLabel("subscription"))),
-       node("p", "", "Kelola langganan Governance OS tahunan dan invois berulang."),
-     ]);
-     heading.append(node("div", "", title), sourceBadge(session.source));
-     content.appendChild(heading);
-
-     const iframe = node("iframe", "agmx-embed");
-     iframe.src = "/subscription-management.html";
-     iframe.style.width = "100%";
-     iframe.style.height = "700px";
-     iframe.style.border = "none";
-     iframe.style.borderRadius = "8px";
-     content.appendChild(iframe);
+     location.href = '/subscription-management.html';
    }
 
    function renderPartner(content) {
-     const heading = node("div", "agmx-page-heading");
-     const title = node("div", "");
-     append(title, [
-       node("h1", "", __(navLabel("partner"))),
-       node("p", "", "Rakan perkhidmatan AGMX — pendaftaran, penurutan dan komisen federasi."),
-     ]);
-     heading.append(node("div", "", title), sourceBadge(session.source));
-     content.appendChild(heading);
-
-     const iframe = node("iframe", "agmx-embed");
-     iframe.src = "/partner-portal.html";
-     iframe.style.width = "100%";
-     iframe.style.height = "700px";
-     iframe.style.border = "none";
-     iframe.style.borderRadius = "8px";
-     content.appendChild(iframe);
+     location.href = '/partner-portal.html';
    }
 
    function renderFederation(content) {
-     const heading = node("div", "agmx-page-heading");
-     const title = node("div", "");
-     append(title, [
-       node("h1", "", __(navLabel("federation"))),
-       node("p", "", "Papan pemuka konsolidasi dan pengebilan gabungan bagi federasi koperasi."),
-     ]);
-     heading.append(node("div", "", title), sourceBadge(session.source));
-     content.appendChild(heading);
-
-     const iframe = node("iframe", "agmx-embed");
-     iframe.src = "/federation-dashboard.html";
-     iframe.style.width = "100%";
-     iframe.style.height = "700px";
-     iframe.style.border = "none";
-     iframe.style.borderRadius = "8px";
-     content.appendChild(iframe);
+     location.href = '/federation-dashboard.html';
    }
 
    function renderPartnerCard(partners, links) {
