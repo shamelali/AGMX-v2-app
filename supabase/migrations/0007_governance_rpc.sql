@@ -21,10 +21,19 @@ declare
   v_prev text;
   v_hash text;
 begin
-  select coalesce(hash, '0'::text) into v_prev
-    from public.audit_events
-    where organization_id = p_org
-    order by occurred_at desc limit 1;
+  /* A SELECT INTO that matches no row leaves the target NULL — the coalesce
+     written inside it never runs. `organization_id = p_org` also matches nothing
+     when p_org IS NULL, which is how both audit writers record a prospect. So
+     the first event of every organization, and every pre-tenant event, hashed
+     NULL against a NOT NULL column — and the exception block below swallowed the
+     violation. log_audit() therefore wrote nothing at all, permanently: an
+     organization's chain could never start, so no later event could ever find a
+     head to chain from. Reading the head as a scalar subquery and coalescing
+     outside it gives one row every time, and '0'-repeat-64 seeds the chain. */
+  select coalesce((select hash from public.audit_events
+                    where organization_id is not distinct from p_org
+                    order by occurred_at desc limit 1),
+                  repeat('0', 64)) into v_prev;
 
   -- pgcrypto lives in the `extensions` schema on Supabase, and this function
   -- pins search_path to public, so digest() must be qualified.
