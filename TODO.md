@@ -41,11 +41,37 @@
 - [x] Partner portal — `/partner-portal.html`, real Supabase data
 - [x] Federation roll-up dashboard — `/federation-dashboard.html`, real Supabase data
 
-## 📋 Remaining (Optional)
+## ✅ Sprint 6 — Prove it (Complete)
 
-- [ ] Full e2e test: assessment → payment → AGM scheduled → meeting run → minutes produced
-- [ ] Custom domain configuration for agmx-v2.vercel.app
-- [ ] White-label co-op portal configuration
+- [x] 🧪 **Full e2e test: assessment → payment → AGM scheduled → meeting run →
+      minutes produced** — `tools/test_agm_journey.mjs` boots
+      `supabase/schema_final.sql` on embedded real Postgres and drives the actual
+      `money-flow` and `governance` handlers: 120 assertions, no credentials, no
+      network, wired as `tools/check.sh` §24. §25 (`tools/test_bundle_replay.mjs`)
+      then applies the same bundle twice and proves it is rerun-safe.
+- [x] 🐞 **Six governance-SQL defects found by those two checks** — `cast_vote`
+      called `max(boolean)` (every ballot would 500), its quorum guard read
+      `coalesce(...) INTO` a variable (an AGM with no attendance failed *open*),
+      two RPCs used undeclared plpgsql variables, `record_resolution` assigned
+      jsonb into a `uuid`, `audit_events.organization_id NOT NULL` silently
+      dropped a prospect's own record, and `log_audit()`'s chain head read meant
+      **no governance audit event was ever written**. Fixed in `0007`/`0008`/`0009`.
+
+## 📋 Remaining
+
+- [ ] 🔴 **Apply migrations 0007–0009 to production** (`supabase db push --project-ref
+      jchfalaibabmszewemat`). The fixes are proven offline only — **no remote
+      project has been touched**, so production still cannot record a vote or an
+      AGM audit event. Operator action; it carries real money and an audited
+      record, so it is not automated here.
+- [ ] 🌐 Custom domain configuration for agmx-v2.vercel.app — needs the owner's
+      hostname plus Vercel and DNS actions, then `check.sh` §19 (canonical host is
+      derived from `sitemap.xml`) and §23 (live probes assume `*.vercel.app`) both
+      change.
+- [ ] 🎨 White-label co-op portal configuration — **unbuilt**: no branding or theme
+      column exists in the schema, so this is a scope decision first (which fields,
+      which pages, who may upload a logo, and what a co-op's own domain does to
+      §19/§23).
 
 ---
 

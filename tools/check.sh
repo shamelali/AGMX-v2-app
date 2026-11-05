@@ -2368,37 +2368,40 @@ else
 fi
 
 # ----------------------------------------------------------------
-head_ "25. A fresh deploy of the bundle reaches the voting RPC"
+head_ "25. A fresh deploy bundle replays clean and writes the audit trail"
 # ----------------------------------------------------------------
-# Pass 24 proves the journey works, but only while its scenario runs. Half of
-# the failures this repo actually shipped were *setup* failures: an operator
-# pasted supabase/schema_final.sql into the dashboard, every statement answered
-# "success", and the product was quietly broken, because Postgres accepts a
-# plpgsql body without compiling it — a reference to a variable nobody declared
-# fails on the first call, not on CREATE FUNCTION. `cast_vote` did exactly that:
-# it called max(boolean), an aggregate Postgres does not have, and its quorum
-# guard also read coalesce(...) INTO a variable, which Postgres overwrites with
-# NULL when the query matches no rows, so an AGM with no attendance row would
-# have failed OPEN and let anyone vote.
+# Pass 24 proves the journey works; this proves the *file* works, twice.
+# DEPLOY.md and supabase/deploy.sh both send an operator to
+# supabase/schema_final.sql, and the normal recovery after a partial paste is to
+# paste it again — which is also how a rerun-safe file is proven, because
+# Postgres answers "success" to a statement that changed nothing. Pass 21 checks
+# the rerun claim by pattern (every `create policy` preceded by a `drop policy if
+# exists`); this applies the bundle a second time to the same database and
+# compares the catalog before and after, so an unguarded `add constraint`, a
+# `create trigger` without its drop, or a seed row without `on conflict` fails
+# here instead of in front of an operator with a cooperative's data already in
+# the tables.
 #
-# So this pass asks the one question a deploy actually poses — does the bundle
-# install, and can an authenticated role call the RPCs the UI depends on with
-# the arguments it sends — using named-argument notation, which is what
-# PostgREST itself uses. A migration that a future edit makes uninstallable, or
-# an RPC whose parameter names drift from the client, fails here rather than in
-# the middle of a cooperative's AGM.
-if [ -f tools/test_bundle_boot.mjs ] && [ -f tools/agmx_db.mjs ]; then
+# It also runs the SQL audit writer, which pass 24 cannot see: governance's RPCs
+# `perform log_audit(...)`, while every audit row pass 24 asserts was written by
+# money-flow's client-side hash chain. That gap held the worst defect the suite
+# has found — log_audit read its chain head with `select coalesce(hash,'0') into
+# v_prev ... limit 1`, which leaves the variable NULL when no row matches, so an
+# organization's first event hashed NULL into a NOT NULL column and its own
+# `exception when others` handler swallowed the violation. The chain could never
+# start, so no governance audit event was ever recorded, for any tenant, behind
+# an HTTP 200 and a warning in the log.
+if [ -f tools/test_bundle_replay.mjs ] && [ -f tools/agmx_db.mjs ]; then
   if [ ! -d node_modules/@electric-sql/pglite ]; then
-    warn "tools/test_bundle_boot.mjs skipped — npm install @electric-sql/pglite"
-  elif OUT=$(node tools/test_bundle_boot.mjs 2>&1); then
-    printf '%s\n' "$OUT" | sed 's/^/  /'
-    ok "supabase/schema_final.sql installs clean and its governance RPCs are callable"
+    warn "tools/test_bundle_replay.mjs skipped — npm install @electric-sql/pglite"
+  elif OUT=$(node tools/test_bundle_replay.mjs 2>&1); then
+    ok "$(printf '%s\n' "$OUT" | tail -1)"
   else
-    bad "the documented deploy bundle does not install or its RPCs are not callable — a fresh cooperative gets this"
-    printf '%s\n' "$OUT" | grep -vE '^ +[0-9]+ (skipped|applied)' | tail -12 | sed 's/^/      /'
+    bad "the documented deploy bundle does not replay clean, or its audit trail is not being written"
+    printf '%s\n' "$OUT" | grep -E '^  FAILED|^[0-9]+ check' | head -8 | sed 's/^/      /'
   fi
 else
-  warn "tools/test_bundle_boot.mjs not found"
+  warn "tools/test_bundle_replay.mjs / tools/agmx_db.mjs not found"
 fi
 
 # ----------------------------------------------------------------
