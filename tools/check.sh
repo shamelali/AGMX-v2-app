@@ -2316,6 +2316,92 @@ if [ -n "$LIVE_HOST" ] && [ "${AGMX_SKIP_NET:-0}" != "1" ] && command -v supabas
 fi
 
 # ----------------------------------------------------------------
+head_ "24. The MVP acceptance journey runs on real Postgres"
+# ----------------------------------------------------------------
+# AGMX_V2_PLAN.md §9 names one test that nothing else in this suite can
+# substitute for: assessment → payment → AGM scheduled → meeting run → minutes
+# produced. Every other pass reads files. This one boots the generated deploy
+# bundle on embedded Postgres (tools/agmx_db.mjs), then loads
+# supabase/functions/money-flow/index.ts and supabase/functions/governance/index.ts
+# as written — the only substitution is their three imports and Deno.env — and
+# drives the handlers they pass to serve() with real Request objects. Each read
+# and write those handlers make compiles against the live catalog, so the quorum
+# maths, ballot secrecy, resolution thresholds, idempotency lock and audit hash
+# chain are decided by the same plpgsql a cooperative's meeting would run.
+#
+# It earned its place on the first run, by failing on five defects no file
+# reading could see:
+#   * cast_vote's quorum guard called max(boolean) — an aggregate Postgres does
+#     not have, so every ballot in production would have raised 500.
+#   * The rewritten guard used coalesce(...) INTO a variable, which Postgres
+#     overwrites with NULL when the query matches no rows: an AGM with no
+#     attendance record would have failed OPEN and let anyone vote.
+#   * Two RPCs referenced undeclared plpgsql variables (0007 v_satisfied,
+#     0008 v_existing) — a compile error the moment the function is called.
+#   * 0008 assigned a jsonb row into a uuid variable.
+#   * audit_events.organization_id was NOT NULL while both audit writers map a
+#     pre-organization lead to NULL, so the prospect's own submission was
+#     silently dropped from the log.
+#
+# It needs no credentials and no network: the HitPay call is answered by an
+# in-process stub that throws on any other URL, so this pass runs in the
+# pre-commit hook. The assertion floor is a real floor — a run that quietly
+# stops asserting must fail, not go green.
+if [ -f tools/test_agm_journey.mjs ] && [ -f tools/agmx_db.mjs ]; then
+  if [ ! -d node_modules/@electric-sql/pglite ]; then
+    warn "tools/test_agm_journey.mjs skipped — npm install @electric-sql/pglite to boot the deploy bundle on real Postgres"
+  elif OUT=$(node tools/test_agm_journey.mjs 2>&1); then
+    COUNT=$(printf '%s' "$OUT" | grep -oE '[0-9]+ assertions passed' | grep -oE '[0-9]+')
+    if [ -z "$COUNT" ]; then
+      bad "tools/test_agm_journey.mjs exited 0 but printed no assertion total — the run cannot be trusted"
+    elif [ "$COUNT" -lt 100 ]; then
+      bad "tools/test_agm_journey.mjs ran only ${COUNT} assertions (floor is 100) — the journey was cut short, not passed"
+    else
+      ok "tools/test_agm_journey.mjs — assessment → payment → AGM → votes → minutes on real Postgres (${COUNT} assertions)"
+    fi
+  else
+    bad "tools/test_agm_journey.mjs failed — the MVP journey does not run on the bundle this repo deploys"
+    printf '%s\n' "$OUT" | grep -E '^  ✗|^FAILED|Error' | head -10 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_agm_journey.mjs / tools/agmx_db.mjs not found"
+fi
+
+# ----------------------------------------------------------------
+head_ "25. A fresh deploy of the bundle reaches the voting RPC"
+# ----------------------------------------------------------------
+# Pass 24 proves the journey works, but only while its scenario runs. Half of
+# the failures this repo actually shipped were *setup* failures: an operator
+# pasted supabase/schema_final.sql into the dashboard, every statement answered
+# "success", and the product was quietly broken, because Postgres accepts a
+# plpgsql body without compiling it — a reference to a variable nobody declared
+# fails on the first call, not on CREATE FUNCTION. `cast_vote` did exactly that:
+# it called max(boolean), an aggregate Postgres does not have, and its quorum
+# guard also read coalesce(...) INTO a variable, which Postgres overwrites with
+# NULL when the query matches no rows, so an AGM with no attendance row would
+# have failed OPEN and let anyone vote.
+#
+# So this pass asks the one question a deploy actually poses — does the bundle
+# install, and can an authenticated role call the RPCs the UI depends on with
+# the arguments it sends — using named-argument notation, which is what
+# PostgREST itself uses. A migration that a future edit makes uninstallable, or
+# an RPC whose parameter names drift from the client, fails here rather than in
+# the middle of a cooperative's AGM.
+if [ -f tools/test_bundle_boot.mjs ] && [ -f tools/agmx_db.mjs ]; then
+  if [ ! -d node_modules/@electric-sql/pglite ]; then
+    warn "tools/test_bundle_boot.mjs skipped — npm install @electric-sql/pglite"
+  elif OUT=$(node tools/test_bundle_boot.mjs 2>&1); then
+    printf '%s\n' "$OUT" | sed 's/^/  /'
+    ok "supabase/schema_final.sql installs clean and its governance RPCs are callable"
+  else
+    bad "the documented deploy bundle does not install or its RPCs are not callable — a fresh cooperative gets this"
+    printf '%s\n' "$OUT" | grep -vE '^ +[0-9]+ (skipped|applied)' | tail -12 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_bundle_boot.mjs not found"
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then

@@ -253,8 +253,16 @@ begin
   end if;
 
   -- quorum guard: a failed quorum blocks all voting
-  select coalesce(max(satisfied), false) into v_satisfied from public.quorum_snapshots where agm_id = v_motion.agm_id;
-  if not v_satisfied then
+  -- The latest snapshot decides. max(boolean) does not exist in Postgres, and
+  -- coalesce(...) into a variable is overwritten with NULL when the query finds
+  -- no rows, so an AGM with no attendance would have failed open and let anyone
+  -- vote. Reading the row and coalescing in the test keeps it closed.
+  select satisfied into v_satisfied
+    from public.quorum_snapshots
+    where agm_id = v_motion.agm_id
+    order by captured_at desc
+    limit 1;
+  if not coalesce(v_satisfied, false) then
     return jsonb_build_object('error', 'Quorum not satisfied — voting blocked');
   end if;
 

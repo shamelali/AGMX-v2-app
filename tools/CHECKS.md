@@ -1,8 +1,9 @@
 # AGMX — Repository Checks
 
-`tools/check.sh` runs twenty-three validation passes over the repo. No
+`tools/check.sh` runs twenty-four validation passes over the repo. No
 dependencies beyond `node` and `python3`; `deno` is optional and pass 16 reports
-a warning instead of a tick when it is absent.
+a warning instead of a tick when it is absent. Pass 24 additionally needs
+`@electric-sql/pglite` (`npm install`) and reports a warning when it is missing.
 
 ```bash
 ./tools/check.sh              # full run (includes live host probe)

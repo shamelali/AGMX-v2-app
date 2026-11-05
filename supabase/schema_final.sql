@@ -19,8 +19,9 @@
 --   0004_revoke_non_dml_privileges.sql  (7 lines)
 --   0005_pin_function_search_path.sql  (43 lines)
 --   0006_subscriptions_billing.sql  (413 lines)
---   0007_governance_rpc.sql  (518 lines)
---   0008_governance_bugfixes.sql  (149 lines)
+--   0007_governance_rpc.sql  (526 lines)
+--   0008_governance_bugfixes.sql  (157 lines)
+--   0009_audit_all_stages.sql  (25 lines)
 -- ============================================================
 
 
@@ -1791,8 +1792,16 @@ begin
   end if;
 
   -- quorum guard: a failed quorum blocks all voting
-  select coalesce(max(satisfied), false) into v_satisfied from public.quorum_snapshots where agm_id = v_motion.agm_id;
-  if not v_satisfied then
+  -- The latest snapshot decides. max(boolean) does not exist in Postgres, and
+  -- coalesce(...) into a variable is overwritten with NULL when the query finds
+  -- no rows, so an AGM with no attendance would have failed open and let anyone
+  -- vote. Reading the row and coalescing in the test keeps it closed.
+  select satisfied into v_satisfied
+    from public.quorum_snapshots
+    where agm_id = v_motion.agm_id
+    order by captured_at desc
+    limit 1;
+  if not coalesce(v_satisfied, false) then
     return jsonb_build_object('error', 'Quorum not satisfied — voting blocked');
   end if;
 
@@ -2112,8 +2121,16 @@ begin
   end if;
 
   -- quorum guard: a failed quorum blocks all voting
-  select coalesce(max(satisfied), false) into v_satisfied from public.quorum_snapshots where agm_id = v_motion.agm_id;
-  if not v_satisfied then
+  -- The latest snapshot decides. max(boolean) does not exist in Postgres, and
+  -- coalesce(...) into a variable is overwritten with NULL when the query finds
+  -- no rows, so an AGM with no attendance would have failed open and let anyone
+  -- vote. Reading the row and coalescing in the test keeps it closed.
+  select satisfied into v_satisfied
+    from public.quorum_snapshots
+    where agm_id = v_motion.agm_id
+    order by captured_at desc
+    limit 1;
+  if not coalesce(v_satisfied, false) then
     return jsonb_build_object('error', 'Quorum not satisfied — voting blocked');
   end if;
 
@@ -2208,3 +2225,33 @@ $$;
 
 revoke execute on function public.record_resolution(uuid) from public, anon;
 grant execute on function public.record_resolution(uuid) to service_role;
+
+
+-- ============================================================
+-- 0009_audit_all_stages.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 4: keep the audit record of a lead
+--
+-- audit_events.organization_id was declared NOT NULL, while both writers of
+-- audit rows map the pre-organization zero UUID to NULL: log_audit() in SQL,
+-- and auditLog() in the money-flow Edge Function, whose comment states the
+-- assumption outright. The two disagree, so every event raised before a
+-- cooperative had an organization row — assessment.submitted above all — was
+-- rejected by the constraint. Nothing surfaced it, because audit failures are
+-- caught so they cannot fail the business operation, and the client only
+-- console.error's them.
+--
+-- A lead's assessment and quote are the first records a cooperative makes, and
+-- Akta Koperasi 1993 immutability is asserted over this table, so a stage that
+-- silently produces no record is the wrong default. Dropping NOT NULL aligns
+-- the schema with the code that was always meant to write it.
+--
+-- Prospect rows stay invisible to every tenant: the RLS policies compare
+-- organization_id against current_org_id(), and NULL matches nothing. Only the
+-- service-role writers can insert them, which is unchanged.
+--
+-- apply: supabase db push --project-ref <ref>
+-- ============================================================
+
+alter table public.audit_events alter column organization_id drop not null;
