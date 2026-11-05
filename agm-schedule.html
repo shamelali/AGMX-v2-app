@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Jadual AGM Baharu — AGMX Governance OS">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Jadual AGM Baharu • AGMX</title>
+</head>
+<body>
+  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
+  <main class="page" style="max-width:720px;margin:2rem auto;padding:0 1rem;">
+    <header style="margin-bottom:2rem;">
+      <h1 style="margin:0 0 0.5rem 0;">Jadual AGM Baharu</h1>
+      <p style="color:#666;margin:0;">Cipta mesyuarat tahunan koperasi baharu selepas pembayaran sebut harga.</p>
+    </header>
+
+    <form id="agmForm" novalidate>
+      <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;background:#fff;">
+        <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Butir AGM</h2>
+        <div style="display:grid;grid-template-columns:1fr;gap:1rem;">
+          <div>
+            <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Tajuk AGM <span style="color:#dc2626;">*</span></label>
+            <input type="text" id="title" required placeholder="Contoh: AGM Tahunan 2026 Koperasi XYZ" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Edisi <span style="color:#dc2626;">*</span></label>
+              <input type="number" id="edition" required min="1" placeholder="16" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+            </div>
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Tahun Kewangan</label>
+              <input type="text" id="fiscalYear" placeholder="FY2025" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Tarikh dan Masa <span style="color:#dc2626;">*</span></label>
+              <input type="datetime-local" id="scheduledAt" required style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+            </div>
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Mod <span style="color:#dc2626;">*</span></label>
+              <select id="mode" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+                <option value="physical">Fizikal</option>
+                <option value="online">Dalam Talian</option>
+                <option value="hybrid" selected>Hibrid</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Tempat</label>
+            <input type="text" id="venue" placeholder="Dewan Mesyuarat Koperasi" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Kuorum % <span style="color:#dc2626;">*</span></label>
+              <input type="number" id="quorumPct" required min="0" max="100" value="25" step="0.1" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+            </div>
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Hari Notis <span style="color:#dc2626;">*</span></label>
+              <input type="number" id="noticeDays" required min="1" value="21" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;background:#fff;">
+        <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Agenda Awal</h2>
+        <p style="color:#666;font-size:0.875rem;margin-bottom:1rem;">Agenda akan dicipta secara automatik berdasarkan templat AGM piawais. Anda boleh menambah atau memadam item selepas AGM dicipta.</p>
+        <div id="agendaPreview" style="display:flex;flex-direction:column;gap:0.5rem;max-height:300px;overflow-y:auto;border:1px solid #d1d5db;border-radius:6px;padding:0.75rem;background:#f8fafc;">
+          <div style="font-size:0.875rem;color:#64748b;">AG-01 • Pembukaan dan sijil kehadiran</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-02 • Lulusan minit AGM lepas</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-03 • Laporan setiausaha tahunan</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-04 • Laporan kewangan dan dividennya</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-05 • Usul dan resolusi</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-06 • Pilihan raya lembaga</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-07 • Pelantikan auditor</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-08 • Soalan dari ahli</div>
+          <div style="font-size:0.875rem;color:#64748b;">AG-09 • Penutupan</div>
+        </div>
+      </section>
+
+      <div style="display:flex;gap:1rem;justify-content:flex-end;">
+        <button type="button" onclick="history.back()" style="padding:0.6rem 1.2rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-size:0.9375rem;cursor:pointer;">Batal</button>
+        <button type="submit" id="createBtn" style="padding:0.6rem 1.2rem;border:none;border-radius:8px;background:#2563EB;color:#fff;font-size:0.9375rem;font-weight:600;cursor:pointer;">Cipta AGM</button>
+      </div>
+      <p id="createMsg" style="margin-top:1rem;font-size:0.875rem;color:#64748b;"></p>
+    </form>
+  </main>
+  <script type="module">
+    import { AGMX_API } from './supabase-client.js';
+
+    const form = document.getElementById('agmForm');
+    const btn = document.getElementById('createBtn');
+    const msg = document.getElementById('createMsg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      btn.textContent = 'Mencipta...';
+      msg.textContent = '';
+
+      try {
+        if (!AGMX_API || !AGMX_API.isAuthenticated()) {
+          msg.textContent = 'Sila log masuk terlebih dahulu.';
+          msg.style.color = '#dc2626';
+          return;
+        }
+
+        const agm = {
+          title: document.getElementById('title').value.trim(),
+          edition: parseInt(document.getElementById('edition').value, 10),
+          fiscal_year: document.getElementById('fiscalYear').value.trim() || null,
+          scheduled_at: document.getElementById('scheduledAt').value,
+          venue: document.getElementById('venue').value.trim() || null,
+          mode: document.getElementById('mode').value,
+          quorum_pct: parseFloat(document.getElementById('quorumPct').value),
+          notice_days: parseInt(document.getElementById('noticeDays').value, 10)
+        };
+
+        const result = await AGMX_API.governance.createAgm(agm);
+        if (result.error) {
+          msg.textContent = result.error;
+          msg.style.color = '#dc2626';
+        } else {
+          msg.textContent = 'AGM dicipta berjaya. Alihkan ke Dewan AGM?';
+          msg.style.color = '#16a34a';
+          setTimeout(() => {
+            location.href = '/app.html#/agm';
+          }, 1500);
+        }
+      } catch (err) {
+        msg.textContent = 'Ralat: ' + (err.message || err);
+        msg.style.color = '#dc2626';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Cipta AGM';
+      }
+    });
+  </script>
+</body>
+</html>

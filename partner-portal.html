@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portal Mitra — AGMX Federation Platform">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Portal Mitra • AGMX</title>
+</head>
+<body>
+  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
+  <main class="page" style="max-width:1100px;margin:2rem auto;padding:0 1rem;">
+    <header style="margin-bottom:2rem;">
+      <h1 style="margin:0 0 0.5rem 0;">Portal Mitra</h1>
+      <p style="color:#666;margin:0;">Rakan perkhidmatan AGMX — pendaftaran, penurutan dan komisen federasi</p>
+    </header>
+
+    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:2rem;background:#fff;">
+      <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Butir Mitra</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Nama Mitra</div><div style="font-weight:600;color:#1e293b;" id="partnerName">-</div></div>
+        <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">E-mel</div><div style="font-weight:600;color:#1e293b;" id="partnerEmail">-</div></div>
+        <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Status</div><div style="font-weight:600;color:#16a34a;" id="partnerStatus">Aktif</div></div>
+        <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Komisen</div><div style="font-weight:600;color:#1e293b;" id="partnerCommission">0%</div></div>
+      </div>
+    </section>
+
+    <section style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
+      <h2 style="margin:0 0 1rem 0;padding:1rem 1.5rem;font-size:1.1rem;color:#374151;border-bottom:1px solid #e5e7eb;">Agm yang Dibalas</h2>
+      <div id="referralsContainer" style="padding:1rem;">
+        <div style="padding:2rem;text-align:center;color:#64748b;">Tiada rujukan yang dicatat.</div>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    import { AGMX_API } from './supabase-client.js';
+
+    async function load() {
+      if (!AGMX_API || !AGMX_API.isAuthenticated()) return;
+      const profile = await AGMX_API.profile.getCurrent();
+      document.getElementById('partnerName').textContent = profile?.full_name || '-';
+      document.getElementById('partnerEmail').textContent = profile?.email || '-';
+    }
+    load();
+  </script>
+</body>
+</html>

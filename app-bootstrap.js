@@ -98,7 +98,11 @@
      dashboard: "#/dashboard",
      members: "#/members",
      agm: "#/agm",
+     agmSchedule: "#/agm-schedule",
      governance: "#/governance",
+     subscription: "#/subscription",
+     partner: "#/partner",
+     federation: "#/federation",
      distribution: "#/distribution",
    };
 
@@ -128,6 +132,17 @@
     return element;
   }
 
+  function navLabel(key) {
+    const labels = {
+      agmSchedule: { BM: "Jadual AGM", EN: "AGM Schedule" },
+      subscription: { BM: "Langganan", EN: "Subscription" },
+      partner: { BM: "Mitra", EN: "Partner" },
+      federation: { BM: "Federasi", EN: "Federation" },
+    };
+    const lang = (window.state && window.state.lang) || "BM";
+    return labels[key]?.[lang] || labels[key]?.BM || key;
+  }
+
   function valueOf(value, fallback) {
     return value === undefined || value === null || value === "" ? (fallback || "—") : String(value);
   }
@@ -147,7 +162,7 @@
 
    function routeFromHash() {
      const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-     return ["members", "agm", "governance", "distribution"].includes(route) ? route : "dashboard";
+     return ["members", "agm", "agmSchedule", "governance", "subscription", "partner", "federation", "distribution"].includes(route) ? route : "dashboard";
    }
 
   function routeHref(route) {
@@ -317,10 +332,15 @@
        node("p", "agmx-nav-section-label", "Workspace"),
        navLink("dashboard", "▦", "Dashboard"),
        navLink("agm", "◉", "AGM Hall"),
-       navLink("governance", "✓", "Compliance & Audit"),
+       navLink("agmSchedule", "📅", "Jadual AGM"),
+       navLink("subscription", "💳", "Langganan"),
        navLink("members", "♙", "Members"),
      ];
-     if (isAdmin(data)) links.push(navLink("distribution", "⇄", "Partners & Federation"));
+     if (isAdmin(data)) {
+       links.push(navLink("partner", "🤝", "Partner"));
+       links.push(navLink("federation", "🏢", "Federation"));
+       links.push(navLink("distribution", "⇄", "Partners & Federation"));
+     }
      append(group, links);
      const note = node("div", "agmx-nav-note");
      append(note, [
@@ -562,6 +582,84 @@
      }
    }
 
+   function renderAgmSchedule(content) {
+     const data = session.data || {};
+     const cooperative = data.cooperative || {};
+     const heading = node("div", "agmx-page-heading");
+     const title = node("div", "");
+     append(title, [
+       node("h1", "", __(navLabel("agmSchedule"))),
+       node("p", "", "Cipta mesyuarat tahunan koperasi baharu selepas pembayaran sebut harga."),
+     ]);
+     heading.append(node("div", "", title), sourceBadge(session.source));
+     content.appendChild(heading);
+
+     const iframe = node("iframe", "agmx-embed");
+     iframe.src = "/agm-schedule.html";
+     iframe.style.width = "100%";
+     iframe.style.height = "700px";
+     iframe.style.border = "none";
+     iframe.style.borderRadius = "8px";
+     content.appendChild(iframe);
+   }
+
+   function renderSubscription(content) {
+     const heading = node("div", "agmx-page-heading");
+     const title = node("div", "");
+     append(title, [
+       node("h1", "", __(navLabel("subscription"))),
+       node("p", "", "Kelola langganan Governance OS tahunan dan invois berulang."),
+     ]);
+     heading.append(node("div", "", title), sourceBadge(session.source));
+     content.appendChild(heading);
+
+     const iframe = node("iframe", "agmx-embed");
+     iframe.src = "/subscription-management.html";
+     iframe.style.width = "100%";
+     iframe.style.height = "700px";
+     iframe.style.border = "none";
+     iframe.style.borderRadius = "8px";
+     content.appendChild(iframe);
+   }
+
+   function renderPartner(content) {
+     const heading = node("div", "agmx-page-heading");
+     const title = node("div", "");
+     append(title, [
+       node("h1", "", __(navLabel("partner"))),
+       node("p", "", "Rakan perkhidmatan AGMX — pendaftaran, penurutan dan komisen federasi."),
+     ]);
+     heading.append(node("div", "", title), sourceBadge(session.source));
+     content.appendChild(heading);
+
+     const iframe = node("iframe", "agmx-embed");
+     iframe.src = "/partner-portal.html";
+     iframe.style.width = "100%";
+     iframe.style.height = "700px";
+     iframe.style.border = "none";
+     iframe.style.borderRadius = "8px";
+     content.appendChild(iframe);
+   }
+
+   function renderFederation(content) {
+     const heading = node("div", "agmx-page-heading");
+     const title = node("div", "");
+     append(title, [
+       node("h1", "", __(navLabel("federation"))),
+       node("p", "", "Papan pemuka konsolidasi dan pengebilan gabungan bagi federasi koperasi."),
+     ]);
+     heading.append(node("div", "", title), sourceBadge(session.source));
+     content.appendChild(heading);
+
+     const iframe = node("iframe", "agmx-embed");
+     iframe.src = "/federation-dashboard.html";
+     iframe.style.width = "100%";
+     iframe.style.height = "700px";
+     iframe.style.border = "none";
+     iframe.style.borderRadius = "8px";
+     content.appendChild(iframe);
+   }
+
    function renderPartnerCard(partners, links) {
      const card = node("section", "agmx-card");
      append(card, [
@@ -687,6 +785,10 @@
      if (route === "members") renderMembers(content);
      else if (route === "distribution") renderDistribution(content);
      else if (route === "agm" || route === "governance") renderGovernance(content, route);
+     else if (route === "agmSchedule") renderAgmSchedule(content);
+     else if (route === "subscription") renderSubscription(content);
+     else if (route === "partner") renderPartner(content);
+     else if (route === "federation") renderFederation(content);
      else renderDashboard(content);
     root.querySelectorAll(".agmx-nav-link").forEach((link) => {
       link.classList.toggle("is-active", link.dataset.route === route);
