@@ -33,16 +33,13 @@
 
   function snapshot() {
     const api = window.AGMX_API;
-    const record = api && api.pb && api.pb.currentUser;
     return {
       browser: navigator.onLine === false ? "offline" : "online",
       secureContext: window.isSecureContext ? "yes" : "no",
       origin: window.location.origin,
-      backendMode: config.backend || "pocketbase-bridge",
-      pocketbaseUrl: safeUrl((api && api.config && api.config.url) || "http://127.0.0.1:8090"),
-      auth: api && typeof api.isAuthenticated === "function" && api.isAuthenticated()
-        ? `authenticated${record && record.id ? ` · ${record.id}` : ""}`
-        : "signed out",
+      backendMode: config.backend || "supabase",
+      supabaseUrl: safeUrl(config.supabaseUrl || ""),
+      auth: api && typeof api.isAuthenticated === "function" ? "API loaded" : "API unavailable",
       serviceWorker: "serviceWorker" in navigator
         ? (navigator.serviceWorker.controller ? "controlled" : "registered/no controller")
         : "unsupported",
@@ -87,7 +84,7 @@
     addRow(body, "Browser", data.browser, data.browser === "online" ? "ok" : "bad");
     addRow(body, "Backend mode", data.backendMode);
     addRow(body, "Backend health", data.backend ? `${data.backend.httpStatus || "—"} · ${data.backend.ok ? "ready" : "degraded"}` : "not checked", data.backend && data.backend.ok ? "ok" : data.backend ? "bad" : "warn");
-    addRow(body, "PocketBase bridge", `${data.pocketbaseUrl} · ${data.auth}`);
+    addRow(body, "Supabase", `${data.supabaseUrl} · ${data.auth}`);
     addRow(body, "Bootstrap", `${bootstrap.status} · ${bootstrap.source}`);
     addRow(body, "Route", bootstrap.route);
     addRow(body, "Service worker", data.serviceWorker);
@@ -144,8 +141,9 @@
       try { await api.logout(); } catch (_) { /* local cleanup below */ }
     }
     try {
-      localStorage.removeItem("pb_token");
-      localStorage.removeItem("pb_auth");
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("sb-") || key.startsWith("pb_")) localStorage.removeItem(key);
+      }
     } catch (_) { /* storage can be disabled */ }
     window.location.reload();
   }

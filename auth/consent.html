@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lesen Access — AGMX</title>
-  <script src="https://esm.sh/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
     .consent-container { max-width: 480px; margin: 80px auto; padding: 24px; }
@@ -35,7 +34,7 @@
     <div class="consent-card">
       <div class="consent-header">
         <h1 class="consent-title">Lesen Access</h1>
-        <p class="consent-subtitle">Ahakaan ini meminta kebenaran untuk mengakses akaun AGMX anda</p>
+        <p class="consent-subtitle">Aplikasi ini meminta kebenaran untuk mengakses akaun AGMX anda</p>
       </div>
 
       <div id="loading" class="loading">Memuat maklumat permohonan…</div>
@@ -61,10 +60,14 @@
     </div>
   </div>
 
-  <script>
-    const SUPABASE_URL = 'https://lcrfsqocqavczgnzpadq.supabase.co';
-    let supabase = null;
-    let authorizationId = null;
+  <!-- Loaded the same way as every other page: the /config.js rewrite runs
+       api/config.js, which sets window.AGMX_CONFIG. Requesting /api/config.js
+       directly would return that function's own source text instead. -->
+  <script src="/config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const CONFIG = window.AGMX_CONFIG || {}
 
     const el = {
       loading: document.getElementById('loading'),
@@ -75,93 +78,6 @@
       btnApprove: document.getElementById('btn-approve'),
       btnDeny: document.getElementById('btn-deny'),
       status: document.getElementById('status'),
-    };
-
-    async function loadConfig() {
-      const res = await fetch('/api/config.js', { cache: 'no-store' });
-      const text = await res.text();
-      return window.AGMX_CONFIG || {};
-    }
-
-    async function init() {
-      try {
-        const CONFIG = await loadConfig();
-        supabase = supabase.createClient(SUPABASE_URL, CONFIG.supabaseAnonKey);
-
-        const params = new URLSearchParams(location.search);
-        authorizationId = params.get('authorization_id');
-
-        // Check if user is logged in
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
-          const loginUrl = new URL('/login', location.origin);
-          loginUrl.searchParams.set('redirect', '/auth/consent?authorization_id=' + authorizationId);
-          location.href = loginUrl.toString();
-          return;
-        }
-
-        // Get authorization details
-        const { data: authDetails, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
-
-        if (error || !authDetails) {
-          el.loading.textContent = 'Ralat: Permohonan sah tidak dijumpai.';
-          return;
-        }
-
-        // If previously consented, redirect
-        if (!authDetails.authorization_id) {
-          location.href = authDetails.redirect_url;
-          return;
-        }
-
-        el.loading.classList.add('hidden');
-        el.form.classList.remove('hidden');
-
-        // Populate UI
-        el.appName.textContent = authDetails.client?.name ?? 'Permohonan Tidak Diketahui';
-        el.appRedirect.textContent = authDetails.redirect_uri ?? '';
-
-        if (authDetails.scope) {
-          el.scopesList.innerHTML = authDetails.scope.split(' ')
-            .filter(Boolean)
-            .map(scope => `<div class="scope-item"><span class="scope-check">✓</span>${escapeHtml(scope)}</div>`)
-            .join('');
-        } else {
-          el.scopesList.innerHTML = '<div class="scope-item"><span class="scope-check">—</span>Tiada kebenaran khusus diminta.</div>';
-        }
-
-        el.btnApprove.onclick = async () => {
-          el.btnApprove.disabled = true;
-          el.btnDeny.disabled = true;
-          el.status.textContent = 'Memproses…';
-          try {
-            const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
-            if (error) throw new Error(error.message);
-            location.href = data.redirect_url;
-          } catch (err) {
-            el.status.textContent = err.message || 'Ralat telah berlaku.';
-            el.btnApprove.disabled = false;
-            el.btnDeny.disabled = false;
-          }
-        };
-
-        el.btnDeny.onclick = async () => {
-          el.btnApprove.disabled = true;
-          el.btnDeny.disabled = true;
-          el.status.textContent = 'Memproses…';
-          try {
-            const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
-            if (error) throw new Error(error.message);
-            location.href = data.redirect_url;
-          } catch (err) {
-            el.status.textContent = err.message || 'Ralat telah berlaku.';
-            el.btnApprove.disabled = false;
-            el.btnDeny.disabled = false;
-          }
-        };
-      } catch (err) {
-        el.loading.textContent = 'Ralat: ' + escapeHtml(err.message);
-      }
     }
 
     function escapeHtml(s) {
@@ -171,10 +87,93 @@
         '>': '&gt;',
         '"': '&quot;',
         "'": '&#39;',
-      })[c]);
+      })[c])
     }
 
-    init();
+    async function init() {
+      try {
+        if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) {
+          el.loading.textContent = 'Ralat: Supabase tidak dikonfigurasikan untuk deployment ini.';
+          return;
+        }
+
+        const sb = createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey)
+
+        const params = new URLSearchParams(location.search)
+        const authorizationId = params.get('authorization_id')
+
+        const { data: { user }, error: userError } = await sb.auth.getUser()
+        if (userError || !user) {
+          // The workspace sign-in lives at /app; there is no /login route.
+          const loginUrl = new URL('/app', location.origin)
+          loginUrl.searchParams.set('redirect', '/auth/consent?authorization_id=' + authorizationId)
+          location.href = loginUrl.toString()
+          return
+        }
+
+        const { data: authDetails, error } = await sb.auth.oauth.getAuthorizationDetails(authorizationId)
+
+        if (error || !authDetails) {
+          el.loading.textContent = 'Ralat: Permohonan sah tidak dijumpai.'
+          return
+        }
+
+        // If previously consented, redirect
+        if (!authDetails.authorization_id) {
+          location.href = authDetails.redirect_url
+          return
+        }
+
+        el.loading.classList.add('hidden')
+        el.form.classList.remove('hidden')
+
+        el.appName.textContent = authDetails.client?.name ?? 'Permohonan Tidak Diketahui'
+        el.appRedirect.textContent = authDetails.redirect_uri ?? ''
+
+        if (authDetails.scope) {
+          el.scopesList.innerHTML = authDetails.scope.split(' ')
+            .filter(Boolean)
+            .map(scope => `<div class="scope-item"><span class="scope-check">✓</span>${escapeHtml(scope)}</div>`)
+            .join('')
+        } else {
+          el.scopesList.innerHTML = '<div class="scope-item"><span class="scope-check">—</span>Tiada kebenaran khusus diminta.</div>'
+        }
+
+        el.btnApprove.onclick = async () => {
+          el.btnApprove.disabled = true
+          el.btnDeny.disabled = true
+          el.status.textContent = 'Memproses…'
+          try {
+            const { data, error } = await sb.auth.oauth.approveAuthorization(authorizationId)
+            if (error) throw new Error(error.message)
+            location.href = data.redirect_url
+          } catch (err) {
+            el.status.textContent = err.message || 'Ralat telah berlaku.'
+            el.btnApprove.disabled = false
+            el.btnDeny.disabled = false
+          }
+        }
+
+        el.btnDeny.onclick = async () => {
+          el.btnApprove.disabled = true
+          el.btnDeny.disabled = true
+          el.status.textContent = 'Memproses…'
+          try {
+            const { data, error } = await sb.auth.oauth.denyAuthorization(authorizationId)
+            if (error) throw new Error(error.message)
+            location.href = data.redirect_url
+          } catch (err) {
+            el.status.textContent = err.message || 'Ralat telah berlaku.'
+            el.btnApprove.disabled = false
+            el.btnDeny.disabled = false
+          }
+        }
+      } catch (err) {
+        el.loading.textContent = 'Ralat: ' + escapeHtml(err.message)
+      }
+    }
+
+    init()
   </script>
 </body>
 </html>

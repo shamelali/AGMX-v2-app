@@ -10,12 +10,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders, handleCors } from "../_shared/cors.ts"
-import { getEmbedding, chatCompletion } from "../_shared/llm.ts"
+import { getEmbedding, chatCompletion, llmReadiness } from "../_shared/llm.ts"
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
-const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!
+// SUPABASE_SECRET_KEY is this repo's Vercel-side name; the Edge Runtime injects
+// SUPABASE_SERVICE_ROLE_KEY and has no secret called SUPABASE_SECRET_KEY (see
+// `supabase secrets list`). Reading only the first made createClient() throw
+// `supabaseKey is required.` while the module was still evaluating, so the runtime
+// answered `{"code":"WORKER_ERROR"}` to every request, with no log line and no
+// JSON body — the same failure knowledge-query shipped with.
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || ""
+const SUPABASE_SECRET_KEY =
+  Deno.env.get("SUPABASE_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+let admin: ReturnType<typeof makeAdminClient> | null = null
+
+function makeAdminClient() {
+  return createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+}
+
+// Built on first request, behind the backendReady() guard in the handler, so an
+// unconfigured project can answer "not configured" instead of failing to load.
+function backendReady() {
+  return Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY)
+}
+
+function db() {
+  if (!admin) admin = makeAdminClient()
+  return admin
+}
 
 const CHUNK_SIZE = 1000
 const CHUNK_OVERLAP = 200
@@ -28,13 +50,13 @@ async function getAuthUser(req: Request) {
   const authHeader = req.headers.get("Authorization")
   if (!authHeader) return null
   const token = authHeader.replace("Bearer ", "")
-  const { data: { user }, error } = await supabase.auth.getUser(token)
+  const { data: { user }, error } = await db().auth.getUser(token)
   if (error || !user) return null
   return user
 }
 
 async function getUserOrg(userId: string) {
-  const { data: profile } = await supabase
+  const { data: profile } = await db()
     .from("profiles")
     .select("organization_id")
     .eq("id", userId)
@@ -48,7 +70,7 @@ async function checkRateLimit(req: Request): Promise<boolean> {
              "unknown"
   
   try {
-    const { data, error } = await supabase.rpc("check_rate_limit", {
+    const { data, error } = await db().rpc("check_rate_limit", {
       p_ip: ip,
       p_limit: 10,
       p_window: "1 minute"
@@ -65,7 +87,7 @@ async function checkRateLimit(req: Request): Promise<boolean> {
 }
 
 async function extractTextFromDocument(documentId: string): Promise<string> {
-  const { data: doc, error } = await supabase
+  const { data: doc, error } = await db()
     .from("documents")
     .select("storage_path, mime, filename")
     .eq("id", documentId)
@@ -73,7 +95,7 @@ async function extractTextFromDocument(documentId: string): Promise<string> {
 
   if (error || !doc) throw new Error("Document not found")
 
-  const { data: fileData, error: downloadError } = await supabase.storage
+  const { data: fileData, error: downloadError } = await db().storage
     .from("documents")
     .download(doc.storage_path)
 
@@ -147,8 +169,38 @@ serve(async (req) => {
   if (corsResponse) return corsResponse
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    const readiness = llmReadiness()
+    return new Response(JSON.stringify({
+      error: "Method not allowed",
+      provider: readiness.provider,
+      llmConfigured: readiness.configured,
+    }), {
       status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    })
+  }
+
+  // Both guards run before anything is written: an ingest that cannot embed would
+  // leave a knowledge_jobs row stuck in "processing" for a document that can never
+  // be indexed.
+  if (!backendReady()) {
+    return new Response(JSON.stringify({
+      code: "BACKEND_NOT_CONFIGURED",
+      error: "Ingestion is unavailable: this project exposes no Supabase service key",
+    }), {
+      status: 503,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    })
+  }
+
+  const readiness = llmReadiness()
+  if (!readiness.configured) {
+    return new Response(JSON.stringify({
+      code: "LLM_NOT_CONFIGURED",
+      provider: readiness.provider,
+      error: `Ingestion is unavailable: no API key for provider "${readiness.provider}" — set ${readiness.keyEnv}`,
+    }), {
+      status: 503,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     })
   }
@@ -192,7 +244,7 @@ serve(async (req) => {
       })
     }
 
-    const { data: doc, error: docError } = await supabase
+    const { data: doc, error: docError } = await db()
       .from("documents")
       .select("id, organization_id, filename")
       .eq("id", document_id)
@@ -213,7 +265,7 @@ serve(async (req) => {
       })
     }
 
-    const { data: job, error: jobError } = await supabase
+    const { data: job, error: jobError } = await db()
       .from("knowledge_jobs")
       .insert({
         organization_id: orgId,
@@ -239,7 +291,7 @@ serve(async (req) => {
         const embedding = await getEmbedding(chunk.content)
         const assertions = await extractAssertions(chunk.content)
 
-        const { data: chunkData, error: chunkError } = await supabase
+        const { data: chunkData, error: chunkError } = await db()
           .from("knowledge_chunks")
           .insert({
             organization_id: orgId,
@@ -269,14 +321,14 @@ serve(async (req) => {
             quote: a.quote,
             confidence: a.confidence || 0.8,
           }))
-          await supabase.from("knowledge_assertions").insert(assertionsWithChunk)
+          await db().from("knowledge_assertions").insert(assertionsWithChunk)
           allAssertions.push(...assertionsWithChunk)
         }
 
         processedChunks.push(chunkData)
       }
 
-      await supabase
+      await db()
         .from("knowledge_jobs")
         .update({
           status: "completed",
@@ -296,7 +348,7 @@ serve(async (req) => {
       })
 
     } catch (err) {
-      await supabase
+      await db()
         .from("knowledge_jobs")
         .update({
           status: "failed",

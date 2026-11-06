@@ -25,7 +25,7 @@ window.AGMX_CONFIG = {
   devTools: false,
 
   // --- App ---
-  appUrl: "https://agmx-v2-app.vercel.app",  // Production URL
+  appUrl: "https://agmx-v2.vercel.app",  // Production URL
 
   // --- LLM Provider (AI Copilot + Knowledge RAG) ---
   // Choose ONE: "openai" or "nvidia"
@@ -50,10 +50,14 @@ window.AGMX_CONFIG = {
   hitpaySalt: "",            // HitPay salt for signature verification
 
   // --- Feature Flags ---
-  demoMode: true,            // Fallback to mock data if backend unavailable
+  // This file is the local-dev template, so demo mode is on: nothing is sent
+  // to a real backend and every write stays in this browser. A deployment that
+  // serves customers gets its flags from /api/config.js instead, where they are
+  // opt-IN (unset means OFF) and demo mode must not be turned on by accident.
+  demoMode: true,            // Browser-local data only; no backend is contacted
   paymentDemo: true,         // Payment flow is demonstrative until gateway/webhook configured
-  knowledgeRagEnabled: true, // Enable AI Copilot with RAG
-  realtimeEnabled: true,     // Enable live quorum/voting (PocketBase or Supabase Realtime)
+  knowledgeRagEnabled: false, // Requires knowledge-query deployed and embeddings generated
+  realtimeEnabled: false,    // Requires wss://*.supabase.co in the CSP and a Realtime publication
 
   // --- Demo / Fallback ---
   // When true and backend is unreachable, fall back to data.js mock data so

@@ -1,5 +1,16 @@
 # Landing Page Override
 
+> **SUPERSEDED — do not build from this file.** The prices written here (RM 499 /
+> RM 1,199 / RM 2,999 per year) are not what AGMX charges: the rate card lives in
+> `price-list.js` and mirrors `public.plans`, which is the table the `money-flow`
+> Edge Function re-prices a quote and a recurring invoice from. The live catalog bills
+> RM 7,200 – RM 15,000 per year for a Governance OS subscription and RM 1,500 – RM 7,500
+> per AGM as a one-off service. `index.html` now renders those numbers from
+> `price-list.js` instead of literals. Anything in this document that reads as a
+> capability claim (AI copilot, RAG counts, security certifications) is a design
+> intent, not shipped behaviour — see `README.md` for the implemented/simulated/
+> planned split.
+
 > **Page:** Landing Page (index.html)
 > **Overrides:** MASTER.md
 

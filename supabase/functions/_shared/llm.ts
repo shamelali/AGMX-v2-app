@@ -23,23 +23,58 @@ export interface LLMConfig {
   embeddingDimensions?: number
 }
 
+// The variable names each provider actually reads, in preference order. Anything
+// that decides whether retrieval exists — this client, /api/config, /api/health —
+// has to consult the same names. api/health.js instead tested NVIDIA_API_KEY, a
+// variable no code ever reads, and reported configured:false about a provider it
+// had never looked for while /api/config published knowledgeRagEnabled:true.
+const KEY_ENVS: Record<LLMProvider, string[]> = {
+  openai: ["OPENAI_API_KEY"],
+  nvidia: ["NVIDIA_NIM_API_KEY", "NGC_API_KEY"],
+}
+
+function firstEnv(names: string[]): string {
+  for (const name of names) {
+    const value = (Deno.env.get(name) || "").trim()
+    if (value) return value
+  }
+  return ""
+}
+
+function currentProvider(): LLMProvider {
+  // The site publishes its own llmProvider and /api/health reports the provider it
+  // checked, so this must read the same variable or the two name different providers.
+  return (Deno.env.get("LLM_PROVIDER") || "").trim() === "nvidia" ? "nvidia" : "openai"
+}
+
+// Reported by the callers that would otherwise crash on a missing key, so an
+// unconfigured project can answer "not configured" instead of an HTTP 500.
+export function llmReadiness() {
+  const provider = currentProvider()
+  return {
+    provider,
+    configured: Boolean(firstEnv(KEY_ENVS[provider])),
+    keyEnv: KEY_ENVS[provider].join(" or "),
+  }
+}
+
 function getLLMConfig(): LLMConfig {
-  const provider = (Deno.env.get("LLM_PROVIDER") as LLMProvider) || "openai"
-  
+  const provider = currentProvider()
+
   if (provider === "nvidia") {
     return {
       provider: "nvidia",
-      apiKey: Deno.env.get("NVIDIA_NIM_API_KEY") || Deno.env.get("NGC_API_KEY") || "",
+      apiKey: firstEnv(KEY_ENVS.nvidia),
       baseUrl: Deno.env.get("NVIDIA_NIM_BASE_URL") || "https://integrate.api.nvidia.com/v1",
       embeddingModel: Deno.env.get("NVIDIA_NIM_EMBEDDING_MODEL") || "nvidia/nv-embedqa-e5-v5",
       chatModel: Deno.env.get("NVIDIA_NIM_CHAT_MODEL") || "meta/llama-3.1-70b-instruct",
       embeddingDimensions: parseInt(Deno.env.get("NVIDIA_NIM_EMBEDDING_DIMS") || "1024"),
     }
   }
-  
+
   return {
     provider: "openai",
-    apiKey: Deno.env.get("OPENAI_API_KEY") || "",
+    apiKey: firstEnv(KEY_ENVS.openai),
     baseUrl: "https://api.openai.com/v1",
     embeddingModel: Deno.env.get("OPENAI_EMBEDDING_MODEL") || "text-embedding-3-large",
     chatModel: Deno.env.get("OPENAI_CHAT_MODEL") || "gpt-4o-mini",
@@ -49,7 +84,7 @@ function getLLMConfig(): LLMConfig {
 
 export async function getEmbedding(text: string, config = getLLMConfig()): Promise<number[]> {
   if (!config.apiKey) {
-    throw new Error(`${config.provider.toUpperCase()}_API_KEY not configured`)
+    throw new Error(`no key for provider "${config.provider}" — set ${KEY_ENVS[config.provider].join(" or ")}`)
   }
 
   const body: Record<string, any> = {
@@ -101,7 +136,7 @@ export async function chatCompletion(
   config = getLLMConfig()
 ): Promise<string> {
   if (!config.apiKey) {
-    throw new Error(`${config.provider.toUpperCase()}_API_KEY not configured`)
+    throw new Error(`no key for provider "${config.provider}" — set ${KEY_ENVS[config.provider].join(" or ")}`)
   }
 
   const body: Record<string, any> = {
@@ -136,7 +171,7 @@ export async function chatCompletion(
 }
 
 export function getClientLLMConfig() {
-  const provider = (Deno.env.get("LLM_PROVIDER") as LLMProvider) || "openai"
+  const provider = currentProvider()
   return {
     provider,
     chatModel: provider === "nvidia" 

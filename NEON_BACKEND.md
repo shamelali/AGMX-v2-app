@@ -1,5 +1,11 @@
 # AGMX backend direction: Neon + Vercel Functions
 
+> **SUPERSEDED 2026-10-30 — Supabase is the canonical backend.** The live
+> deployment (`agmx-v2-app.vercel.app`) authenticates through Supabase, and
+> the repo carries `supabase/schema_final.sql` + `supabase/functions/*`.
+> This document and the code it describes (`archive/neon/`) are retained as
+> design history only. See `archive/README.md`.
+
 ## Recommendation
 
 Use **Neon Postgres** as the production transactional database and keep the

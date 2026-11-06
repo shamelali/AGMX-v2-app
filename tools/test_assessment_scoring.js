@@ -7,7 +7,11 @@ const path = require("path");
 const vm = require("vm");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "assessment.js"), "utf8");
-const context = { document: { addEventListener() {} }, window: {} };
+// The page reads prices and member caps off window.AGMX_PRICE_LIST, so this
+// harness has to install the same card a browser loads. Without it RATE_CARD is
+// null, every price asserts against null, and the boundaries pass by accident.
+const RATE_CARD = require(path.join(__dirname, "..", "price-list.js"));
+const context = { document: { addEventListener() {} }, window: { AGMX_PRICE_LIST: RATE_CARD } };
 // Expose lexical bindings only in this VM test; production remains an IIFE.
 assert.match(source, /\}\)\(\);\s*$/);
 vm.runInNewContext(source.replace(/\}\)\(\);\s*$/, `
@@ -43,24 +47,34 @@ assert.strictEqual(maximum.total, 100);
 assert.deepStrictEqual(Array.from(maximum.factors, ({ points, max }) => [points, max]),
   [[30, 30], [12, 12], [16, 16], [12, 12], [10, 10], [10, 10], [10, 10]]);
 
-for (const [points, members, key, price] of [
-  [34, 299, "essential", 1500], [35, 299, "professional", 3500],
-  [64, 1999, "professional", 3500], [65, 1999, "enterprise", 7500],
-  [24, 1999, "essential", 1500], [24, 2000, "enterprise", 7500],
+// Expectations name plan keys, never prices: a test that re-types RM1,500 is a
+// fourth price book, and this repo has already burned down three.
+const service = (key) => RATE_CARD.services().find((p) => p.key === key);
+
+for (const [points, members, key] of [
+  [34, 299, "essential"], [35, 299, "professional"],      // money-flow's 34/35 edge
+  [64, 1999, "professional"], [65, 1999, "enterprise"],   // and its 64/65 edge
+  [24, service("essential").memberCap, "essential"],
+  [24, service("essential").memberCap + 1, "professional"],
+  [24, service("professional").memberCap, "professional"],
+  [24, service("professional").memberCap + 1, "enterprise"],
+  [100, 300, "enterprise"],                               // caps lift, never demote
 ]) {
   const pkg = pickAgmPackage(points, members);
   assert.strictEqual(pkg.key, key, `score ${points}, members ${members}`);
-  assert.strictEqual(pkg.price, price, `score ${points}, members ${members}`);
+  assert.strictEqual(pkg.price, service(key).oneoff, `price of ${key} comes from the card`);
 }
 
-for (const [members, plan, monthly] of [
-  [299, "Governance Essential", 600], [300, "Governance Professional", 800],
-  [999, "Governance Professional", 800], [1000, "Governance Enterprise", 1000],
-  [1999, "Governance Enterprise", 1000], [2000, "Governance Federation", 1250],
+for (const [members, code] of [
+  [299, "governance_os_essential"], [300, "governance_os_professional"],
+  [999, "governance_os_professional"], [1000, "governance_os_enterprise"],
+  [1999, "governance_os_enterprise"], [2000, "governance_os_federation"],
+  [50000, "governance_os_federation"],
 ]) {
   const selected = pickAnnualPlan(members);
-  assert.strictEqual(selected.name, plan, `annual plan at ${members} members`);
-  assert.strictEqual(selected.monthly, monthly, `monthly price at ${members} members`);
+  const plan = RATE_CARD.byCode(code);
+  assert.strictEqual(selected.code, code, `annual plan at ${members} members`);
+  assert.strictEqual(selected.monthly, plan.monthly, `monthly at ${members} members`);
 }
 
 console.log("assessment scoring/package boundaries: passed");

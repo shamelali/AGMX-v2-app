@@ -1,0 +1,14 @@
+# AGMX — Cloudflare Pages response headers (port of vercel.json headers)
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; style-src 'unsafe-inline' 'self' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://esm.sh; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://api.openai.com https://integrate.api.nvidia.com https://www.billplz-sandbox.com https://api.hitpay.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests
+
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/api/*
+  Cache-Control: no-store, max-age=0

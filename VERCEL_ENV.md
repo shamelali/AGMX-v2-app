@@ -14,7 +14,10 @@
 | `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_MODEL` | `nvidia/nv-embedqa-e5-v5` | All | Safe for browser |
 | `NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL` | `meta/llama-3.1-70b-instruct` | All | Safe for browser |
 | `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS` | `1024` | All | Safe for browser |
-| `NEXT_PUBLIC_APP_URL` | `https://agmx-v2-app.vercel.app` | All | Safe for browser |
+| `NEXT_PUBLIC_APP_URL` | `https://agmx-v2.vercel.app` | All | Safe for browser |
+
+> `/api/config.js` prefers `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and still
+> accepts the legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` as a fallback.
 
 ---
 
@@ -23,7 +26,7 @@
 **Set in Supabase Dashboard → Edge Functions → Secrets:**
 
 ```
-NVIDIA_NIM_API_KEY=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
+NVIDIA_NIM_API_KEY=nvapi-...   # set via Supabase secrets; never commit the real value
 LLM_PROVIDER=nvidia
 ```
 
@@ -52,7 +55,7 @@ LLM_PROVIDER=nvidia
 ## 📋 Vercel Deployment Checklist
 
 ### Before Deploy
-- [ ] Supabase schema applied (`schema_final.sql` + `knowledge_final.sql`)
+- [ ] Supabase schema applied (`supabase/schema_final.sql`, generated from `supabase/migrations/`)
 - [ ] pgvector extension enabled
 - [ ] Realtime configured (exclude `votes`, include `attendance`, `quorum_snapshots`, `motions`, `questions`)
 - [ ] Edge Functions deployed with secrets
@@ -67,7 +70,7 @@ LLM_PROVIDER=nvidia
 - [ ] `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_MODEL` = `nvidia/nv-embedqa-e5-v5`
 - [ ] `NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL` = `meta/llama-3.1-70b-instruct`
 - [ ] `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS` = `1024`
-- [ ] `NEXT_PUBLIC_APP_URL` = `https://agmx-v2-app.vercel.app`
+- [ ] `NEXT_PUBLIC_APP_URL` = `https://agmx-v2.vercel.app`
 
 ### Supabase Edge Function Secrets
 - [ ] `NVIDIA_NIM_API_KEY`
@@ -78,14 +81,15 @@ LLM_PROVIDER=nvidia
 ## 🚀 Deploy Commands
 
 ```bash
-# 1. Apply schema in Supabase SQL Editor (in order):
-#    1. CREATE EXTENSION IF NOT EXISTS "pgcrypto"; CREATE EXTENSION IF NOT EXISTS "vector";
-#    2. Paste supabase/schema_final.sql
-#    3. Paste supabase/knowledge_final.sql
+# 1. Apply the schema — one paste, in the Supabase SQL editor:
+#    Paste the whole of supabase/schema_final.sql
+#    It is generated from supabase/migrations/*.sql (tools/build_schema_bundle.py)
+#    and already creates pgcrypto + vector, the tables, RLS, the RPCs and the
+#    plans seed. Regenerate it whenever a migration changes.
 
-# 2. Configure Realtime (Supabase Dashboard → Database → Replication):
-#    - EXCLUDE votes from supabase_realtime publication
-#    - INCLUDE: attendance, quorum_snapshots, motions, questions
+# 2. Realtime needs no dashboard step: the bundle ends by managing the
+#    supabase_realtime publication itself (adds attendance, quorum_snapshots,
+#    motions, questions; drops votes, because a realtime feed would stream ballots).
 
 # 3. Deploy Edge Functions (Supabase Dashboard → Edge Functions):
 #    - money-flow (with secrets)
@@ -114,15 +118,17 @@ vercel --prod --scope=duta-integra
 
 ---
 
-## 📁 Final SQL Files
+## 📁 SQL Files
 
-| File | Purpose |
-|------|---------|
-| `supabase/schema_final.sql` | Core schema with column protections, Realtime config, minimal grants |
-| `supabase/knowledge_final.sql` | Knowledge store with secure function, no PUBLIC execute |
+| Path | Role |
+|------|------|
+| `supabase/migrations/*.sql` | **Source of truth.** 0001 core schema + RLS + realtime, 0002 pgvector knowledge store, 0003 plans seed, 0004 privilege revokes, 0005 `search_path` pins, 0006 subscriptions/billing RPCs, 0007 governance RPCs |
+| `supabase/schema_final.sql` | Generated concatenation of the above, in filename order — the one file to paste. Never edit it; `tools/check.sh` fails the repo if it drifts |
+| `supabase/archive/*.sql` | Superseded pair. RLS enabled with zero policies, so every read returns no rows — history only |
 
-Run in Supabase SQL Editor **in order**:
-1. `CREATE EXTENSION IF NOT EXISTS "pgcrypto"; CREATE EXTENSION IF NOT EXISTS "vector";`
-2. Paste `supabase/schema_final.sql`
-3. Paste `supabase/knowledge_final.sql`
-4. Run Realtime config: `ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.votes; ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance, public.quorum_snapshots, public.motions, public.questions;`
+`supabase/knowledge_final.sql` used to be pasted second. It is deleted: `0002` is
+inside the generated bundle now, and pasting two files that both `create or
+replace` the same objects is how the pair fell out of step in the first place.
+
+One paste in the Supabase SQL editor is the whole install; `supabase db push`
+does the same from the CLI. Both are rerun-safe.

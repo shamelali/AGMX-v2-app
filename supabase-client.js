@@ -4,53 +4,98 @@
  * 
  * Usage:
  *   import { supabase, auth, db } from './supabase-client.js'
- *   await auth.signInWithOtp({ email: 'user@coop.my' })
+ *   await auth.signInWithEmail('user@coop.my', password)
  *   const { data } = await db.from('members').select('*')
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Config loaded from /api/config.js
+// Config loaded from /config.js (served by api/config.js in deploys)
 const CONFIG = window.AGMX_CONFIG || {}
 
+const missingKeys = ["supabaseUrl", "supabaseAnonKey"].filter((k) => !CONFIG[k])
+export const configProblem = missingKeys.length
+  ? `Supabase is not configured — set ${missingKeys.join(" and ")} in config.js (see config.example.js)`
+  : null
+
+// An unconfigured client used to make createClient throw here, which aborted
+// the whole module and left window.AGMX_API undefined. Callers then failed
+// with "Cannot read properties of undefined (reading 'loginWithGoogle')"
+// instead of being told what is missing.
+function unconfiguredProxy() {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(configProblem)
+      },
+    }
+  )
+}
+
 // Create Supabase client
-export const supabase = createClient(
-  CONFIG.supabaseUrl,
-  CONFIG.supabaseAnonKey,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-    realtime: CONFIG.realtimeEnabled ? { params: { eventsPerSecond: 10 } } : false,
-  }
-)
+export const supabase = configProblem
+  ? unconfiguredProxy()
+  : createClient(
+      CONFIG.supabaseUrl,
+      CONFIG.supabaseAnonKey,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+        realtime: CONFIG.realtimeEnabled ? { params: { eventsPerSecond: 10 } } : false,
+      }
+    )
+
+// PASSWORD_RECOVERY is the only signal that the current session arrived through
+// a reset link (user.recovered_at stays set afterwards). The listener has to be
+// registered at import time, before detectSessionInUrl settles, or the event is
+// missed and the caller can no longer tell recovery apart from a normal sign-in.
+let passwordRecovery = false
+if (!configProblem) {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') passwordRecovery = true
+  })
+}
 
 // ---- Auth Helpers ----
 export const auth = {
-  // Email/Phone OTP
-  async signInWithOtp({ email, phone }) {
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email,
-      phone,
-      options: {
-        shouldCreateUser: true,
-        data: { app_name: CONFIG.appName },
-      },
+  // Email + password
+  async signInWithEmail(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    return { data, error }
+  },
+
+  // Password reset link, emailed to an existing account
+  async requestPasswordReset(email) {
+    const baseUrl = CONFIG.appUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${baseUrl}/auth/callback`,
     })
+    return { data, error }
+  },
+
+  // New password while a recovery session is active
+  async updatePassword(password) {
+    const { data, error } = await supabase.auth.updateUser({ password })
     return { data, error }
   },
 
   // Google OAuth
   async signInWithGoogle() {
+    const baseUrl = CONFIG.appUrl || (typeof window !== 'undefined' ? window.location.origin : '')
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${CONFIG.appUrl}/auth/callback`,
+        redirectTo: `${baseUrl}/auth/callback`,
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     })
+    if (error) throw error
+    // The redirect is the normal outcome; a blocked navigation returns here.
+    if (data?.url) window.location.assign(data.url)
     return { data, error }
   },
 
@@ -118,10 +163,10 @@ export const db = {
         .from('agms')
         .select('*, settings:agm_settings(*)')
         .eq('organization_id', orgId)
-        .eq('status', 'live')
+        .in('status', ['planned', 'live', 'closed', 'minuted'])
         .order('scheduled_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       return { data, error }
     },
 
@@ -180,7 +225,7 @@ export const db = {
         .from('compliance_findings')
         .select('*, check:compliance_checks(*, rule:compliance_rules(*))')
         .eq('organization_id', orgId)
-        // compliance_findings has no created_at column (schema_final.sql:419)
+        // compliance_findings has no created_at column (migrations/0001_schema.sql:419)
         .order('severity', { ascending: false })
       return { data, error }
     },
@@ -189,7 +234,7 @@ export const db = {
   // Knowledge/RAG
   knowledge: {
     async query(question) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/knowledge-query`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/knowledge-query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,7 +249,7 @@ export const db = {
     },
 
     async ingest(documentId) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/knowledge-ingest`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/knowledge-ingest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -219,10 +264,56 @@ export const db = {
     },
   },
 
+  // Governance OS (Sprint 4)
+  // Every mutation goes through the governance Edge Function: the RPCs behind
+  // it enforce quorum maths, voting windows, ballot secrecy and the audit
+  // chain, and the voter's member row is bound to the session — never to a
+  // value in the request body.
+  governance: (() => {
+    async function call(path, body) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/governance${path}`, {
+        method: body ? 'POST' : 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': CONFIG.supabaseAnonKey,
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+      const payload = await resp.json().catch(() => ({}))
+      if (!resp.ok) throw new Error(payload.error || `Governance request failed (${resp.status})`)
+      return payload
+    }
+
+    return {
+      current: () => call('/agm/current'),
+      roster: (agmId) => call(`/agm/${agmId}/roster`),
+      motions: (agmId) => call(`/agm/${agmId}/motions`),
+      resolutions: (agmId) => call(`/agm/${agmId}/resolutions`),
+      compliance: (agmId) => call(`/agm/${agmId}/compliance`),
+      audit: (agmId) => call(`/agm/${agmId}/audit`),
+      actions: () => call('/actions'),
+      documents: () => call('/documents'),
+      createAgm: (input) => call('/agm', input),
+      startAgm: (agmId) => call('/agm/start', { agmId }),
+      closeAgm: (agmId) => call('/agm/close', { agmId }),
+      checkIn: (agmId, memberId, method) => call('/attendance', { agmId, memberId: memberId || null, method: method || 'digital' }),
+      createMotion: (input) => call('/motion', input),
+      openVoting: (motionId) => call('/motion/open-voting', { motionId }),
+      vote: (motionId, choice) => call('/vote', { motionId, choice }),
+      recordResolution: (motionId) => call('/resolution', { motionId }),
+      createAction: (input) => call('/action', input),
+      runCompliance: (agmId) => call('/compliance/run', { agmId }),
+      registerDocument: (input) => call('/document', input),
+    }
+  })(),
+
   // Money Flow (Operator only)
   money: {
     async submitAssessment(assessment) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/assessment`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/assessment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +326,7 @@ export const db = {
     },
 
     async createQuote(assessmentId, planCode) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/quote`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/quote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -248,7 +339,7 @@ export const db = {
     },
 
     async createInvoice(quoteId) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/invoice`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/invoice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,7 +352,7 @@ export const db = {
     },
 
     async createPaymentIntent(invoiceId, method) {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/payment/intent`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/payment/intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,13 +365,73 @@ export const db = {
     },
 
     async getLeads() {
-      const resp = await fetch(`${CONFIG.appUrl}/functions/v1/money-flow/metrics`, {
+      const resp = await fetch(`${CONFIG.supabaseUrl}/functions/v1/money-flow/metrics`, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },
       })
       if (!resp.ok) throw new Error(await resp.text())
       return resp.json()
+    },
+  },
+
+  // Distribution / Partners & Federation (Sprint 5+)
+  distribution: {
+    async getPartners() {
+      const { data, error } = await supabase
+        .from('partners')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async getPartnerLinks() {
+      const { data, error } = await supabase
+        .from('partner_organizations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async getFederations() {
+      const { data, error } = await supabase
+        .from('federations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async getFederationOrganizations() {
+      const { data, error } = await supabase
+        .from('federation_organizations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+
+    async loadDistributionPortal(pbId) {
+      const [partners, partnerLinks, federations, fedOrgs] = await Promise.all([
+        this.getPartners().catch(() => []),
+        this.getPartnerLinks().catch(() => []),
+        this.getFederations().catch(() => []),
+        this.getFederationOrganizations().catch(() => []),
+      ])
+      return {
+        partners,
+        partnerLinks,
+        federations: federations.map((f) => ({
+          ...f,
+          organizationCount: fedOrgs.filter((fo) => fo.federation_id === f.id).length,
+          memberTotal: 0,
+          agmCount: 0,
+          complianceCounts: { total: 0, lulus: 0, amaran: 0, gagal: 0 },
+        })),
+        organizations: fedOrgs,
+      }
     },
   },
 }
@@ -347,22 +498,35 @@ export const AGMX_API = {
     return auth.signOut()
   },
 
-  // SMS OTP (used by login.js OTP flow)
-  async requestSMSOTP(phone) {
-    return auth.signInWithOtp({ phone })
+  // Email + password (used by the login.js form)
+  async loginWithEmail(email, password) {
+    return auth.signInWithEmail(email, password)
   },
 
-  async verifySMSOTP(phone, otp) {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token: otp,
-      type: 'sms',
-    })
-    return { data, error }
+  async requestPasswordReset(email) {
+    return auth.requestPasswordReset(email)
+  },
+
+  async updatePassword(password) {
+    return auth.updatePassword(password)
+  },
+
+  // True when this page load came back from a password reset link.
+  isPasswordRecovery() {
+    return passwordRecovery
   },
 
   isAuthenticated() {
     return supabase.auth.getSession().then(({ data: { session } }) => !!session)
+  },
+
+  // A session can end while the workspace is still on screen — sign-out in
+  // another tab, a revoked token, an expired lockout. app-bootstrap.js has to
+  // be told, or a shared meeting-room browser keeps a rendered AGM open after
+  // the identity behind it is gone.
+  onAuthStateChange(callback) {
+    if (configProblem) return null
+    return supabase.auth.onAuthStateChange((event, session) => callback(event, session))
   },
   
   getCurrentUser() {
@@ -373,28 +537,63 @@ export const AGMX_API = {
   async loadDashboard() {
     const { user } = await auth.getUser()
     if (!user) throw new Error('Not authenticated')
-    
-    const { data: profile } = await profile.getCurrent()
-    if (!profile) throw new Error('Profile not found')
-    
-    const orgId = profile.organization_id
-    const [agm, members, agenda, motions] = await Promise.all([
-      db.agm.getCurrent(orgId),
+
+    const { data: row, error } = await profile.getCurrent()
+    if (error || !row) throw new Error('Profile not found')
+
+    const orgId = row.organization_id
+    const [{ data: members }, { data: agm }] = await Promise.all([
       profile.getMembers(orgId),
-      db.agm.getAgenda(profile.agm_id),
-      db.agm.getMotions(profile.agm_id),
+      db.agm.getCurrent(orgId),
     ])
-    
+
+    const [agenda, motions, quorum] = await Promise.all([
+      agm ? db.agm.getAgenda(agm.id) : { data: [] },
+      agm ? db.agm.getMotions(agm.id) : { data: [] },
+      agm
+        ? supabase.from('quorum_snapshots').select('*').eq('agm_id', agm.id)
+            .order('captured_at', { ascending: false }).limit(1).maybeSingle()
+        : { data: null },
+    ])
+
+    const org = row.organization || {}
     return {
-      cooperative: profile.organization,
-      currentUser: { ...profile, id: user.id, email: user.email },
-      members: members.data || [],
-      agm: agm.data,
+      cooperative: {
+        id: orgId,
+        pbId: orgId,
+        name: org.name,
+        shortName: org.name,
+        registrationNo: org.registration_no,
+        state: org.state,
+        zone: org.zone,
+        plan: org.plan,
+        quorumPct: agm ? Number(agm.quorum_pct) : null,
+        members: (members || []).length,
+      },
+      currentUser: { id: user.id, email: user.email, name: row.full_name, role: row.role },
+      members: members || [],
+      agm: agm
+        ? {
+            id: agm.id,
+            pbId: agm.id,
+            title: agm.title,
+            edition: agm.edition,
+            status: agm.status,
+            date: agm.scheduled_at,
+            venue: agm.venue,
+            mode: agm.mode,
+            quorumPct: Number(agm.quorum_pct),
+            quorumPresent: quorum.data ? Number(quorum.data.present) : 0,
+            totalMembers: quorum.data ? Number(quorum.data.total_members) : (members || []).length,
+          }
+        : null,
       agenda: agenda.data || [],
       motions: motions.data || [],
-      // ... other fields for compatibility
     }
   },
+
+  // Governance OS (Sprint 4) — consumed by governance-ui.js
+  governance: db.governance,
 }
 
 // Make available globally for legacy code
