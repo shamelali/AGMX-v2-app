@@ -1,0 +1,25 @@
+-- ============================================================
+-- AGMX V2 — Sprint 4: keep the audit record of a lead
+--
+-- audit_events.organization_id was declared NOT NULL, while both writers of
+-- audit rows map the pre-organization zero UUID to NULL: log_audit() in SQL,
+-- and auditLog() in the money-flow Edge Function, whose comment states the
+-- assumption outright. The two disagree, so every event raised before a
+-- cooperative had an organization row — assessment.submitted above all — was
+-- rejected by the constraint. Nothing surfaced it, because audit failures are
+-- caught so they cannot fail the business operation, and the client only
+-- console.error's them.
+--
+-- A lead's assessment and quote are the first records a cooperative makes, and
+-- Akta Koperasi 1993 immutability is asserted over this table, so a stage that
+-- silently produces no record is the wrong default. Dropping NOT NULL aligns
+-- the schema with the code that was always meant to write it.
+--
+-- Prospect rows stay invisible to every tenant: the RLS policies compare
+-- organization_id against current_org_id(), and NULL matches nothing. Only the
+-- service-role writers can insert them, which is unchanged.
+--
+-- apply: supabase db push --project-ref <ref>
+-- ============================================================
+
+alter table public.audit_events alter column organization_id drop not null;

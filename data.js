@@ -153,7 +153,9 @@ window.MC_DATA = {
       { id: "GP14", label: "Kuorum Minimum (≥25%)", status: "PATUH", evidence: "31.4% — 403 daripada 1,284 ahli" },
       { id: "GP14B", label: "Pencadang & Penyokong Usul", status: "PATUH", evidence: "Setiap usul dijejaki secara automatik" },
       { id: "UUK 7.3", label: "Tempoh Perbahasan", status: "AMARAN", evidence: "1 usul melebihi 15 minit pada M-001" },
-      { id: "Akta 1993", label: "Rekod Digital Tidak Boleh Dipadam", status: "PATUH", evidence: "Immutable hash chain aktif" },
+      // Mirrors the akta1993_immutable rule in run_compliance_checks: the chain is written
+      // but never verified, so no engine — demo or server — can call this a pass.
+      { id: "Akta 1993", label: "Rekod Digital Tidak Boleh Dipadam", status: "BELUM DISEMAK", evidence: "Rantaian hash ditulis tetapi belum disahkan; tiada pengesanan rekod terhapus" },
     ],
   },
 

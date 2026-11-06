@@ -1,6 +1,12 @@
 # AGMX V2 — Revenue-Ready Cooperative Governance OS
 
-**Status: PLAN (active)** · Branch: `feat/revenue-ready-mvp` · Updated 2026-08-12
+**Status: DELIVERED through Sprint 5+; production live** · Branch: `master` · Updated 2026-11-05
+
+> **What changed since the 2026-08-12 plan.** §1–§4 (strategy, product lines,
+> revenue workflow, packages) still describe the product and are unchanged.
+> §5–§7 and §10 described a plan; they now describe a shipped system, so they
+> have been rewritten against the tree — with §8's rule intact: a capability is
+> listed where a check can point at it.
 
 ---
 
@@ -55,74 +61,172 @@ Sales wedge: *"Bila AGM koperasi anda akan datang?"* — not "would you like to 
 
 ## 5. Architecture
 
-**Rule: keep the UI, replace the fake data.**
+**Rule: keep the UI, replace the fake data.** — done; the SPA now talks to Supabase
+through one adapter.
 
 ```text
-Static SPA (app.js + styles.css + data.js)
-   ↓ replace window.MC_DATA with
-Supabase / PostgreSQL
+Static SPA (app.js + styles.css + governance-ui.js)
+   ↓ window.MC_DATA replaced by
+api.js  ← /api/config.js decides the adapter; demoMode:false selects Supabase
    ↓
-API (REST / RLS)
-   ↓
-Existing 13-view UI
+Supabase on Vercel
+   ├─ Postgres  supabase/schema_final.sql (RLS + RPCs + triggers)
+   ├─ Edge Functions  money-flow · governance · knowledge-ingest · knowledge-query
+   └─ Storage  documents
 ```
+
+- `pocketbase-client.js` and the Fly.io container are **retired**; naming
+  PocketBase as a live option fails `tools/check.sh` §22.
+- The client never throws: a PostgREST error arrives as `{data, error}` with the
+  SQLSTATE in `error.code`, which is what §24's harness reproduces.
 
 - **Tenancy boundary = `organization_id`** on every business table.
 - **Append-only** tables: `votes`, `audit_events` (no UPDATE/DELETE).
 - **Demo data (`data.js`) is NOT production** — new records come from the DB only.
 - No framework, no build step — the SPA stays as-is; new pages (assessment, quote) are plain HTML+JS using `styles.css`.
 
-## 6. Production DB (foundation committed)
+## 6. Production DB (deployed)
 
-`supabase/schema.sql` — 30+ tables across:
+> **Backend decision (2026-10-30): Supabase is canonical.** The PocketBase v1
+> layer and the Neon GraphRAG experiment are archived under `archive/` as
+> reference only; Supabase is the only deployed backend path.
 
-```text
-identity/tenancy   organizations, profiles, organization_members
-commercial         plans, subscriptions, agm_assessments, quotes, quote_items, invoices, payments
-members            members, member_status_history
-agm                agms, agm_settings, agenda_items, agm_notices, notice_recipients, attendance, quorum_snapshots
-governance         motions, votes, resolutions, questions, actions
-compliance         compliance_rules, compliance_checks, compliance_findings
-evidence           documents, audit_events
-distribution       partners, partner_organizations, federations, federation_organizations
-```
+`supabase/schema_final.sql` is **generated** from `supabase/migrations/*.sql` by
+`tools/build_schema_bundle.py` — nine migrations, 37 public tables, 44 RLS
+policies, 23 functions. It is the file `DEPLOY.md` and `supabase/deploy.sh` tell
+an operator to paste, so `tools/check.sh` §21 refuses a bundle that has drifted
+from its migrations, §24 boots it on real embedded Postgres, and §25 applies it
+twice to prove the rerun-safe claim in its own header.
 
-Plus RLS enablement on all tables and a `current_org_id()` helper (policy examples included).
+| Domain | Tables |
+|---|---|
+| identity/tenancy | organizations, profiles, organization_members, members, member_status_history |
+| commercial | plans, subscriptions, agm_assessments, quotes, quote_items, invoices, payments |
+| agm | agms, agm_settings, agenda_items, agm_notices, notice_recipients, attendance, quorum_snapshots |
+| governance | motions, votes, resolutions, questions, actions |
+| compliance/evidence | compliance_rules, compliance_checks, compliance_findings, documents, audit_events |
+| distribution | partners, partner_organizations, federations, federation_organizations |
+
+Invariants, all of them executed by §24/§25 rather than asserted in prose:
+
+- **Tenancy boundary = `organization_id`** on every business table; `votes` and
+  `audit_events` are append-only (`raise_append_only()` triggers).
+- **`audit_events` is hash-chained per organization** (`log_audit()` in SQL,
+  `auditLog()` in the money-flow function, SHA-256 both ways), and
+  `organization_id` is nullable so a prospect's own record survives (§0009).
+- **Demo data (`data.js`) is NOT production** — new records come from the DB only.
+- No framework, no build step — the SPA stays as-is; assessment, quote, AGM
+  scheduling, member management, subscription, partner and federation pages are
+  plain HTML+JS on `styles.css` against the real project.
 
 ## 7. Sprints
 
-| Sprint | Focus | Deliverable |
-|---|---|---|
-| **1 (NOW)** | **Get paid** | AGM Assessment → Quote (frontend ✅) · Vercel fix ✅ · payment backend ⏳ |
-| 2 | Money | Lead → Assessment → Quote → Invoice → Payment → Scheduled AGM (Supabase RPCs + minimal API) |
-| 3 | Recurring | Subscriptions + billing (annual plans) |
-| 4 | Governance OS | Meetings, resolutions, compliance, documents, actions, audit beyond AGM day |
-| 5+ | Partner & Federation | Partner portal, federation roll-up dashboard |
+| Sprint | Focus | Deliverable | State |
+|---|---|---|---|
+| **1** | **Get paid** | AGM Assessment → Quote (frontend) · Vercel routing fix · payment backend | ✅ shipped — `money-flow` deploys quote/invoice/payment on HitPay |
+| **2** | Money | Lead → Assessment → Quote → Invoice → Payment → Scheduled AGM | ✅ shipped — `agm-schedule.html`, `member-management.html` on real data |
+| **3** | Recurring | Subscriptions + billing (annual plans) | ✅ shipped — `subscription-management.html`; RPCs `create_subscription_from_quote`, `process_subscription_renewal`, `cancel_subscription`, `generate_invoice_from_recurring` |
+| **4** | Governance OS | Meetings, resolutions, compliance, documents, actions, audit beyond AGM day | ✅ shipped — `#/agm`, `#/governance`; server-side quorum, voting windows, thresholds, hash-chained audit |
+| **5+** | Partner & Federation | Partner portal, federation roll-up dashboard | ✅ shipped — `partner-portal.html`, `federation-dashboard.html` |
+| **6** | Prove it | §9's acceptance journey as a repository check | ✅ shipped — `tools/check.sh` §24 (120 assertions on real Postgres) and §25 (bundle replay + audit trail) |
 
 ## 8. Red-team note (credibility)
 
-Separate **Implemented / Simulated / Planned** in all external comms:
-- **Implemented:** UI flows, assessment engine, demo voting.
-- **Simulated (prototype only):** AES-256 guarantees, immutable hash chain, AI RAG over 1,247 docs, compliance auto-audit — currently client-side mock.
-- **Planned:** server-side enforcement, real encryption at rest, real RAG, real audit chain.
+Separate **Implemented / Simulated / Planned** in all external comms, and cite the
+check that backs each claim:
 
-Never present simulated capabilities as production guarantees to cooperatives, auditors, or institutional partners.
+- **Implemented — and executed by a repository check, not by a demo:** the
+  assessment → quote → invoice → payment path (`tools/test_money_flow.mjs`,
+  `tools/test_money_flow_auth.mjs`, §24); server-side AGM governance — attendance,
+  quorum snapshots, the voting window, ballot choices, resolution thresholds,
+  resolutions, actions and compliance runs as plpgsql (§24, §25); the
+  hash-chained, append-only audit log for both writers (§24, §25); tenant
+  isolation by `organization_id` at the application layer, which is the layer that
+  matters because both functions query with a `BYPASSRLS` role
+  (`tools/test_money_flow_auth.mjs`); RLS policies installed on every business
+  table (§21 counts them from the generated bundle).
+- **Simulated (prototype only) — say so out loud when selling it:** AES-256
+  at-rest guarantees; the knowledge store / AI RAG over the Act + SOP corpus
+  (`0002_knowledge.sql` needs pgvector, which no local check can boot — see
+  `archive/neon/tools/test_knowledge_store.js`); the demo data in `data.js`.
+- **Planned (not built):** real encryption at rest with a documented key process;
+  audited third-party evidence for the chain; federation-level consolidated
+  reporting beyond the current roll-up dashboard; the co-op's own branding on the
+  portal (§10).
+
+Never present simulated capabilities as production guarantees to cooperatives,
+auditors, or institutional partners. Two rules follow from that and are enforced,
+not just stated: a number printed on the landing page must be a number the
+documented bundle installs (§23), and a failed statutory read must render as a
+failure rather than an all-clear (§22f).
 
 ## 9. Acceptance test (definition of done for MVP)
 
 > **A real Malaysian cooperative submits an AGM assessment, receives a package recommendation + quote, pays AGMX, creates its AGM, imports members, establishes quorum, runs live voting, produces resolutions/minutes, and retains an auditable record.**
 
+This sentence is now a repository check. `tools/test_agm_journey.mjs` boots the
+generated deploy bundle on embedded Postgres and drives the real `money-flow` and
+`governance` handlers from the public assessment through a signed HitPay webhook
+to minutes, resolutions, actions, a compliance run and the audit chain — 120
+assertions, no credentials, no network, run as `tools/check.sh` §24. §25 then
+applies the same bundle twice to one database and compares the catalog, which is
+what a re-paste after a partial deploy actually does.
+
 ## 10. Immediate next actions
 
-- [x] Fix `vercel.json` (filesystem handler) — branch `fix/vercel-static-routing`
-- [x] Add `robots.txt` + `sitemap.xml`
-- [x] Build `assessment.html` + `assessment.js` (Assessment → Score → Package → Quote → Lead demo)
-- [x] Write `supabase/schema.sql`
-- [ ] Deploy the Vercel fix to production
-- [ ] Run production smoke-test matrix (see below)
-- [ ] Freeze current UI as V1 baseline
-- [ ] Stand up Supabase project + apply schema + RLS policies
-- [ ] Assessment → quote → invoice → payment (Sprint 2)
+Done since the 2026-08-12 plan:
+
+- [x] Deploy the Vercel fix to production — `https://agmx-v2.vercel.app`, one
+      canonical host enforced by §19 and probed live by §23
+- [x] Run production smoke-test matrix — 22/22
+- [x] Freeze current UI as V1 baseline — `fcacb64`
+- [x] Stand up Supabase project + apply schema + RLS policies — `jchfalaibabmszewemat`
+- [x] Assessment → quote → invoice → payment (Sprint 2), and Sprints 3, 4, 5+
+- [x] §9's acceptance journey as an offline check (§24, §25)
+
+Open, in order:
+
+- [x] **Governance SQL fixes are live on `jchfalaibabmszewemat`** (2026-11-05).
+      `supabase migration list` reported `0007`–`0009` applied, and that is the
+      trap: the CLI compares **version numbers**, not content, and both `0007` and
+      `0008` had been corrected in place after their first apply. `pg_proc.prosrc`
+      proved production was still running the defective text — `cast_vote` calling
+      `max(boolean)`, its quorum guard reading a variable that stays NULL with no
+      snapshot (fails *open*), `log_audit()` hashing a NULL chain head so
+      `audit_events` held 0 rows, and `record_resolution` assigning jsonb into a
+      `uuid`. Fixed by re-applying `0007`→`0008`→`0009`→`0010` as SQL; every
+      definition is `create or replace` and every table was empty, so the repair
+      carried no data risk. All 22 bundle functions now match by body hash, and
+      `check.sh` §26 keeps comparing them — `pg_proc.prosrc` hashes against the
+      bundle, recorded versions against the files — so this cannot silently reopen.
+      §27 then reads the live bodies as text and calls `cast_vote` with an unknown
+      motion, which returns on its first statement: 12 assertions that the repaired
+      path is what production runs, with `votes` and `audit_events` counted before
+      and after to prove the probe wrote nothing. `DEPLOY.md` records why `db push`
+      could never have done this.
+- [ ] **GitHub Actions is locked for billing, so CI deploys nothing.** Runs on
+      `master` fail in ~2s with "The job was not started because your account is
+      locked due to a billing issue." `4b7422d` reached production by CLI instead.
+      `deploy.sh` and `deploy.yml` named team `duta-integra`, which this credential
+      does not have; both now say `shamel-projects`, where `agmx-v2-app` lives.
+- [ ] **Supabase branching needs the Pro plan** — create answers 402
+      `entitlement_required`, so §9's journey cannot be replayed on a copy of
+      production, which is the only place this repository permits writing. §27 is the
+      read-only substitute: no check here has recorded a real ballot in a live,
+      production-shaped database yet.
+- [ ] Custom domain for `agmx-v2.vercel.app`. Needs the owner's hostname plus
+      Vercel and DNS actions, and then two checks rewritten: §19 derives the
+      canonical host from `sitemap.xml`, and §23's live probes assume a
+      `*.vercel.app` shape.
+- [ ] White-label co-op portal. The columns exist — `0010`, applied to production
+      a day before any file described it here, adds `organizations.logo_url` and
+      `primary_color` — but the portal does not: no page reads either column,
+      nothing uploads a logo, and no policy governs who may set one. Still a scope
+      decision (which fields, which pages, who uploads the logo, what a co-op's own
+      domain does to §19/§23) before it is a task.
+- [ ] Production secrets: `MIGRATION_PASSWORD`, `SERVICE_ROLE_KEY`,
+      `DATABASE_URL`, `HITPAY_*` and `DEEPSEEK_API_KEY` are listed in `DEPLOY.md`
+      and must be set in the Supabase project, not in this repository.
 
 ### Deployment smoke-test matrix
 | URL | Expect |

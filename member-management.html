@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pengurusan Ahli — AGMX Governance OS">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Pengurusan Ahli • AGMX</title>
+</head>
+<body>
+  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
+  <main class="page" style="max-width:1100px;margin:2rem auto;padding:0 1rem;">
+    <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem;">
+      <div>
+        <h1 style="margin:0;">Pengurusan Ahli</h1>
+        <p style="color:#666;font-size:0.875rem;margin:0.25rem 0 0;">Senarai ahli koperasi dan kelayakan undi</p>
+      </div>
+      <button onclick="location.reload()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Muat Semula</button>
+    </header>
+
+    <div style="margin-bottom:1.5rem;">
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;flex:1;min-width:140px;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Jumlah Ahli</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1e293b;" id="totalMembers">-</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;flex:1;min-width:140px;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Aktif</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#16a34a;" id="activeMembers">-</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;flex:1;min-width:140px;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Tunggakan</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#ca8a04;" id="arrearsMembers">-</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;flex:1;min-width:140px;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Boleh Undi</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#2563EB;" id="eligibleMembers">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
+      <div style="padding:1rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-weight:600;color:#374151;">Daftar Ahli</span>
+        <input type="text" id="memberSearch" placeholder="Cari nama atau ID ahli..." style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;min-width:220px;">
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">ID Ahli</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Nama</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Status</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Saham</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Tunggakan</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Boleh Undi</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Tindakan</th>
+          </tr>
+        </thead>
+        <tbody id="memberTableBody"></tbody>
+      </table>
+    </div>
+    <p id="emptyMsg" style="color:#666;margin-top:1rem;display:none;">Tiada ahli yang dapati.</p>
+  </main>
+  <script type="module">
+    import { AGMX_API } from './supabase-client.js';
+
+    const tableBody = document.getElementById('memberTableBody');
+    const searchInput = document.getElementById('memberSearch');
+    const emptyMsg = document.getElementById('emptyMsg');
+    const els = {
+      total: document.getElementById('totalMembers'),
+      active: document.getElementById('activeMembers'),
+      arrears: document.getElementById('arrearsMembers'),
+      eligible: document.getElementById('eligibleMembers')
+    };
+
+    let members = [];
+
+    async function load() {
+      if (!AGMX_API || !AGMX_API.isAuthenticated()) return;
+      const profile = await AGMX_API.profile.getCurrent();
+      const orgId = profile?.organization?.id;
+      if (!orgId) return;
+
+      members = await AGMX_API.profile.getMembers(orgId) || [];
+      render();
+    }
+
+    function render() {
+      const q = searchInput.value.toLowerCase();
+      const filtered = members.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.member_no || '').toLowerCase().includes(q)
+      );
+
+      els.total.textContent = members.length;
+      els.active.textContent = members.filter(m => m.status === 'Aktif').length;
+      els.arrears.textContent = members.filter(m => (m.arrears || 0) > 0).length;
+      els.eligible.textContent = members.filter(m => m.eligible !== false).length;
+
+      tableBody.innerHTML = '';
+      if (filtered.length === 0) {
+        emptyMsg.style.display = 'block';
+        return;
+      }
+      emptyMsg.style.display = 'none';
+
+      for (const m of filtered) {
+        const tr = document.createElement('tr');
+        const statusClass = m.status === 'Aktif' ? 'bg-green-50 text-green-700' : (m.status === 'Tunggakan' ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-700');
+        const eligClass = m.eligible !== false ? 'text-green-600' : 'text-red-600';
+        tr.innerHTML = `
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;font-weight:500;color:#374151;">${escapeHtml(m.member_no || '-')}</td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(m.name || '-')}</td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;${statusClass}">${escapeHtml(m.status || '-')}</span></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${Number(m.shares || 0).toLocaleString()}</td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">RM ${Number(m.arrears || 0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;font-weight:600;${eligClass}">${m.eligible !== false ? 'Ya' : 'Tidak'}</span></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;">
+            <button onclick="viewMember('${escapeHtml(m.id)}')" style="font-size:0.75rem;padding:0.25rem 0.5rem;border:1px solid #d1d5db;border-radius:4px;background:#fff;color:#2563EB;cursor:pointer;">Lihat</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
+    }
+
+    searchInput.addEventListener('input', render);
+
+    window.viewMember = (id) => {
+      alert('Butiran ahli akan dipaparkan dalam versi seterusnya.');
+    };
+
+    load();
+  </script>
+</body>
+</html>
