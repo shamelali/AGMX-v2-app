@@ -10,11 +10,11 @@ Backend: Supabase — Postgres with row-level security, Auth, and Deno Edge
 Functions (`money-flow`, `governance`). Hosting: Vercel. No build step: the app
 is static HTML/JS served as it is.
 
-> **Branch check before trusting a deploy.** The Vercel production branch and the
-> branch holding the deployed tree had drifted apart: the live site served files
-> that existed only on the `sync-from-origin`/`master` line, while `main` sat 51
-> commits behind. A push to `main` therefore changed nothing customers saw. See
-> the *Production branch* note in [`DEPLOY.md`](DEPLOY.md) before deploying.
+> **One branch.** Vercel's production branch for this project is `main` — a
+> merge to `main` deploys to `agmx-v2.vercel.app`. Keep it the only long-lived
+> line: `master` and `sync-from-origin` are superseded and should be deleted, so
+> a manual `vercel --prod` cannot put stale content on the production alias
+> again. See the *Production branch* note in [`DEPLOY.md`](DEPLOY.md).
 
 - Deploy and operate: [`DEPLOY.md`](DEPLOY.md)
 - Verify: `npm test` (runs `tools/check.sh`)
