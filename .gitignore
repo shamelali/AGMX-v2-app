@@ -9,7 +9,7 @@ worktrees/
 
 # PocketBase local state + per-deployment config
 pb_data/
-pocketbase/pb_data/
+archive/pocketbase-v1/pocketbase/pb_data/
 
 # Root-anchored per-deployment config (a bare "config.js" at any depth
 # would wrongly match api/config.js — the Vercel function).

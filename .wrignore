@@ -20,21 +20,42 @@
 .dev.vars
 .dev.vars.*
 
-# PocketBase backend (deployed separately to Fly.io) + local state
+# Archived reference layers + local state — never part of the static bundle
+/archive/
+/bin/
 bin/
 pb_data/
-pocketbase/
-pb_hooks/
 pb_migrations/
-collections.json
+
+# Vercel serverless function sources (api/) are replaced on Cloudflare by
+# the ESM ports under functions/. Uploading them would expose CommonJS
+# source at /api/*.js asset URLs.
+/api/
+
+# A top-level 404.html disables Pages' automatic SPA fallback (unknown paths
+# would render the 404 page instead of the SPA shell). Vercel's equivalent
+# behavior there is the /* -> /index.html catch-all rewrite.
+/404.html
 
 # Server-side / tooling — never part of the static bundle
 supabase/
 scripts/
+src/
 tools/
 worktrees/
 AGMX/
 patches/
+
+# Local tooling, repo metadata and machine-specific agent state
+.qoder/
+.wrignore
+deploy.sh
+worktree
+opencode.json
+skills-lock.json
+wrangler.jsonc
+prod-ca-2021.crt
+config.example.js
 
 # Repo metadata and docs
 .git

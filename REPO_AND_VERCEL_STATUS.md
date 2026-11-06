@@ -1,5 +1,15 @@
 # AGMX — Repo & Vercel Project Status
 
+> **Superseded snapshot.** This file describes the tree as it stood on
+> 2026-10-17, when the money-flow backend was PocketBase on Fly.io. That backend
+> is retired: the product runs on Supabase (Edge Functions + Postgres) with the
+> browser talking to it through `api.js` and `/api/config.js`. Nothing below is a
+> current statement about the running system — `DEPLOY.md` is, and
+> `tools/CHECKS.md` lists what `tools/check.sh` enforces today (23 passes; the
+> "12 validation passes" line further down is the 2026-10-17 count). Passing a
+> page that still offers PocketBase as a live option is now a check failure
+> (`tools/check.sh` §22), so the file is kept as history, not as instructions.
+
 *Rewritten 2026-10-17 from the working tree + live production checks
 (`agmx-project.vercel.app` frontend, `agmx-pb.fly.dev` backend).*
 

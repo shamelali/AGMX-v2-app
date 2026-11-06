@@ -26,13 +26,12 @@ const I = {
 		agmHall: "Dewan AGM",
 		agendaFilter: { all: "Semua", opening: "Pengenalan", compliance: "Penegasan Kuorum", financial: "Penyata Kewangan", report: "Laporan Tahunan", election: "Pilihan Raya", motions: "Usul-Usul", closing: "Penutup" },
 		motionTypes: { biasa: "Biasa", resolution: "Resolusi" },
-		navLabels: { dashboard: "Papan Pemuka", agmHall: "Dewan AGM", members: "Ahli & Organisasi", copilot: "AI Copilot", compliance: "Pematuhan", settings: "Tetapan", vault: "Digital Vault", roadmap: "Roadmap", wizard: "AGM Wizard" },
+		navLabels: { dashboard: "Papan Pemuka", agmHall: "Dewan AGM", agmSchedule: "Jadual AGM", members: "Ahli & Organisasi", subscription: "Langganan", copilot: "AI Copilot", compliance: "Pematuhan", settings: "Tetapan", vault: "Digital Vault", roadmap: "Roadmap", wizard: "AGM Wizard", partner: "Mitra", federation: "Federasi" },
 		viewOpening: "Papers", viewQuorum: "Kuorum", viewFinancial: "Penyata Kewangan", viewReport: "Laporan", viewElection: "Pilihan Raya", viewMotions: "Usul-Usul", viewClosing: "Penutup",
 		errorUnexpected: "Ralat Tidak Dijangka", errorRetry: "Muat Semula",
 		btnReload: "Muat Semula",
 		statusActive: "Aktif", statusArrears: "Tunggakan",
 		seniorMode: "Mod Warga Emas",
-		themeDark: "Mod Gelap", themeLight: "Mod Cerah",
 		langToggle: "Tukar ke English",
 		// AGM agenda items
 		agendaAgung: "Pengerusian & Ucapan Alu-aluan",
@@ -50,13 +49,12 @@ const I = {
 		agmHall: "AGM Hall",
 		agendaFilter: { all: "All", opening: "Opening", compliance: "Quorum", financial: "Financial Summary", report: "Annual Report", election: "Election", motions: "Motions", closing: "Closing" },
 		motionTypes: { biasa: "Standard", resolution: "Resolution" },
-		navLabels: { dashboard: "Dashboard", agmHall: "AGM Hall", members: "Members & Organization", copilot: "AI Copilot", compliance: "Compliance", settings: "Settings", vault: "Digital Vault", roadmap: "Roadmap", wizard: "AGM Wizard" },
+		navLabels: { dashboard: "Dashboard", agmHall: "AGM Hall", agmSchedule: "AGM Schedule", members: "Members & Organization", subscription: "Subscription", copilot: "AI Copilot", compliance: "Compliance", settings: "Settings", vault: "Digital Vault", roadmap: "Roadmap", wizard: "AGM Wizard", partner: "Partner", federation: "Federation" },
 		viewOpening: "Papers", viewQuorum: "Quorum", viewFinancial: "Financial Summary", viewReport: "Annual Report", viewElection: "Election", viewMotions: "Motions", viewClosing: "Closing",
 		errorUnexpected: "Unexpected Error", errorRetry: "Reload",
 		btnReload: "Reload",
 		statusActive: "Active", statusArrears: "Arrears",
 		seniorMode: "Senior Citizen Mode",
-		themeDark: "Dark Mode", themeLight: "Light Mode",
 		langToggle: "Switch to English",
 		// AGM agenda items
 		agendaAgung: "Chairmanship & Welcome Address",
@@ -87,7 +85,6 @@ function __(k) {
 const state = {
 	view: "dashboard",
 	mode: "light",
-	theme: "light",
 	sidebarOpen: false,
 	seniorMode: false,
 	agendaFilter: "all",
@@ -115,15 +112,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	renderNavLabels();
 	renderAgendaFilter();
 
-	// theme toggle (optional — shell may not include it yet)
-	const themeToggle = document.getElementById("theme-toggle");
-	if (themeToggle) themeToggle.addEventListener("click", () => {
-		state.theme = state.theme === "dark" ? "light" : "dark";
-		document.body.setAttribute("data-theme", state.theme);
-		themeToggle.setAttribute("title", __("theme" + (state.theme === "dark" ? "Dark" : "Light")));
-		themeToggle.textContent = state.theme === "dark" ? "Light" : "Dark";
-	});
-
 	// lang switch in header
 	const langSwitch = document.querySelector(".lang-switch");
 	if (langSwitch) {
@@ -148,11 +136,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		state.seniorMode = !state.seniorMode;
 		document.body.classList.toggle("senior-mode", state.seniorMode);
 	});
-
-	// init theme from preference or stored
-	if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-		state.theme = "dark"; document.body.setAttribute("data-theme", "dark");
-	}
 });
 
 // ---- render helpers ----

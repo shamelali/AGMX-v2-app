@@ -1,7 +1,7 @@
 /* ============================================================
-   AGMX — Login View (Google Auth + OTP + demo mode)
+   AGMX — Login View (Google Auth + email/password + demo mode)
    ------------------------------------------------------------
-   Loaded by app.html after pocketbase-client.js.
+   Loaded by app.html; supabase-client.js is a deferred module.
    Exposes window.AGMX_LOGIN.render(container)
    ============================================================ */
 
@@ -11,7 +11,16 @@
   // Lazy API access: supabase-client.js is a deferred module, so
   // window.AGMX_API may not be set when this IIFE runs. Access at call time.
   function api() {
+    if (!window.AGMX_API) throw new Error(t("errNoClient"));
     return window.AGMX_API;
+  }
+
+  // Supabase methods resolve to { data, error } instead of rejecting, so the
+  // error has to be turned into a throw for the catch blocks below to show it.
+  async function unwrap(promise) {
+    const res = await promise;
+    if (res && res.error) throw new Error(res.error.message || String(res.error));
+    return res;
   }
 
   const T = {
@@ -21,18 +30,18 @@
       google: "Teruskan dengan Google",
       googleHint: "Paling cepat untuk ahli komite",
       divider: "atau",
-      otp: "Masukkan e-mail anda",
-      phone: "Nombor telefon",
-      sendOtp: "Hantar kod OTP",
-      otpSent: "Kod 6 digit telah dihantar ke",
-      verify: "Sahkan kod",
-      resend: "Hantar semula",
-      expires: "Kod tamat dalam",
+      email: "E-mel",
+      emailBtn: "Teruskan dengan e-mel",
+      password: "Kata laluan",
+      signIn: "Log masuk",
+      forgot: "Lupa kata laluan?",
+      resetSent: "Pautan set semula telah dihantar ke",
+      invalidCredentials: "E-mel atau kata laluan tidak sah",
       demo: "Demo — masuk tanpa akaun",
       demoHint: "Guna data simulasi KOPEMAJU",
-      invalidCode: "Kod tidak sah",
       checking: "Memeriksa status…",
-      errNoPB: "PocketBase tidak dijangkau",
+      errNoPB: "Backend tidak dijangkau",
+      errNoClient: "Klien backend belum dimuat — pastikan supabaseUrl dan supabaseAnonKey ditetapkan dalam config.js",
       rolePick: "Pilih Peranan Anda",
       member: "Ahli",
       secretary: "Setiausaha",
@@ -46,18 +55,18 @@
       google: "Continue with Google",
       googleHint: "Fastest for committee members",
       divider: "or",
-      otp: "Sign in with OTP",
-      phone: "Phone number",
-      sendOtp: "Send OTP code",
-      otpSent: "A 6-digit code was sent to",
-      verify: "Verify code",
-      resend: "Resend",
-      expires: "Code expires in",
+      email: "Email",
+      emailBtn: "Continue with email",
+      password: "Password",
+      signIn: "Sign in",
+      forgot: "Forgot password?",
+      resetSent: "A reset link has been sent to",
+      invalidCredentials: "Invalid email or password",
       demo: "Demo — sign in without an account",
       demoHint: "Uses simulated KOPEMAJU data",
-      invalidCode: "Invalid code",
       checking: "Checking status…",
-      errNoPB: "PocketBase unreachable",
+      errNoPB: "Backend unreachable",
+      errNoClient: "Backend client not loaded — set supabaseUrl and supabaseAnonKey in config.js",
       rolePick: "Choose Your Role",
       member: "Member",
       secretary: "Secretary",
@@ -76,17 +85,12 @@
   const t = (k) => (lang === "EN" ? T.EN : T.BM)[k];
 
   let state = {
-    step: "choose", // choose | otp-request | otp-verify | role
-    phone: "",
-    otp: "",
-    expiresIn: 180,
-    timer: null,
+    step: "choose", // choose | email | role
     roles: ["member", "secretary", "chairman", "treasurer"],
   };
 
   // ---- render ----
   function render(root) {
-    stopTimer();
     const cls = "login-view agmx-login";
     root.innerHTML = "";
 
@@ -107,7 +111,13 @@
     body.className = "login-body";
     renderStep(body);
 
-    card.append(head, body);
+    // Status line lives outside the steps so every step can report into it.
+    const status = document.createElement("p");
+    status.className = "login-status";
+    status.setAttribute("role", "status");
+    status.id = "login-status";
+
+    card.append(head, body, status);
 
     // Language toggle — shared preference with the rest of the site
     const langBtn = document.createElement("button");
@@ -124,10 +134,16 @@
       location.href = u.toString();
     });
     const langRow = document.createElement("div");
-    langRow.style.cssText = "display:flex;justify-content:flex-end;padding:0 4px;";
-    langRow.appendChild(langBtn);
+    langRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;padding:0 4px;";
+    const themeBtn = document.createElement("button");
+    themeBtn.type = "button";
+    themeBtn.className = "btn btn-ghost btn-sm";
+    themeBtn.setAttribute("data-agmx-theme-toggle", "");
+    themeBtn.style.cssText = "min-width:84px;font-weight:700;";
+    langRow.append(themeBtn, langBtn);
     card.insertBefore(langRow, body);
     root.appendChild(card);
+    if (window.AGMX_THEME) window.AGMX_THEME.sync();
 
     // Focus the first input for keyboard users
     const first = card.querySelector("input, button");
@@ -137,15 +153,18 @@
   function renderStep(body) {
     body.innerHTML = "";
     switch (state.step) {
-      case "otp-request":
-        return renderOTPRequest(body);
-      case "otp-verify":
-        return renderOTPVerify(body);
+      case "email":
+        return renderEmailForm(body);
       case "role":
         return renderRolePick(body);
       default:
         return renderChoose(body);
     }
+  }
+
+  function rerender() {
+    const root = document.querySelector(".login-view")?.parentElement;
+    root && render(root);
   }
 
   // ---- step: choose method ----
@@ -180,20 +199,19 @@
     div.innerHTML = `<span>${t("divider")}</span>`;
     wrap.appendChild(div);
 
-    // OTP
-    const o = document.createElement("button");
-    o.className = "btn btn-outline btn-lg btn-block";
-    o.type = "button";
-    o.textContent = t("otp");
-    o.addEventListener("click", () => {
-      state.step = "otp-request";
-      const root = document.querySelector(".login-view")?.parentElement;
-      root && render(root);
+    // Email + password
+    const e = document.createElement("button");
+    e.className = "btn btn-outline btn-lg btn-block";
+    e.type = "button";
+    e.textContent = t("emailBtn");
+    e.addEventListener("click", () => {
+      state.step = "email";
+      rerender();
     });
-    wrap.appendChild(o);
+    wrap.appendChild(e);
 
     // Demo
-    if (api()?.config?.demoMode) {
+    if (window.AGMX_API?.config?.demoMode) {
       const d = document.createElement("button");
       d.className = "btn btn-ghost btn-block login-demo";
       d.type = "button";
@@ -204,103 +222,71 @@
       wrap.appendChild(d);
     }
 
-    // Status line
-    const status = document.createElement("p");
-    status.className = "login-status";
-    status.setAttribute("role", "status");
-    status.id = "login-status";
-    wrap.appendChild(status);
-
     body.appendChild(wrap);
   }
 
-  // ---- step: request OTP ----
-  function renderOTPRequest(body) {
+  // ---- step: email + password ----
+  function renderEmailForm(body) {
     const form = document.createElement("form");
     form.className = "login-form";
     form.innerHTML = `
       <label class="field">
-        <span class="field-label">${t("phone")}</span>
-        <input class="input input-lg" type="tel" name="phone"
-               inputmode="tel" autocomplete="tel" placeholder="+60 12-345 6789"
-               pattern="[0-9+ -]{8,20}" required>
+        <span class="field-label">${t("email")}</span>
+        <input class="input input-lg" type="email" name="email"
+               autocomplete="email" inputmode="email" placeholder="setiausaha@koperasi.my" required>
       </label>
-      <button class="btn btn-primary btn-lg btn-block" type="submit">${t("sendOtp")}</button>
+      <label class="field">
+        <span class="field-label">${t("password")}</span>
+        <input class="input input-lg" type="password" name="password"
+               autocomplete="current-password" required>
+      </label>
+      <button class="btn btn-primary btn-lg btn-block" type="submit">${t("signIn")}</button>
+      <button class="btn btn-ghost btn-block" type="button" data-forgot>${t("forgot")}</button>
       <button class="btn btn-ghost btn-block" type="button" data-back>${t("back")}</button>
     `;
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const phone = form.phone.value.trim();
-      state.phone = phone;
+      const email = form.elements.email.value.trim();
       const status = document.getElementById("login-status");
       try {
-        if (!api()) throw new Error("client not loaded");
-        await api().requestSMSOTP(phone);
-        state.step = "otp-verify";
-        startTimer();
-        const root = document.querySelector(".login-view")?.parentElement;
-        root && render(root);
+        const res = await unwrap(api().loginWithEmail(email, form.elements.password.value));
+        if (!res?.data?.session) throw new Error(t("invalidCredentials"));
+        state.step = "role";
+        window.AGMX_LOGIN.lastAuth = res;
+        rerender();
+      } catch (err) {
+        if (status) {
+          status.textContent = err.message || t("invalidCredentials");
+          status.classList.add("is-error");
+        }
+      }
+    });
+
+    const forgot = form.querySelector("[data-forgot]");
+    forgot.addEventListener("click", async () => {
+      const email = form.elements.email.value.trim();
+      const status = document.getElementById("login-status");
+      forgot.disabled = true;
+      try {
+        await unwrap(api().requestPasswordReset(email));
+        if (status) {
+          status.textContent = `${t("resetSent")} ${email}`;
+          status.classList.remove("is-error");
+        }
       } catch (err) {
         if (status) {
           status.textContent = err.message || t("errNoPB");
           status.classList.add("is-error");
         }
+      } finally {
+        forgot.disabled = false;
       }
     });
 
     form.querySelector("[data-back]").addEventListener("click", () => {
       state.step = "choose";
-      const root = document.querySelector(".login-view")?.parentElement;
-      root && render(root);
-    });
-
-    body.appendChild(form);
-  }
-
-  // ---- step: verify OTP ----
-  function renderOTPVerify(body) {
-    const form = document.createElement("form");
-    form.className = "login-form";
-    form.innerHTML = `
-      <p class="login-sent">${t("otpSent")} <strong>${escapeHtml(state.phone)}</strong></p>
-      <label class="field">
-        <span class="field-label">OTP</span>
-        <input class="input input-lg otp-input" type="text" name="otp"
-               inputmode="numeric" autocomplete="one-time-code" maxlength="6"
-               pattern="[0-9]{6}" placeholder="000000" required>
-      </label>
-      <p class="login-timer">${t("expires")} <strong id="otp-timer">03:00</strong></p>
-      <button class="btn btn-primary btn-lg btn-block" type="submit">${t("verify")}</button>
-      <button class="btn btn-ghost btn-block" type="button" data-resend>${t("resend")}</button>
-    `;
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const otp = form.otp.value.trim();
-      const status = document.getElementById("login-status");
-      try {
-        const res = await api().verifySMSOTP(state.phone, otp);
-        state.step = "role";
-        stopTimer();
-        const root = document.querySelector(".login-view")?.parentElement;
-        root && render(root);
-        window.AGMX_LOGIN.lastAuth = res;
-      } catch (err) {
-        if (status) {
-          status.textContent = err.message || t("invalidCode");
-          status.classList.add("is-error");
-        }
-      }
-    });
-
-    form.querySelector("[data-resend]").addEventListener("click", async () => {
-      try {
-        await api().requestSMSOTP(state.phone);
-        startTimer();
-      } catch (_) {
-        /* surfaced on next submit */
-      }
+      rerender();
     });
 
     body.appendChild(form);
@@ -331,25 +317,6 @@
     body.appendChild(wrap);
   }
 
-  // ---- timer ----
-  function startTimer() {
-    stopTimer();
-    state.timer = setInterval(() => {
-      state.expiresIn -= 1;
-      const el = document.getElementById("otp-timer");
-      if (!el) return stopTimer();
-      const m = String(Math.floor(state.expiresIn / 60)).padStart(2, "0");
-      const s = String(state.expiresIn % 60).padStart(2, "0");
-      el.textContent = `${m}:${s}`;
-      if (state.expiresIn <= 0) stopTimer();
-    }, 1000);
-  }
-
-  function stopTimer() {
-    if (state.timer) clearInterval(state.timer);
-    state.timer = null;
-  }
-
   // ---- handlers ----
   async function onGoogle() {
     const status = document.getElementById("login-status");
@@ -359,7 +326,7 @@
     }
     try {
       await api().loginWithGoogle();
-      // PocketBase redirects the browser; nothing after this runs in the
+      // signInWithOAuth navigates away; nothing after this runs in the
       // normal flow.
     } catch (err) {
       if (status) {
@@ -367,16 +334,6 @@
         status.classList.add("is-error");
       }
     }
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    })[c]);
   }
 
   // ---- expose ----

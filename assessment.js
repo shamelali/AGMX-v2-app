@@ -1,10 +1,11 @@
 /* ============================================================
    AGMX — AGM Assessment Engine (Revenue Engine v1)
    Public: assessment.html
-   Demo: pure client-side. Production target: POST to PocketBase
-   (agm_assessments via pb_hooks/money_flow.pb.js — the hook
-   recomputes the score server-side and returns the LD-xxxx
-   reference + checkout token used by checkout.html).
+   Demo: pure client-side. With a configured backend the submission
+   goes through api.js to money-flow, which recomputes the score
+   server-side and returns the LD-xxxx reference + checkout token that
+   checkout.html needs. The archived PocketBase hooks this file used to
+   name are retired; archive/pocketbase-v1/ is history, not a target.
    ============================================================ */
 (function () {
   "use strict";
@@ -37,32 +38,53 @@
   };
 
   /* ---------- Packages ---------- */
+  /* Price and member cap come from price-list.js, which mirrors public.plans —
+     the table money-flow joins when it prices a quote. The blurb and the bullet
+     list stay here because they are this page's copy, not the catalog's, and an
+     item with no service behind it is marked rather than checked off. */
+  const RATE_CARD = window.AGMX_PRICE_LIST || null;
+  const priceOf = (code) => {
+    const p = RATE_CARD && RATE_CARD.byCode(code);
+    return p ? p.oneoff : null;
+  };
+  const nameOf = (code) => {
+    const p = RATE_CARD && RATE_CARD.byCode(code);
+    return p ? p.name : code;
+  };
+  const capOf = (code) => {
+    const p = RATE_CARD && RATE_CARD.byCode(code);
+    return p ? p.memberCap : null;
+  };
+
   const AGM_PACKAGES = [
     {
-      key: "essential", name: "AGMX Essential AGM", price: 1500,
+      key: "essential", code: "essential_agm", name: nameOf("essential_agm"), price: priceOf("essential_agm"), memberCap: capOf("essential_agm"),
       blurb: T("Untuk koperasi kecil, AGM fizikal ringkas.", "For small cooperatives running a simple in-person AGM."),
-      includes: [T("Sehingga 500 ahli", "Up to 500 members"), T("1 sesi AGM", "1 AGM session"), T("E-voting asas", "Basic e-voting"), T("Minit digital", "Digital minutes"), T("Jejak audit", "Audit trail")],
+      includes: [T("Sehingga 500 ahli", "Up to 500 members"), T("1 sesi AGM", "1 AGM session"), T("E-voting asas (skrin kendali belum disediakan)", "Basic e-voting (conduct screens not deployed yet)"), T("Minit digital", "Digital minutes"), T("Jejak audit", "Audit trail")],
     },
     {
-      key: "professional", name: "AGMX Professional AGM", price: 3500, recommended: true,
+      key: "professional", code: "professional_agm", name: nameOf("professional_agm"), price: priceOf("professional_agm"), memberCap: capOf("professional_agm"), recommended: true,
       blurb: T("Pakej paling popular — AGM terurus penuh.", "Most popular — fully managed AGM."),
-      includes: [T("Sehingga 2,000 ahli", "Up to 2,000 members"), T("AGM Hibrid / Dalam Talian", "Hybrid / online AGM"), T("E-voting penuh + hash chain", "Full e-voting + hash chain"), T("AI Setiausaha (minit)", "AI secretary (minutes)"), T("Mod Warga Emas", "Senior mode"), T("Pek Mesyuarat Digital", "Digital meeting pack"), T("Fasilitator AGM", "AGM facilitator")],
+      includes: [T("Sehingga 2,000 ahli", "Up to 2,000 members"), T("AGM Hibrid / Dalam Talian (belum dilaksanakan)", "Hybrid / online AGM (not implemented)"), T("E-voting penuh + hash chain", "Full e-voting + hash chain"), T("Setiausaha AI (minit) — dirancang", "AI secretary (minutes) — planned"), T("Mod Warga Emas", "Senior mode"), T("Pek Mesyuarat Digital — dalam pembinaan", "Digital meeting pack — in progress"), T("Fasilitator AGM", "AGM facilitator")],
     },
     {
-      key: "enterprise", name: "AGMX Enterprise AGM", price: 7500,
+      key: "enterprise", code: "enterprise_agm", name: nameOf("enterprise_agm"), price: priceOf("enterprise_agm"), memberCap: capOf("enterprise_agm"),
       blurb: T("Koperasi besar / berisiko tinggi, keperluan khas.", "Large / high-risk cooperatives with special requirements."),
-      includes: [T("Sehingga 5,000+ ahli", "5,000+ members"), T("Semua ciri Professional", "All Professional features"), T("AI Copilot penuh (4 ejen)", "Full AI copilot (4 agents)"), T("Pematuhan GP14/GP14B/UUK", "GP14/GP14B/UUK compliance"), T("Pengurus projek khusus", "Dedicated project manager"), T("Laporan audit SKM", "SKM audit report")],
+      includes: [T("Sehingga 5,000+ ahli", "5,000+ members"), T("Semua ciri Professional", "All Professional features"), T("Copilot AI penuh (4 ejen) — dirancang", "Full AI copilot (4 agents) — planned"), T("Profil peraturan GP14/GP14B/UUK (senarai semak sedang ditulis)", "GP14/GP14B/UUK rule profiles (checklist being written)"), T("Pengurus projek khusus", "Dedicated project manager"), T("Laporan audit SKM", "SKM audit report")],
     },
   ];
 
-  const ANNUAL_PLANS = [
-    { members: 300, name: "Governance Essential", monthly: 600 },
-    { members: 1000, name: "Governance Professional", monthly: 800 },
-    { members: 2000, name: "Governance Enterprise", monthly: 1000 },
-    { members: Infinity, name: "Governance Federation", monthly: 1250 },
-  ];
+  const ANNUAL_PLANS = (RATE_CARD ? RATE_CARD.subscriptions() : []).map((p, i, all) => ({
+    code: p.code,
+    name: p.name,
+    monthly: p.monthly,
+    annual: p.annual,
+    /* The published top tier is where "and above" lands — Federation's own
+       catalog line reads "10,000+ members across federation". */
+    members: i === all.length - 1 ? Infinity : p.memberCap,
+  }));
 
-  const RM = (n) => "RM" + n.toLocaleString("ms-MY");
+  const RM = (n) => (n == null ? "RM—" : "RM" + Number(n).toLocaleString("ms-MY"));
 
   /* ---------- Scoring ---------- */
   function computeScore(data) {
@@ -76,12 +98,26 @@
     return out;
   }
 
+  /* One recommender, two adjustments.
+     The band comes from price-list.js, which holds money-flow's
+     recommendPlan() thresholds verbatim, so the page cannot offer a package the
+     server will not price. The seeded member caps then lift it — Essential is
+     sold as "sehingga 500 ahli" and Professional "sehingga 2,000", so a
+     3,000-member AGM is not served by either. The old copy of this function
+     invented its own bands and floored everything at 2,000 members, which both
+     disagreed with the server at 34/35 and under-quoted a 1,999-member coop on a
+     500-member package. recommendPlan() has no cap floor yet, so a quote can
+     still come back one tier below this recommendation; the floor belongs in the
+     function, not in a second opinion computed here. */
   function pickAgmPackage(score, members) {
-    // Member-count floor: 2,000+ members always Enterprise-tier minimum
-    if (members >= 2000) return AGM_PACKAGES[2];
-    if (score < 35) return AGM_PACKAGES[0];
-    if (score < 65) return AGM_PACKAGES[1];
-    return AGM_PACKAGES[2];
+    const count = Number(members) || 0;
+    const byScore = (RATE_CARD && RATE_CARD.planCodeByScore(score)) || "essential_agm";
+    let picked = AGM_PACKAGES.find((p) => p.code === byScore) || AGM_PACKAGES[0];
+    for (let i = AGM_PACKAGES.indexOf(picked); i < AGM_PACKAGES.length - 1; i += 1) {
+      if (picked.memberCap == null || count <= picked.memberCap) break;
+      picked = AGM_PACKAGES[i + 1];
+    }
+    return picked;
   }
 
   function pickAnnualPlan(members) {
@@ -109,11 +145,11 @@
     setTimeout(() => t.classList.remove("show"), 4200);
   }
 
-  /* ---------- Lead persistence (AGMX_COMMERCE: local demo ↔ PocketBase) ----------
-     Uses api.js when present. Legacy fallback keeps the page working
+  /* ---------- Lead persistence (AGMX_COMMERCE: local demo ↔ backend) ----------
+     Uses api.js when present. The fallback keeps the page working
      standalone (same localStorage key, same shape).
-     Note: window.AGMX_API belongs to pocketbase-client.js (dashboard
-     query layer) — the commerce facade deliberately uses its own name. */
+     window.AGMX_API was the retired PocketBase dashboard client; the
+     commerce facade is api.js and deliberately carries its own name. */
   const API = window.AGMX_COMMERCE || null;
   const LEAD_KEY = "agmx_leads_v1";
 
@@ -266,15 +302,16 @@
 
     // Quote
     $("quote-amount").textContent = RM(pkg.price);
-    $("quote-annual").textContent =
-      T(`+ Governance OS: ${annual.name} ${RM(annual.monthly)}/bulan (${RM(annual.monthly * 12)}/tahun) — bayaran selepas AGM`,
-      `+ Governance OS: ${annual.name} ${RM(annual.monthly)}/mo (${RM(annual.monthly * 12)}/yr) — billed after the AGM`);
+    $("quote-annual").textContent = RATE_CARD
+      ? T(`+ Governance OS: ${annual.name} ${RM(annual.monthly)}/bulan (${RM(annual.annual)}/tahun) — bayaran selepas AGM`,
+        `+ Governance OS: ${annual.name} ${RM(annual.monthly)}/mo (${RM(annual.annual)}/yr) — billed after the AGM`)
+      : T("Governance OS: kad harga tidak dimuatkan", "Governance OS: the rate card did not load");
 
     // Reveal result
     $("result-card").classList.remove("result-hidden");
     $("result-card").scrollIntoView({ behavior: "smooth", block: "start" });
 
-    // Store lead (AGMX_COMMERCE → local demo or PocketBase hook)
+    // Store lead (AGMX_COMMERCE → local demo, or money-flow under Supabase)
     let lead;
     try {
       lead = await saveLead({
@@ -318,8 +355,8 @@
       </div>`).join("");
 
     /* self-serve path: continue straight to quote → invoice → payment.
-       The checkout token makes the link unguessable — in PocketBase mode
-       the money-flow hook refuses the lead without it. */
+       The checkout token makes the link unguessable — money-flow
+       refuses the lead without it. */
     const cta = document.getElementById("lead-cta");
     if (cta) {
       cta.href = "checkout.html?ref=" + encodeURIComponent(lead.id) +
