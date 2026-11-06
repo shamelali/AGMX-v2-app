@@ -44,6 +44,10 @@
       "destination": "/callback.html"
     },
     {
+      "source": "/auth/consent",
+      "destination": "/auth/consent.html"
+    },
+    {
       "source": "/404",
       "destination": "/404.html"
     },
