@@ -256,19 +256,19 @@ vercel login
 vercel link --project=agmx-v2-app --scope=duta-integra --yes
 ```
 
-**Production branch.** The Vercel project must build production from the same
-branch that holds the deployed tree. On 2026-11-06 those had drifted apart: the
-live site served `sw.js` cache `agmx-v45`, a 65 KB `index.html`, and
-`live-meeting.html` / `governance-ui.js`, while `main` sat 51 commits behind at
-`agmx-v24` with a 33 KB `index.html` and none of those files. The live content
-matched the `sync-from-origin`/`master` line, not `main`.
+**Production branch.** This project's Vercel production branch is `main`: a
+merge to `main` creates a *Production* deployment and re-points
+`agmx-v2.vercel.app` at it. Verified 2026-11-06 — merging the consolidation PR
+produced a Production deployment, after which the live `index.html`, `sw.js`
+and `auth/consent.html` were byte-identical to `main`.
 
-Until the Vercel production branch (Project → Settings → Git → Production
-Branch) is set to `main` **and** `main` carries the deployed tree, a push to
-`main` changes nothing customers see. Repoint it only after `main` holds that
-tree, or the next deploy replaces the live site with the older one. Once the
-consolidation merge lands and the branch is repointed, `master` and
-`sync-from-origin` can be deleted.
+Do not infer the production branch from what the site serves. On 2026-11-06 the
+live site served the `sync-from-origin` line (sw `agmx-v45`, 65 KB index) while
+`main` was at `agmx-v24` / 33 KB — the production alias had been pointed at a
+deployment of that other line (a manual `vercel --prod` from a sync checkout,
+which `deploy.sh` does), not at `main`'s latest commit. That is why the two
+lines must be collapsed to one: keep `main`, and delete `master` and
+`sync-from-origin` so a stale manual deploy cannot take the alias again.
 
 **Add Environment Variables in Vercel Dashboard:**
 
