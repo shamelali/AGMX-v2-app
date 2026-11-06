@@ -256,6 +256,20 @@ vercel login
 vercel link --project=agmx-v2-app --scope=duta-integra --yes
 ```
 
+**Production branch.** The Vercel project must build production from the same
+branch that holds the deployed tree. On 2026-11-06 those had drifted apart: the
+live site served `sw.js` cache `agmx-v45`, a 65 KB `index.html`, and
+`live-meeting.html` / `governance-ui.js`, while `main` sat 51 commits behind at
+`agmx-v24` with a 33 KB `index.html` and none of those files. The live content
+matched the `sync-from-origin`/`master` line, not `main`.
+
+Until the Vercel production branch (Project → Settings → Git → Production
+Branch) is set to `main` **and** `main` carries the deployed tree, a push to
+`main` changes nothing customers see. Repoint it only after `main` holds that
+tree, or the next deploy replaces the live site with the older one. Once the
+consolidation merge lands and the branch is repointed, `master` and
+`sync-from-origin` can be deleted.
+
 **Add Environment Variables in Vercel Dashboard:**
 
 **Required (Supabase):**
