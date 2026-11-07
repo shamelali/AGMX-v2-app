@@ -279,9 +279,18 @@ head_ "5. Absolute URLs point at a live deployment"
 # 404'd. This catches that class of error offline.
 # Capture bare hostnames — the loop prepends the scheme.
 # Content references (pages/sitemap/robots) MUST serve 200.
-HOSTS=$(grep -rhoE 'https://[a-z0-9.-]+\.vercel\.app' \
-        index.html app.html assessment.html checkout.html leads.html sitemap.xml robots.txt 2>/dev/null \
-        | sed 's|^https://||' | sort -u)
+#
+# The deployment host is read from sitemap.xml, not matched as `*.vercel.app`:
+# a custom domain has no such suffix, so the old pattern would have found
+# nothing and warned instead of probing. Any `.vercel.app` host the pages still
+# name stays in the probe set, which is what the pattern used to be for.
+CANON_HOST=$(grep -oE '<loc>[^<]+</loc>' sitemap.xml 2>/dev/null | head -1 \
+             | sed -E 's|.*<loc>https?://([^/]+).*|\1|')
+HOSTS=$( { [ -n "$CANON_HOST" ] && echo "$CANON_HOST"
+          grep -rhoE 'https://[a-z0-9.-]+\.vercel\.app' \
+            index.html app.html assessment.html checkout.html leads.html sitemap.xml robots.txt 2>/dev/null \
+            | sed 's|^https://||'
+        } | sort -u )
 # CSP allow-list entries in vercel.json are permissions, not references —
 # a PocketBase host that is not deployed yet must not fail the build,
 # but it deserves a warning so nobody forgets it.
@@ -1601,10 +1610,17 @@ head_ "19. One canonical host"
 # deployment stays alive and the page points at it. Compare every absolute host in
 # the landing page against the single host the sitemap declares, and require the
 # canonical link the share-preview tags were missing.
-SITEMAP_HOSTS=$(grep -oE 'https://[a-z0-9.-]+\.vercel\.app' sitemap.xml 2>/dev/null | sed 's|^https://||' | sort -u)
+# The canonical host is whatever sitemap.xml publishes, on any TLD — a custom
+# domain has no `.vercel.app` suffix, so matching that suffix would have found
+# no host at all and warned "nothing to compare against" instead of comparing.
+# The stray sweep below still matches `*.vercel.app`: those are the retired
+# deployment aliases this pass exists to catch, and they stay that shape when
+# the canonical host moves to a custom domain.
+SITEMAP_HOSTS=$(grep -oE '<loc>[^<]+</loc>' sitemap.xml 2>/dev/null \
+                | sed -E 's|.*<loc>https?://([^/]+).*|\1|' | sort -u)
 CANON_COUNT=$(printf '%s\n' "$SITEMAP_HOSTS" | grep -c . || true)
 if [ "$CANON_COUNT" = "0" ]; then
-  warn "sitemap.xml declares no vercel.app host — nothing to compare against"
+  warn "sitemap.xml declares no absolute host — nothing to compare against"
 elif [ "$CANON_COUNT" -gt 1 ]; then
   bad "sitemap.xml declares $(printf '%s ' $SITEMAP_HOSTS) — one product needs one host"
 else
@@ -1655,8 +1671,9 @@ for f in files:
         continue
     hosts = set()
     for m in pat.finditer(data):
-        # CANON_HOST carries the .vercel.app suffix; the capture is the label
-        # before it, so rebuild the whole host before comparing.
+        # The pattern matches only `*.vercel.app`, so every hit is a deployment
+        # alias. If the canonical host is a custom domain, none of them can be
+        # it, and each one is a retired alias this pass exists to catch.
         full = m.group(1).decode() + ".vercel.app"
         if full != canon and not full.endswith("." + canon):
             hosts.add(full)
