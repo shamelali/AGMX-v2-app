@@ -214,10 +214,12 @@ Open, in order:
       production, which is the only place this repository permits writing. §27 is the
       read-only substitute: no check here has recorded a real ballot in a live,
       production-shaped database yet.
-- [ ] Custom domain for `agmx-v2.vercel.app`. Needs the owner's hostname plus
-      Vercel and DNS actions, and then two checks rewritten: §19 derives the
-      canonical host from `sitemap.xml`, and §23's live probes assume a
-      `*.vercel.app` shape.
+- [ ] Custom domain `myagmx.com` for `agmx-v2.vercel.app`. Chosen 2026-11-07.
+      The name is not yet registered — the registry RDAP answers 404 and DNS is
+      NXDOMAIN — so the order is: register it, add it in Vercel, point DNS, then
+      cut the tree over. Three checks match only `*.vercel.app` (§5, §19 and §23
+      all grep that suffix), so a `.com` canonical host is invisible to them
+      until they read the host from `sitemap.xml` whatever the TLD.
 - [ ] White-label co-op portal. The columns exist — `0010`, applied to production
       a day before any file described it here, adds `organizations.logo_url` and
       `primary_color` — but the portal does not: no page reads either column,

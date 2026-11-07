@@ -131,10 +131,10 @@
       with the provider they select, and a query without a key answers
       `503 LLM_NOT_CONFIGURED` naming the missing variable. Remaining work is to
       set a provider key on both platforms, not to change the flag's meaning.
-- [ ] 🌐 Custom domain configuration for agmx-v2.vercel.app — needs the owner's
-      hostname plus Vercel and DNS actions, then `check.sh` §19 (canonical host is
-      derived from `sitemap.xml`) and §23 (live probes assume `*.vercel.app`) both
-      change.
+- [ ] 🌐 Custom domain `myagmx.com` (chosen 2026-11-07) — not yet registered, so
+      register it first, then add it in Vercel and point DNS. Then `check.sh` §5,
+      §19 and §23 change: all three grep `*.vercel.app`, so a `.com` canonical
+      host is invisible to them until they read the host from `sitemap.xml`.
 - [ ] 🎨 White-label co-op portal — **the schema exists, the portal does not.**
       `0010` gives `organizations.logo_url` and `primary_color` (default `#2563EB`),
       but no page reads either column, nothing uploads a logo, and no policy says
