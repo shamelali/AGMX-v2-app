@@ -70,7 +70,9 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 
 - [ ] Clear the GitHub Actions billing lock — CI deploys nothing until it does, so
       production moves only by `vercel --prod --scope=shamel-projects`
-- [ ] Custom domain — owner's hostname, Vercel + DNS, then rewrite §19/§23
+- [ ] Custom domain `myagmx.com` (chosen 2026-11-07, not yet registered) —
+      register, add in Vercel, point DNS, then widen §5/§19/§23 past their
+      `*.vercel.app` match
 - [ ] White-label co-op portal — the schema arrived as `0010`
       (`organizations.logo_url`, `primary_color`), but no page reads either column
       and no policy says who may set one, so the scope decision is still open
