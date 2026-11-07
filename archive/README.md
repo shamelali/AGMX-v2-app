@@ -35,6 +35,24 @@ Edge Functions (`supabase/functions/knowledge-*`). The Node dependencies
 (`@neondatabase/serverless`, `pdfjs-dist`) stay in `package.json` so these
 references remain runnable.
 
+## The v1 Neon agent skills are not kept here
+
+`shamelali/AGMX` (v1) tracked `.agents/skills/neon/` and
+`.agents/skills/neon-postgres/` — 12 files of vendored Neon documentation.
+They are deliberately not copied into this repository:
+
+- They are third-party content installed by the Neon CLI (`neon skills`), not
+  authored here. Their own text says to refresh them with `neon skills update`,
+  so a copy would go stale silently.
+- `.gitignore` here ignores `.agents/` ("local only"), so committing them would
+  take a `git add -f`.
+- Nothing in this tree uses Neon: `NEON_BACKEND.md` marks it superseded and no
+  non-archived file imports `@neondatabase/*`.
+
+They are not lost — v1 is archived on GitHub with them intact. Reinstall with
+`neon skills`, or copy from `.agents/skills/` in `shamelali/AGMX` if a Neon
+task ever needs them.
+
 ## Reviving a layer
 
 `git mv` the directories out of `archive/`, restore the matching entries in
