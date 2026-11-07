@@ -10,7 +10,7 @@
 - [x] 🔐 **Rotate NVIDIA NIM API key** — placeholder was scrubbed; real key set in Supabase secrets
 - [x] 🚀 **Deploy the Vercel fix to production** — deployed at https://agmx-v2.vercel.app
 - [x] 🧪 **Run production smoke-test matrix** — 22/22 passing
-- [x] 📋 **Freeze current UI as V1 baseline** — committed `fcacb64`, pushed to `origin/master`
+- [x] 📋 **Freeze current UI as V1 baseline** — committed `fcacb64`, pushed to `origin/main` (the branch was `master` then; it was deleted in favour of `main`)
 
 ## 🏗️ Sprint 1 — Get Paid (Complete)
 
@@ -120,7 +120,7 @@
 - [ ] ☁️ **Supabase branching needs the Pro plan** — create answers 402
       `entitlement_required` ("Branching is supported only on the Pro plan or above"),
       so §9's journey cannot be replayed against a copy of production, which is the
-      only place REPO_AND_VERCEL_STATUS.md permits writing. §27 is the read-only
+      only place `archive/docs/REPO_AND_VERCEL_STATUS.md` permits writing. §27 is the read-only
       substitute: it proves the live bodies and that `cast_vote` executes, but no
       check here has yet recorded a real ballot in a real-time-shaped database.
 - [x] 🧠 RAG now advertises only what exists: `/api/config` publishes

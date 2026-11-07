@@ -46,7 +46,7 @@ They are deliberately not copied into this repository:
   so a copy would go stale silently.
 - `.gitignore` here ignores `.agents/` ("local only"), so committing them would
   take a `git add -f`.
-- Nothing in this tree uses Neon: `NEON_BACKEND.md` marks it superseded and no
+- Nothing in this tree uses Neon: `archive/docs/NEON_BACKEND.md` marks it superseded and no
   non-archived file imports `@neondatabase/*`.
 
 They are not lost — v1 is archived on GitHub with them intact. Reinstall with

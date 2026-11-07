@@ -2645,7 +2645,7 @@ head_ "27. The live ballot path is the repaired one, proven write-free"
 # ----------------------------------------------------------------
 # Supabase branching answers 402 entitlement_required — "Branching is supported only
 # on the Pro plan or above" — so the journey cannot be replayed on a copy of
-# production the way REPO_AND_VERCEL_STATUS.md demands (its live suites must never
+# production the way archive/docs/REPO_AND_VERCEL_STATUS.md demands (its live suites must never
 # point at production). This is what is left, and it is read-only by construction:
 # cast_vote's first statement selects a motion by id and returns when no row matches,
 # so a random uuid exercises the live function without reaching an insert. votes and
