@@ -428,7 +428,10 @@
       if (secBtn) {
         secBtn.onclick = async () => {
           try {
-            const res = await fetch("https://agmx-v2.vercel.app/api/config");
+            // Relative, not an absolute host: this only ever asks this
+            // deployment about its own headers, and an absolute URL here broke
+            // on every other domain (local dev, previews, a custom domain).
+            const res = await fetch("/api/config");
             const headers = res.headers;
             securityStatus.ssl = res.ok ? "passed" : "failed";
             securityStatus.csp = headers.get("content-security-policy") ? "passed" : "failed";
