@@ -4,7 +4,7 @@
 
 | Variable | Value | Environment | Notes |
 |----------|-------|-------------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://lcrfsqocqavczgnzpadq.supabase.co` | All | **Publishable** - safe for browser |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://jchfalaibabmszewemat.supabase.co` | All | **Publishable** - safe for browser |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | (from Supabase → Settings → API → Publishable key) | All | **NEW: Use publishable key, not anon** |
 | `SUPABASE_SECRET_KEY` | (from Supabase → Settings → API → Secret key) | **Production only** | **Server-only! Never NEXT_PUBLIC_** |
 | `NVIDIA_NIM_API_KEY` | `nvapi-...` | **NOT in Vercel!** | **⚠️ Edge Function secret only** |

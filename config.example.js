@@ -13,7 +13,7 @@ window.AGMX_CONFIG = {
 
   // --- Legacy PocketBase (Auth + Realtime bridge; optional) ---
   url: "http://127.0.0.1:8090",           // PocketBase instance
-  googleClientId: "",       // Google OAuth2 client ID (see GOOGLE_AUTH_SETUP.md)
+  googleClientId: "",       // Google OAuth2 client ID (see archive/docs/GOOGLE_AUTH_SETUP.md)
   pocketbaseRealtimeOnly: true,  // If true, skip PB auth, use only for SSE/realtime
 
   // --- Backend / Diagnostics ---

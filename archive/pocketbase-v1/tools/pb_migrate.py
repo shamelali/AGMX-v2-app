@@ -368,7 +368,7 @@ def create_collections(url, token, collections, existing, force=False):
         print("\n  --recreate: deleting existing AGMX collections")
         to_delete = [c["name"] for c in collections if c["name"] in existing]
 
-        # GOOGLE_AUTH_SETUP.md tells operators to add `organizationId` (and
+        # archive/docs/GOOGLE_AUTH_SETUP.md tells operators to add `organizationId` (and
         # `role`) to the `users` auth collection. PocketBase refuses to drop a
         # collection another collection still references, so once that step is
         # done `--recreate` dies on `organizations`. Strip those fields first.
@@ -715,7 +715,7 @@ def main():
     print("\n\033[32m✓ Migration complete\033[0m")
     print("\nNext:")
     print("  1. Bind organizationId + role on each auth record")
-    print("  2. Configure Google OAuth2 — see GOOGLE_AUTH_SETUP.md")
+    print("  2. Configure Google OAuth2 — see archive/docs/GOOGLE_AUTH_SETUP.md")
     print("  3. Set window.AGMX_CONFIG in config.js")
     print(f"  4. Admin UI: {args.url}/_/")
     return 0

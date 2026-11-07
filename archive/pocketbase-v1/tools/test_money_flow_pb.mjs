@@ -108,7 +108,7 @@ ok(true, "money-flow collections wiped (deterministic run)");
 
 /* ---------- 1. operator user (users.role + users.organizationId) ---------- */
 /* Ensure the users auth collection carries the AGMX role/tenancy fields
-   (GOOGLE_AUTH_SETUP.md binds them per auth record), then create/refresh
+   (archive/docs/GOOGLE_AUTH_SETUP.md binds them per auth record), then create/refresh
    an operator user tied to the AGMX money-flow org. */
 {
   const colRes = await get("/api/collections/users", admin);

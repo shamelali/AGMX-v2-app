@@ -1,6 +1,6 @@
 # AGMX V2 — Revenue-Ready Cooperative Governance OS
 
-**Status: DELIVERED through Sprint 5+; production live** · Branch: `master` · Updated 2026-11-05
+**Status: DELIVERED through Sprint 5+; production live** · Branch: `main` · Updated 2026-11-05
 
 > **What changed since the 2026-08-12 plan.** §1–§4 (strategy, product lines,
 > revenue workflow, packages) still describe the product and are unchanged.

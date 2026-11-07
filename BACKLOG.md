@@ -100,4 +100,4 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 
 ---
 
-*Source: AGMX_V2_PLAN.md, REPO_AND_VERCEL_STATUS.md*
+*Source: AGMX_V2_PLAN.md, archive/docs/REPO_AND_VERCEL_STATUS.md*

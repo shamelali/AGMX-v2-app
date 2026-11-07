@@ -17,7 +17,7 @@ storage, self-hostable for data sovereignty.
 | `../pb_hooks/money_flow.pb.js` | Route registration for the Sprint 2 money flow (thin handlers) |
 | `../pb_hooks/money_flow.lib.js` | Money-flow logic: pricing, numbering, guards, audit chain |
 | `../tools/pb_migrate.py` | Creates collections against a running instance, then seeds |
-| `../GOOGLE_AUTH_SETUP.md` | Google Cloud Console + PocketBase provider config |
+| `../../docs/GOOGLE_AUTH_SETUP.md` | Google Cloud Console + PocketBase provider config |
 
 ---
 
@@ -42,7 +42,7 @@ AGMX_ALLOW_SIMULATED_PAYMENTS=1 ./bin/pocketbase serve --http=127.0.0.1:8090
 python3 tools/pb_migrate.py --url http://127.0.0.1:8090 \
   --email admin@agmx.test --password '<password>' --dir pb_data
 
-# 5. Configure Google OAuth2 — see GOOGLE_AUTH_SETUP.md
+# 5. Configure Google OAuth2 — see archive/docs/GOOGLE_AUTH_SETUP.md
 
 # 6. Point the client at it
 cp config.example.js config.js   # then edit url + googleClientId
