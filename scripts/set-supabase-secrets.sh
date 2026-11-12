@@ -93,8 +93,8 @@ echo
 # different name (SUPABASE_SECRET_KEY). Left blank, those functions stay down.
 read -r -s -p "Re-enter the same key for SUPABASE_SECRET_KEY (blank to skip knowledge-*): " SUPABASE_SECRET_KEY
 echo
-read -r -p "Enter APP_URL [https://agmx-v2.vercel.app]: " APP_URL
-APP_URL="${APP_URL:-https://agmx-v2.vercel.app}"
+read -r -p "Enter APP_URL [https://www.agmx.my]: " APP_URL
+APP_URL="${APP_URL:-https://www.agmx.my}"
 
 # ---------------------------------------------------------------------------
 # Write them

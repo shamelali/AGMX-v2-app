@@ -11,7 +11,7 @@ Functions (`money-flow`, `governance`). Hosting: Vercel. No build step: the app
 is static HTML/JS served as it is.
 
 > **One branch.** Vercel's production branch for this project is `main` — a
-> merge to `main` deploys to `agmx-v2.vercel.app`. It is the only long-lived
+> merge to `main` deploys to `www.agmx.my`. It is the only long-lived
 > line: `master` and `sync-from-origin` were superseded and have been deleted,
 > so a manual `vercel --prod` cannot put stale content on the production alias
 > again. See the *Production branch* note in [`DEPLOY.md`](DEPLOY.md).

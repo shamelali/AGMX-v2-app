@@ -2285,8 +2285,8 @@ if not tried:
 
 repo_sw = pathlib.Path("sw.js").read_text()
 def cache_of(t):
-    m = re.search(r'const\s+CACHE\s*=\s*"agmx-v(\d+)"', t)
-    return int(m.group(1)) if m else None
+    m = re.search(r'const\s+CACHE\s*=\s*"([^"]+)"', t)
+    return m.group(1) if m else None
 repo_n = cache_of(repo_sw)
 
 live_sw = (live / "sw.js").read_text(errors="replace") if (live / "sw.js").is_file() else ""
@@ -2300,15 +2300,15 @@ elif repo_n is None:
 
 strict = None not in (live_n, repo_n) and live_n >= repo_n
 if live_n is not None and repo_n is not None and live_n > repo_n:
-    emit("BAD", "production runs agmx-v%d while this repo ships agmx-v%d — the tree no longer "
+    emit("BAD", "production runs %s while this repo ships %s — the tree no longer "
                 "describes what users get; reconcile it before deploying over it" % (live_n, repo_n))
-elif live_n == repo_n and live_sw != repo_sw:
-    emit("BAD", "agmx-v%d is on production and in this repo but the two sw.js files differ — a "
+elif live_n is not None and repo_n is not None and live_n == repo_n and live_sw != repo_sw:
+    emit("BAD", "%s is on production and in this repo but the two sw.js files differ — a "
                 "precached edit went out without its own version number, so installed clients "
                 "cannot tell the two builds apart" % live_n)
-elif live_n == repo_n:
+elif live_n is not None and repo_n is not None and live_n == repo_n:
     emit("OK", "deployed sw.js is byte-identical to the copy tools/test_service_worker_policy.mjs "
-               "validated (agmx-v%d)" % live_n)
+               "validated (%s)" % live_n)
 
 findings = []
 cfg = None
