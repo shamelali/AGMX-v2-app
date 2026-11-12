@@ -25,7 +25,7 @@ window.AGMX_CONFIG = {
   devTools: false,
 
   // --- App ---
-  appUrl: "https://agmx-v2.vercel.app",  // Production URL
+  appUrl: "https://www.agmx.my",  // Production URL
 
   // --- LLM Provider (AI Copilot + Knowledge RAG) ---
   // Choose ONE: "openai" or "nvidia"
