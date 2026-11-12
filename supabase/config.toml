@@ -287,6 +287,14 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
+# AGMX Send Email hook — intercepts signup confirmations, password
+- resets, magic links, and email changes. The function returns the
+-- event unchanged so emails flow through Supabase's default provider
+-- until a custom SMTP provider is wired up via an HTTP Edge Function.
+[auth.hook.send_email]
+enabled = true
+uri = "pg-functions://postgres/public/send_email_hook"
+
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
 enabled = false
