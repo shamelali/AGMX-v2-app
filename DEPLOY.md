@@ -176,6 +176,10 @@ supabase functions deploy money-flow
 # and knowledgeRagEnabled stays false until a provider key exists (flags below).
 supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
+# Send Email Auth Hook — intercepts auth emails and routes them through
+# your SMTP provider. Requires SEND_EMAIL_HOOK_SECRETS, SMTP_FROM and
+# SMTP_API_KEY secrets (set below).
+supabase functions deploy send-email-hook
 ```
 
 **JWT verification** (declared in `supabase/config.toml`, confirm with
@@ -186,6 +190,7 @@ supabase functions deploy knowledge-ingest
 | `money-flow` | **false** | Billplz/HitPay webhooks post with the gateway's signature header and no Supabase JWT. Verification on = 401 before the handler runs, so the payment settles at the gateway and stays UNPAID here. Authenticity is the signature check inside the function. |
 | `governance` | **true** | Resolves the tenant from the caller's JWT; unverified calls could name any `organization_id`. |
 | `knowledge-query` / `knowledge-ingest` | **true** | Run as the caller so RLS scopes retrieval and ingest to one organisation. |
+| `send-email-hook` | **false** | The webhook verifies tokens itself via `withOAuthProtectedResource`; gateway pre-verification would reject unauthenticated OAuth discovery requests. |
 
 Secrets — each name below is the exact string `Deno.env.get()` reads in that
 function's source. `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
@@ -217,6 +222,12 @@ supabase secrets set BILLPLZ_API_URL=https://www.billplz.com   # Production; def
 supabase secrets set HITPAY_API_KEY=...
 supabase secrets set HITPAY_SALT=...                    # Per-webhook salt (Dashboard → Developers → Webhooks)
 supabase secrets set HITPAY_API_URL=https://api.hit-pay.com   # Defaults to https://api.sandbox.hit-pay.com
+
+# Send Email Auth Hook — routes signup confirmations, password resets,
+# magic links and email changes through your own SMTP provider.
+supabase secrets set SEND_EMAIL_HOOK_SECRETS=v1,whsec_...   # see functions/send-email-hook/index.ts
+supabase secrets set SMTP_FROM=noreply@agmx.my
+supabase secrets set SMTP_API_KEY=...                       # your SMTP provider API key
 
 # LLM (only needed by knowledge-*; see _shared/llm.ts)
 supabase secrets set LLM_PROVIDER=nvidia                # or openai
