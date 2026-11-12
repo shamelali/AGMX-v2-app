@@ -288,12 +288,21 @@ max_frequency = "5s"
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
 # AGMX Send Email hook — intercepts signup confirmations, password
-- resets, magic links, and email changes. The function returns the
--- event unchanged so emails flow through Supabase's default provider
--- until a custom SMTP provider is wired up via an HTTP Edge Function.
+# resets, magic links, and email changes. Routes them through a custom
+# SMTP provider via an HTTP Edge Function hook (Postgres functions
+# cannot make outbound HTTP calls).
+#
+# Local development URI. For production, replace with the deployed
+# function URL, e.g.:
+#   uri = "https://jchfalaibabmszewemat.supabase.co/functions/v1/send-email-hook"
+# Set the secret in Supabase Dashboard → Edge Functions → Secrets:
+#   SEND_EMAIL_HOOK_SECRETS=v1,whsec_<base64-secret>
+#   SMTP_FROM=noreply@agmx.my
+#   SMTP_API_KEY=<your-provider-api-key>
 [auth.hook.send_email]
 enabled = true
-uri = "pg-functions://postgres/public/send_email_hook"
+uri = "http://127.0.0.1:54321/functions/v1/send-email-hook"
+secrets = "env(SEND_EMAIL_HOOK_SECRETS)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
@@ -455,3 +464,9 @@ verify_jwt = true
 
 [functions.knowledge-ingest]
 verify_jwt = true
+
+# Send Email Auth Hook — the webhook verifies tokens itself via
+# withOAuthProtectedResource, so the gateway must not pre-verify and reject
+# unauthenticated discovery requests.
+[functions.send-email-hook]
+verify_jwt = false
