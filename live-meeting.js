@@ -428,7 +428,7 @@
       if (secBtn) {
         secBtn.onclick = async () => {
           try {
-            const res = await fetch("https://agmx-v2.vercel.app/api/config");
+            const res = await fetch("https://www.agmx.my/api/config");
             const headers = res.headers;
             securityStatus.ssl = res.ok ? "passed" : "failed";
             securityStatus.csp = headers.get("content-security-policy") ? "passed" : "failed";

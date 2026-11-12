@@ -194,10 +194,7 @@ Open, in order:
       Until `supabase db push` runs against `jchfalaibabmszewemat`, production
       still 500s on every ballot. This is an operator action with real money on
       it, so it is deliberately not automated here.
-- [ ] Custom domain for `agmx-v2.vercel.app`. Needs the owner's hostname plus
-      Vercel and DNS actions, and then two checks rewritten: §19 derives the
-      canonical host from `sitemap.xml`, and §23's live probes assume a
-      `*.vercel.app` shape.
+- [ ] Custom domain for `agmx-v2.vercel.app` → `www.agmx.my`. Needs the owner's hostname plus Vercel and DNS actions, and then two checks rewritten: §19 derives the canonical host from `sitemap.xml`, and §23's live probes assume a `*.vercel.app` shape.
 - [ ] White-label co-op portal. Unbuilt: there is no branding or theme column
       anywhere in the schema, so this is a scope decision (which fields, which
       pages, who uploads the logo, what a co-op's own domain does to §19/§23)

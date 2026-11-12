@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /app.html
 
-Sitemap: https://agmx-v2.vercel.app/sitemap.xml
+Sitemap: https://www.agmx.my/sitemap.xml

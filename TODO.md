@@ -64,10 +64,7 @@
       project has been touched**, so production still cannot record a vote or an
       AGM audit event. Operator action; it carries real money and an audited
       record, so it is not automated here.
-- [ ] 🌐 Custom domain configuration for agmx-v2.vercel.app — needs the owner's
-      hostname plus Vercel and DNS actions, then `check.sh` §19 (canonical host is
-      derived from `sitemap.xml`) and §23 (live probes assume `*.vercel.app`) both
-      change.
+- [ ] 🌐 Custom domain configuration for agmx-v2.vercel.app → www.agmx.my — needs the owner's hostname plus Vercel and DNS actions, then `check.sh` §19 (canonical host is derived from `sitemap.xml`) and §23 (live probes assume `*.vercel.app`) both change.
 - [ ] 🎨 White-label co-op portal configuration — **unbuilt**: no branding or theme
       column exists in the schema, so this is a scope decision first (which fields,
       which pages, who may upload a logo, and what a co-op's own domain does to

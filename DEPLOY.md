@@ -265,7 +265,7 @@ HITPAY_API_URL=https://api.sandbox.hit-pay.com   # Production: https://api.hit-p
 
 **App Config:**
 ```
-NEXT_PUBLIC_APP_URL=https://agmx-v2.vercel.app
+NEXT_PUBLIC_APP_URL=https://www.agmx.my
 ```
 
 Feature flags are opt-IN: leave them unset for a real deployment. `demoMode`,
@@ -325,15 +325,15 @@ pattern: a bare `config.js` also drops `api/config.js` and the app boots unconfi
 
 ## 🧪 Test the Flow
 
-1. **Landing**: https://agmx-v2.vercel.app
-2. **Assessment**: https://agmx-v2.vercel.app/assessment
+1. **Landing**: https://www.agmx.my
+2. **Assessment**: https://www.agmx.my/assessment
    - Answer 12 questions → Get complexity score → Recommended plan
-3. **Leads** (operator): https://agmx-v2.vercel.app/leads
+3. **Leads** (operator): https://www.agmx.my/leads
    - Sign in with Supabase Auth (create user in Dashboard)
    - See assessment lead, generate quote
-4. **Checkout**: https://agmx-v2.vercel.app/checkout
+4. **Checkout**: https://www.agmx.my/checkout
    - Quote → Invoice → Payment (Billplz/HitPay sandbox)
-5. **AI Copilot**: https://agmx-v2.vercel.app/app → "AI Copilot" tab
+5. **AI Copilot**: https://www.agmx.my/app → "AI Copilot" tab
    - Ask questions about indexed documents
 
 ---
