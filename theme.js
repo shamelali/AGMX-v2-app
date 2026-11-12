@@ -69,6 +69,11 @@
   root.classList.toggle("senior-mode", read("seniorMode") === "true");
   root.classList.toggle("high-contrast", read("highContrast") === "true");
 
+  function setPrimaryColor(color) {
+    if (!color) return;
+    root.style.setProperty('--c-primary', color);
+  }
+
   window.AGMX_THEME = {
     get: function () { return root.getAttribute("data-theme"); },
     set: set,
@@ -76,6 +81,9 @@
     // Buttons built after page load (the app shell renders once the dashboard
     // data arrives) need a label refresh.
     sync: sync,
+    // Apply an organization's primary brand color as the --c-primary CSS var,
+    // used by buttons, links, badges, and other accent surfaces.
+    setPrimaryColor: setPrimaryColor,
   };
 
   document.addEventListener("click", function (event) {
