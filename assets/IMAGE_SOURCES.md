@@ -32,6 +32,7 @@ These are source collections rather than individually selected files because the
 
 ## Existing AGMX assets
 
-- Landing-page hero: `assets/enterprise/01-hero-og-banner.png`.
+- Landing-page hero: `assets/enterprise/01-hero-og-banner.png` (also referenced as `og:image` meta tag).
+- Landing-page hero background (subtle, 10% opacity): `images/webp/image-enterprise.webp` with `images/jpeg/image-enterprise.jpg` fallback — applied via CSS to `.hero` on `index.html`. Generated locally 2026-09-27 (see `images/ENHANCEMENT_REPORT.md`), no external attribution required.
 - Product feature cards: `assets/enterprise/04-agm-hall.png` through `09-senior-mode.png`.
 - Contextual photos: use Pexels or Unsplash only after consent/trademark review.
