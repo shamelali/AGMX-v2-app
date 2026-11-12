@@ -1156,7 +1156,19 @@ html.dark .btn-ghost:hover { background: #334155; }
 .container { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
 .skip-link { position: absolute; left: -999px; top: 0; background: #1D4ED8; color: #fff; padding: 10px 16px; border-radius: 0 0 8px 0; z-index: 100; }
 .skip-link:focus { left: 0; }
-.hero { background: linear-gradient(180deg, #EFF6FF 0%, #F8FAFC 100%); border-bottom: 1px solid #E2E8F0; }
+.hero { position: relative; background: linear-gradient(180deg, #EFF6FF 0%, #F8FAFC 100%); border-bottom: 1px solid #E2E8F0; overflow: hidden; }
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/images/jpeg/image-enterprise.jpg");
+  background-image: url("/images/webp/image-enterprise.webp");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.10;
+  z-index: 0;
+}
+.hero > .container { position: relative; z-index: 1; }
 .nav-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; }
 .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; color: #1E293B; }
 .nav-links { display: flex; gap: 20px; }
@@ -1392,6 +1404,7 @@ html.dark body { background: #0F172A; color: #E2E8F0; }
 html.dark .availability-section, html.dark .how-section, html.dark .compliance-section,
 html.dark .faq-section, html.dark .footer { background: #0F172A; }
 html.dark .hero { background: linear-gradient(180deg, #10233F 0%, #0F172A 100%); }
+html.dark .hero::before { opacity: 0.06; }
 html.dark .hero, html.dark .availability-section, html.dark .how-section,
 html.dark .compliance-section, html.dark .faq-section, html.dark .footer,
 html.dark .trust-row, html.dark .record-row { border-color: #1E293B; }
