@@ -2,8 +2,8 @@
 #
 # What it does:
 #   1. `test`  - runs the project's test suite.
-#   2. `automerge-dependabot` - after the tests pass, automatically merges
-#      merge requests opened by Dependabot.
+#   2. `automerge-dependabot` - arms "merge when pipeline succeeds" on merge
+#      requests opened by Dependabot, so GitLab merges them once the tests pass.
 #
 # Requirements:
 #   - Merge request pipelines must be enabled in your project
@@ -107,18 +107,24 @@ automerge-dependabot:
         exit 0
       fi
 
-      echo "Tests passed and Dependabot MR verified. Merging !${mr_iid}..."
+      echo "Tests passed and Dependabot MR verified. Setting auto-merge on !${mr_iid}..."
+      # "Merge when pipeline succeeds": GitLab merges the MR automatically once
+      # this pipeline finishes successfully. This is required because the
+      # automerge job itself is part of the pipeline, so a direct merge call
+      # would be blocked by "only allow merge if pipeline succeeds".
       result=$(curl --silent --show-error \
         --request POST \
         --header "PRIVATE-TOKEN: $AUTO_MERGE_TOKEN" \
         --data-urlencode "should_remove_source_branch=true" \
         --data-urlencode "squash=false" \
+        --data-urlencode "merge_when_pipeline_succeeds=true" \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${mr_iid}/merge")
 
-      if printf '%s' "$result" | jq -e '.state == "merged"' > /dev/null 2>&1; then
-        echo "Successfully merged MR !${mr_iid}."
+      # Success = already merged, or auto-merge armed for when the pipeline passes.
+      if printf '%s' "$result" | jq -e '.state == "merged" or .merge_when_pipeline_succeeds == true' > /dev/null 2>&1; then
+        echo "Auto-merge armed for MR !${mr_iid}. GitLab will merge it once the pipeline succeeds."
       else
-        printf '%s\n' "$result" | jq .
+        printf '%s\n' "$result" | jq . >&2
         exit 1
       fi
   rules:
