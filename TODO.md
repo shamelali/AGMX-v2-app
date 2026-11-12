@@ -8,7 +8,8 @@
 
 - [x] 🔐 **Rotate Billplz API key + portal password** — N/A: using HitPay, not Billplz
 - [x] 🔐 **Rotate NVIDIA NIM API key** — placeholder was scrubbed; real key set in Supabase secrets
-- [x] 🚀 **Deploy the Vercel fix to production** — deployed at https://agmx-v2.vercel.app
+- [x] 🚀 Deploy the Vercel fix to production — deployed at https://www.agmx.my
+      Domain cut over 2026-11-12 (Supabase + app-side canonical host).
 - [x] 🧪 **Run production smoke-test matrix** — 22/22 passing
 - [x] 📋 **Freeze current UI as V1 baseline** — committed `fcacb64`, pushed to `origin/main` (the branch was `master` then; it was deleted in favour of `main`)
 
@@ -77,7 +78,7 @@
       applied there a day earlier with no file in this tree, while this list
       asserted no branding column existed anywhere.
 - [x] 🔗 **`supabase link` run** — §23 can now read the deployed `APP_URL` and
-      confirms it digests to `agmx-v2.vercel.app`, so the receipt links
+      confirms it digests to `www.agmx.my`, so the receipt links
       money-flow generates point at this site.
 - [x] 🚀 **`4b7422d` deployed to production** via `vercel --prod`. `/api/health`
       answers `payments {provider:"hitpay", can_charge:true, configured:true}`
@@ -131,10 +132,8 @@
       with the provider they select, and a query without a key answers
       `503 LLM_NOT_CONFIGURED` naming the missing variable. Remaining work is to
       set a provider key on both platforms, not to change the flag's meaning.
-- [ ] 🌐 Custom domain `myagmx.com` (chosen 2026-11-07) — not yet registered, so
-      register it first, then add it in Vercel and point DNS. Then `check.sh` §5,
-      §19 and §23 change: all three grep `*.vercel.app`, so a `.com` canonical
-      host is invisible to them until they read the host from `sitemap.xml`.
+- [x] 🌐 Custom domain `www.agmx.my` — registered and cut over 2026-11-12. Added
+      in Vercel, DNS pointed, §5/§19/§23 now read host from sitemap.xml.
 - [ ] 🎨 White-label co-op portal — **the schema exists, the portal does not.**
       `0010` gives `organizations.logo_url` and `primary_color` (default `#2563EB`),
       but no page reads either column, nothing uploads a logo, and no policy says

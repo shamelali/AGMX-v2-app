@@ -176,7 +176,7 @@ what a re-paste after a partial deploy actually does.
 
 Done since the 2026-08-12 plan:
 
-- [x] Deploy the Vercel fix to production — `https://agmx-v2.vercel.app`, one
+- [x] Deploy the Vercel fix to production — `https://www.agmx.my`, one
       canonical host enforced by §19 and probed live by §23
 - [x] Run production smoke-test matrix — 22/22
 - [x] Freeze current UI as V1 baseline — `fcacb64`
@@ -214,12 +214,10 @@ Open, in order:
       production, which is the only place this repository permits writing. §27 is the
       read-only substitute: no check here has recorded a real ballot in a live,
       production-shaped database yet.
-- [ ] Custom domain `myagmx.com` for `agmx-v2.vercel.app`. Chosen 2026-11-07.
-      The name is not yet registered — the registry RDAP answers 404 and DNS is
-      NXDOMAIN — so the order is: register it, add it in Vercel, point DNS, then
-      cut the tree over. Three checks match only `*.vercel.app` (§5, §19 and §23
-      all grep that suffix), so a `.com` canonical host is invisible to them
-      until they read the host from `sitemap.xml` whatever the TLD.
+- [x] Custom domain `www.agmx.my`. Cut over 2026-11-12 — Supabase site_url,
+      redirect allow list, APP_URL and BILLPLZ_CALLBACK_URL all upserted; app-side
+      canonical tags, sitemap and config fallbacks rewritten. §5, §19 and §23 now
+      read the host from sitemap.xml (www.agmx.my).
 - [ ] White-label co-op portal. The columns exist — `0010`, applied to production
       a day before any file described it here, adds `organizations.logo_url` and
       `primary_color` — but the portal does not: no page reads either column,
