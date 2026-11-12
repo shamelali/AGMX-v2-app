@@ -1,0 +1,126 @@
+# GitLab CI/CD pipeline
+#
+# What it does:
+#   1. `test`  - runs the project's test suite.
+#   2. `automerge-dependabot` - after the tests pass, automatically merges
+#      merge requests opened by Dependabot.
+#
+# Requirements:
+#   - Merge request pipelines must be enabled in your project
+#     (Settings > CI/CD > General pipelines > "Merge request pipelines").
+#   - Create a project access token (Settings > Access tokens) with the `api`
+#     scope, then store it as a CI/CD variable named `AUTO_MERGE_TOKEN`
+#     (Settings > CI/CD > Variables, "Mask variable" = true, protected = false).
+#
+# Dependabot is detected either by its source branch (`dependabot/*`), by the
+# MR author name, or by a "Bump ..." title. Tune `DEPENDABOT_BRANCH_PATTERN`,
+# `DEPENDABOT_USERNAME` and `DEPENDABOT_TITLE_PATTERN` if your Dependabot tool
+# names branches differently.
+
+stages:
+  - test
+  - automerge
+
+variables:
+  # Command that runs the project's test suite. Customize it for your stack,
+  # e.g. TEST_COMMAND: "npm test" or TEST_COMMAND: "pytest". When empty, the
+  # test job only confirms the pipeline is wired up.
+  TEST_COMMAND: ""
+
+  # How a Dependabot change is recognized. All three are combined with OR.
+  DEPENDABOT_BRANCH_PATTERN: '^dependabot(/|-|_)'
+  DEPENDABOT_USERNAME: "dependabot"
+  DEPENDABOT_TITLE_PATTERN: '^Bump '
+
+test:
+  stage: test
+  script:
+    - |
+      if [ -z "$TEST_COMMAND" ]; then
+        echo "TEST_COMMAND is not set; configure it in the variables section of .gitlab-ci.yml."
+        exit 0
+      fi
+      sh -c "$TEST_COMMAND"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+automerge-dependabot:
+  stage: automerge
+  image: alpine:latest
+  needs:
+    - job: test
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - apk add --no-cache curl jq > /dev/null
+  script:
+    - |
+      set -e
+
+      if [ -z "$AUTO_MERGE_TOKEN" ]; then
+        echo "AUTO_MERGE_TOKEN is not set."
+        echo "Create a project access token with the 'api' scope and store it "
+        echo "as a masked, non-protected CI variable named AUTO_MERGE_TOKEN."
+        exit 1
+      fi
+
+      # Resolve the merge request for this pipeline (MR pipelines provide the
+      # IID directly; branch pipelines look it up by source branch).
+      if [ -n "${CI_MERGE_REQUEST_IID:-}" ]; then
+        mr_iid="$CI_MERGE_REQUEST_IID"
+        source_branch="${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-}"
+      else
+        source_branch="${CI_COMMIT_BRANCH:-}"
+        mr_iid=$(curl --fail --silent --show-error \
+          --header "PRIVATE-TOKEN: $AUTO_MERGE_TOKEN" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests?state=opened&source_branch=${source_branch}" \
+          | jq -r '.[0].iid // empty')
+        if [ -z "$mr_iid" ]; then
+          echo "No open merge request for branch '$source_branch'. Skipping."
+          exit 0
+        fi
+      fi
+
+      # Fetch MR metadata to sanity-check it really is a Dependabot change.
+      mr_json=$(curl --fail --silent --show-error \
+        --header "PRIVATE-TOKEN: $AUTO_MERGE_TOKEN" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${mr_iid}")
+      author="$(printf '%s' "$mr_json" | jq -r '.author.username')"
+      title="$(printf '%s' "$mr_json" | jq -r '.title')"
+      state="$(printf '%s' "$mr_json" | jq -r '.state')"
+
+      echo "MR !${mr_iid} | source: '$source_branch' | author: '$author' | state: $state | title: $title"
+
+      if [ "$state" != "opened" ]; then
+        echo "MR is not open; skipping."
+        exit 0
+      fi
+
+      is_dependabot=0
+      echo "$source_branch" | grep -qE "${DEPENDABOT_BRANCH_PATTERN}" && is_dependabot=1
+      echo "$author" | grep -qiE "${DEPENDABOT_USERNAME}" && is_dependabot=1
+      echo "$title" | grep -qE "${DEPENDABOT_TITLE_PATTERN}" && is_dependabot=1
+
+      if [ "$is_dependabot" -ne 1 ]; then
+        echo "This merge request does not look like a Dependabot change; skipping auto-merge."
+        exit 0
+      fi
+
+      echo "Tests passed and Dependabot MR verified. Merging !${mr_iid}..."
+      result=$(curl --silent --show-error \
+        --request POST \
+        --header "PRIVATE-TOKEN: $AUTO_MERGE_TOKEN" \
+        --data-urlencode "should_remove_source_branch=true" \
+        --data-urlencode "squash=false" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${mr_iid}/merge")
+
+      if printf '%s' "$result" | jq -e '.state == "merged"' > /dev/null 2>&1; then
+        echo "Successfully merged MR !${mr_iid}."
+      else
+        printf '%s\n' "$result" | jq .
+        exit 1
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^dependabot/ || $CI_MERGE_REQUEST_TITLE =~ /^Bump /)'
+    - if: '$CI_COMMIT_BRANCH =~ /^dependabot/'
