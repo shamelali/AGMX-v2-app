@@ -223,11 +223,10 @@ supabase secrets set HITPAY_API_KEY=...
 supabase secrets set HITPAY_SALT=...                    # Per-webhook salt (Dashboard → Developers → Webhooks)
 supabase secrets set HITPAY_API_URL=https://api.hit-pay.com   # Defaults to https://api.sandbox.hit-pay.com
 
-# Send Email Auth Hook — routes signup confirmations, password resets,
-# magic links and email changes through your own SMTP provider.
+# Send Email Auth Hook — routes auth emails through Resend.
 supabase secrets set SEND_EMAIL_HOOK_SECRETS=v1,whsec_...   # see functions/send-email-hook/index.ts
+supabase secrets set RESEND_API_KEY=re_<your-resend-api-key>
 supabase secrets set SMTP_FROM=noreply@agmx.my
-supabase secrets set SMTP_API_KEY=...                       # your SMTP provider API key
 
 # LLM (only needed by knowledge-*; see _shared/llm.ts)
 supabase secrets set LLM_PROVIDER=nvidia                # or openai

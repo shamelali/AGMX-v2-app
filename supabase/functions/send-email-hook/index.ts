@@ -3,7 +3,7 @@
 // ============================================================
 // Intercepts Supabase Auth emails (signup confirmations,
 // password resets, magic links, email changes) and routes them
-// through a custom SMTP provider.
+// through Resend.
 //
 // Configure in supabase/config.toml:
 //   [auth.hook.send_email]
@@ -13,7 +13,7 @@
 //
 // Set the secret in Supabase Dashboard → Edge Functions → Secrets:
 //   SEND_EMAIL_HOOK_SECRETS=v1,whsec_<base64-secret>
-//   SMTP_API_KEY=<your-provider-api-key>
+//   RESEND_API_KEY=re_<your-resend-api-key>
 //   SMTP_FROM=noreply@agmx.my
 // ============================================================
 
@@ -29,71 +29,42 @@ interface SendEmailEvent {
 }
 
 // ------------------------------------------------------------------
-// SMTP provider implementations
+// Resend implementation
 // ------------------------------------------------------------------
-// Choose ONE provider and implement it here. Credentials must be set
+// Routes auth emails through Resend's API. Credentials must be set
 // as Edge Function secrets in the Supabase Dashboard:
 //
-//   supabase secrets set SMTP_API_KEY=<your-provider-api-key>
+//   supabase secrets set RESEND_API_KEY=re_<your-resend-api-key>
 //   supabase secrets set SMTP_FROM=noreply@agmx.my
-//
-// Example:
-//   const apiKey = Deno.env.get('SMTP_API_KEY')
-//   if (!apiKey) {
-//     throw new Error('SMTP_API_KEY not configured')
-//   }
-//
-//   const resp = await fetch('https://api.your-smtp-provider.com/v1/email', {
-//     method: 'POST',
-//     headers: {
-//       'Authorization': `Bearer ${apiKey}`,
-//       'Content-Type': 'application/json'
-//     },
-//     body: JSON.stringify({
-//       from: 'AGMX <noreply@agmx.my>',
-//       to: [event.email],
-//       subject: event.subject,
-//       html: event.body
-//     })
-//   })
-//   if (!resp.ok) {
-//     throw new Error(`SMTP provider returned ${resp.status}`)
-//   }
-//
+//   supabase secrets set SEND_EMAIL_HOOK_SECRETS=v1,whsec_<base64-secret>
 // ------------------------------------------------------------------
 
 async function sendEmail(event: SendEmailEvent): Promise<void> {
+  const apiKey = Deno.env.get('RESEND_API_KEY')
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY not configured')
+  }
+
   const from = Deno.env.get('SMTP_FROM') || 'noreply@agmx.my'
 
-  // TODO: Replace this placeholder with your SMTP provider API call.
-  // Uncomment and implement the provider of your choice:
-  //
-  // const apiKey = Deno.env.get('SMTP_API_KEY')
-  // if (!apiKey) {
-  //   throw new Error('SMTP_API_KEY not configured')
-  // }
-  //
-  // const resp = await fetch('https://api.your-smtp-provider.com/v1/email', {
-  //   method: 'POST',
-  //   headers: {
-  //     'Authorization': `Bearer ${apiKey}`,
-  //     'Content-Type': 'application/json'
-  //   },
-  //   body: JSON.stringify({
-  //     from,
-  //     to: [event.email],
-  //     subject: event.subject,
-  //     html: event.body
-  //   })
-  // })
-  // if (!resp.ok) {
-  //   throw new Error(`SMTP provider returned ${resp.status}`)
-  // }
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from,
+      to: [event.email],
+      subject: event.subject,
+      html: event.body
+    })
+  })
 
-  // Scaffold: log and succeed so auth emails are not blocked.
-  console.log(
-    `[send-email-hook] event_id=${event.event_id} to=${event.email} subject="${event.subject}"`
-  )
+  if (!resp.ok) {
+    const errorText = await resp.text()
+    throw new Error(`Resend returned ${resp.status}: ${errorText}`)
+  }
 }
 
 Deno.serve(async (req) => {
@@ -122,7 +93,7 @@ Deno.serve(async (req) => {
     const wh = new Webhook(secret)
     const data = wh.verify(payload, headers) as SendEmailEvent
 
-    // Send the email through the configured provider
+    // Send the email through Resend
     await sendEmail(data)
 
     return new Response(
