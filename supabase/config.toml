@@ -300,7 +300,9 @@ max_frequency = "5s"
 #   SMTP_FROM=noreply@agmx.my
 #   SMTP_API_KEY=<your-provider-api-key>
 [auth.hook.send_email]
-enabled = true
+# Temporarily disabled — no SMTP configured yet. Re-enable when SEND_EMAIL_HOOK_SECRETS
+# is set in Supabase Dashboard → Edge Functions → Secrets.
+enabled = false
 uri = "http://127.0.0.1:54321/functions/v1/send-email-hook"
 secrets = "env(SEND_EMAIL_HOOK_SECRETS)"
 

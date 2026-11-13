@@ -15,6 +15,9 @@
     "pdfjs-dist": "^6.4.299"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.9"
+    "@electric-sql/pglite": "^0.5.9",
+    "clean-css": "^5.3.3",
+    "sharp": "^0.35.5",
+    "terser": "^5.51.2"
   }
 }
