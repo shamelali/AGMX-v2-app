@@ -1,0 +1,82 @@
+{
+  "01-hero-og-banner.png": {
+    "webp": "01-hero-og-banner.613bb758.webp",
+    "avif": "01-hero-og-banner.613bb758.avif",
+    "origSize": "1.27",
+    "webpSize": "0.03",
+    "avifSize": "0.03",
+    "savings": "97.6"
+  },
+  "02-login.png": {
+    "webp": "02-login.6603e5b2.webp",
+    "avif": "02-login.6603e5b2.avif",
+    "origSize": "1.14",
+    "webpSize": "0.03",
+    "avifSize": "0.03",
+    "savings": "97.2"
+  },
+  "03-dashboard.png": {
+    "webp": "03-dashboard.e988c699.webp",
+    "avif": "03-dashboard.e988c699.avif",
+    "origSize": "0.93",
+    "webpSize": "0.04",
+    "avifSize": "0.04",
+    "savings": "95.8"
+  },
+  "04-agm-hall.png": {
+    "webp": "04-agm-hall.b97a38f8.webp",
+    "avif": "04-agm-hall.b97a38f8.avif",
+    "origSize": "0.92",
+    "webpSize": "0.04",
+    "avifSize": "0.03",
+    "savings": "96.2"
+  },
+  "05-e-voting.png": {
+    "webp": "05-e-voting.7cdfa1e6.webp",
+    "avif": "05-e-voting.7cdfa1e6.avif",
+    "origSize": "1.02",
+    "webpSize": "0.06",
+    "avifSize": "0.06",
+    "savings": "94.4"
+  },
+  "06-ai-copilot.png": {
+    "webp": "06-ai-copilot.b80e9132.webp",
+    "avif": "06-ai-copilot.b80e9132.avif",
+    "origSize": "0.89",
+    "webpSize": "0.04",
+    "avifSize": "0.04",
+    "savings": "95.2"
+  },
+  "07-compliance.png": {
+    "webp": "07-compliance.68c09b2a.webp",
+    "avif": "07-compliance.68c09b2a.avif",
+    "origSize": "0.98",
+    "webpSize": "0.04",
+    "avifSize": "0.04",
+    "savings": "96.0"
+  },
+  "08-digital-vault.png": {
+    "webp": "08-digital-vault.cb79cf2f.webp",
+    "avif": "08-digital-vault.cb79cf2f.avif",
+    "origSize": "0.97",
+    "webpSize": "0.05",
+    "avifSize": "0.05",
+    "savings": "95.2"
+  },
+  "09-senior-mode.png": {
+    "webp": "09-senior-mode.35ed5697.webp",
+    "avif": "09-senior-mode.35ed5697.avif",
+    "origSize": "0.91",
+    "webpSize": "0.04",
+    "avifSize": "0.04",
+    "savings": "95.2"
+  },
+  "10-mobile-member.png": {
+    "webp": "10-mobile-member.d1bde732.webp",
+    "avif": "10-mobile-member.d1bde732.avif",
+    "origSize": "1.40",
+    "webpSize": "0.05",
+    "avifSize": "0.05",
+    "savings": "96.3"
+  }
+}
