@@ -197,10 +197,7 @@ await import(pathToFileURL(prepare()).href);
 const handler = globalThis.__mfHandler;
 if (typeof handler !== "function") throw new Error("serve() handler was never registered");
 
-// Synthetic host, matching SUPABASE_URL above: the handler reads only the path
-// and the payment-confirm link it builds is never fetched, so no real project
-// ref belongs in a test that runs offline.
-const BASE = "https://db.test/functions/v1/money-flow";
+const BASE = "https://lcrfsqocqavczgnzpadq.supabase.co/functions/v1/money-flow";
 async function call(route, { method = "POST", as, query = "", body } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (as) headers.Authorization = `Bearer ${as}`;

@@ -4,7 +4,7 @@
 
 | Variable | Value | Environment | Notes |
 |----------|-------|-------------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://jchfalaibabmszewemat.supabase.co` | All | **Publishable** - safe for browser |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://lcrfsqocqavczgnzpadq.supabase.co` | All | **Publishable** - safe for browser |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | (from Supabase → Settings → API → Publishable key) | All | **NEW: Use publishable key, not anon** |
 | `SUPABASE_SECRET_KEY` | (from Supabase → Settings → API → Secret key) | **Production only** | **Server-only! Never NEXT_PUBLIC_** |
 | `NVIDIA_NIM_API_KEY` | `nvapi-...` | **NOT in Vercel!** | **⚠️ Edge Function secret only** |
@@ -14,7 +14,7 @@
 | `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_MODEL` | `nvidia/nv-embedqa-e5-v5` | All | Safe for browser |
 | `NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL` | `meta/llama-3.1-70b-instruct` | All | Safe for browser |
 | `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS` | `1024` | All | Safe for browser |
-| `NEXT_PUBLIC_APP_URL` | `https://www.agmx.my` | All | Safe for browser |
+| `NEXT_PUBLIC_APP_URL` | `https://agmx-v2.vercel.app` | All | Safe for browser |
 
 > `/api/config.js` prefers `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and still
 > accepts the legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` as a fallback.
@@ -70,7 +70,7 @@ LLM_PROVIDER=nvidia
 - [ ] `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_MODEL` = `nvidia/nv-embedqa-e5-v5`
 - [ ] `NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL` = `meta/llama-3.1-70b-instruct`
 - [ ] `NEXT_PUBLIC_NVIDIA_NIM_EMBEDDING_DIMS` = `1024`
-- [ ] `NEXT_PUBLIC_APP_URL` = `https://www.agmx.my`
+- [ ] `NEXT_PUBLIC_APP_URL` = `https://agmx-v2.vercel.app`
 
 ### Supabase Edge Function Secrets
 - [ ] `NVIDIA_NIM_API_KEY`
