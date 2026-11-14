@@ -362,7 +362,7 @@
               method: 'PUT',
               headers: {
                 'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaGZhbGFpYmFibXN6ZXdlbWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzA4OTMsImV4cCI6MjEwOTM0Njg5M30.6S0vuRtbUcextXfRSax8oCXhDs_03GOgAxcLqK3ZQ6c',
+                'apikey': "", // ← PASTE YOUR ANON KEY FROM SUPABASE DASHBOARD HERE (Settings → API)
                 'Content-Type': file.type,
                 'x-upsert': 'true'
               },
@@ -385,7 +385,7 @@
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaGZhbGFpYmFibXN6ZXdlbWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzA4OTMsImV4cCI6MjEwOTM0Njg5M30.6S0vuRtbUcextXfRSax8oCXhDs_03GOgAxcLqK3ZQ6c',
+              'apikey': "", // ← PASTE YOUR ANON KEY FROM SUPABASE DASHBOARD HERE (Settings → API)
               'Content-Type': 'application/json',
               'Prefer': 'return=representation'
             },
