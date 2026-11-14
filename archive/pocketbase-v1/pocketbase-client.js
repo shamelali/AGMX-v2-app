@@ -164,7 +164,7 @@
     // ---- auth ----
     /**
      * Google OAuth2. PocketBase must have the Google provider enabled and
-     * `clientId` configured in Settings → Auth (see GOOGLE_AUTH_SETUP.md).
+     * `clientId` configured in Settings → Auth (see archive/docs/GOOGLE_AUTH_SETUP.md).
      * Returns { token, record }.
      */
     async authWithGoogle() {
@@ -190,7 +190,7 @@
       if (!res.ok) {
         throw new Error(
           "Google auth is not configured on the PocketBase server. " +
-            "See GOOGLE_AUTH_SETUP.md."
+            "See archive/docs/GOOGLE_AUTH_SETUP.md."
         );
       }
       const data = await res.json();

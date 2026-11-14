@@ -13,7 +13,7 @@ window.AGMX_CONFIG = {
 
   // --- Legacy PocketBase (Auth + Realtime bridge; optional) ---
   url: "http://127.0.0.1:8090",           // PocketBase instance
-  googleClientId: "",       // Google OAuth2 client ID (see GOOGLE_AUTH_SETUP.md)
+  googleClientId: "",       // Google OAuth2 client ID (see archive/docs/GOOGLE_AUTH_SETUP.md)
   pocketbaseRealtimeOnly: true,  // If true, skip PB auth, use only for SSE/realtime
 
   // --- Backend / Diagnostics ---
@@ -25,7 +25,7 @@ window.AGMX_CONFIG = {
   devTools: false,
 
   // --- App ---
-  appUrl: "https://agmx-v2.vercel.app",  // Production URL
+  appUrl: "https://www.agmx.my",  // Production URL
 
   // --- LLM Provider (AI Copilot + Knowledge RAG) ---
   // Choose ONE: "openai" or "nvidia"
