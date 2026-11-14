@@ -176,10 +176,6 @@ supabase functions deploy money-flow
 # and knowledgeRagEnabled stays false until a provider key exists (flags below).
 supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
-# Send Email Auth Hook — intercepts auth emails and routes them through
-# your SMTP provider. Requires SEND_EMAIL_HOOK_SECRETS, SMTP_FROM and
-# SMTP_API_KEY secrets (set below).
-supabase functions deploy send-email-hook
 ```
 
 **JWT verification** (declared in `supabase/config.toml`, confirm with
@@ -190,7 +186,6 @@ supabase functions deploy send-email-hook
 | `money-flow` | **false** | Billplz/HitPay webhooks post with the gateway's signature header and no Supabase JWT. Verification on = 401 before the handler runs, so the payment settles at the gateway and stays UNPAID here. Authenticity is the signature check inside the function. |
 | `governance` | **true** | Resolves the tenant from the caller's JWT; unverified calls could name any `organization_id`. |
 | `knowledge-query` / `knowledge-ingest` | **true** | Run as the caller so RLS scopes retrieval and ingest to one organisation. |
-| `send-email-hook` | **false** | The webhook verifies tokens itself via `withOAuthProtectedResource`; gateway pre-verification would reject unauthenticated OAuth discovery requests. |
 
 Secrets — each name below is the exact string `Deno.env.get()` reads in that
 function's source. `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
@@ -222,11 +217,6 @@ supabase secrets set BILLPLZ_API_URL=https://www.billplz.com   # Production; def
 supabase secrets set HITPAY_API_KEY=...
 supabase secrets set HITPAY_SALT=...                    # Per-webhook salt (Dashboard → Developers → Webhooks)
 supabase secrets set HITPAY_API_URL=https://api.hit-pay.com   # Defaults to https://api.sandbox.hit-pay.com
-
-# Send Email Auth Hook — routes auth emails through Resend.
-supabase secrets set SEND_EMAIL_HOOK_SECRETS=v1,whsec_...   # see functions/send-email-hook/index.ts
-supabase secrets set RESEND_API_KEY=re_<your-resend-api-key>
-supabase secrets set SMTP_FROM=noreply@agmx.my
 
 # LLM (only needed by knowledge-*; see _shared/llm.ts)
 supabase secrets set LLM_PROVIDER=nvidia                # or openai
@@ -265,22 +255,6 @@ npm install -g vercel
 vercel login
 vercel link --project=agmx-v2-app --scope=duta-integra --yes
 ```
-
-**Production branch.** This project's Vercel production branch is `main`: a
-merge to `main` creates a *Production* deployment and re-points
-`www.agmx.my` at it. Verified 2026-11-06 — merging the consolidation PR
-produced a Production deployment. Domain cut over to www.agmx.my on 2026-11-12:
-Supabase site_url, redirect allow list, APP_URL and BILLPLZ_CALLBACK_URL upserted;
-app-side canonical tags, sitemap, config fallbacks and sw.js CACHE rewritten.
-and `auth/consent.html` were byte-identical to `main`.
-
-Do not infer the production branch from what the site serves. On 2026-11-06 the
-live site served the `sync-from-origin` line (sw `agmx-v45`, 65 KB index) while
-`main` was at `agmx-v24` / 33 KB — the production alias had been pointed at a
-deployment of that other line (a manual `vercel --prod` from a sync checkout,
-which `deploy.sh` does), not at `main`'s latest commit. That is why the two
-lines must be collapsed to one: keep `main`, and delete `master` and
-`sync-from-origin` so a stale manual deploy cannot take the alias again.
 
 **Add Environment Variables in Vercel Dashboard:**
 
@@ -325,7 +299,7 @@ HITPAY_API_URL=https://api.sandbox.hit-pay.com   # Production: https://api.hit-p
 
 **App Config:**
 ```
-NEXT_PUBLIC_APP_URL=https://www.agmx.my
+NEXT_PUBLIC_APP_URL=https://agmx-v2.vercel.app
 ```
 
 Feature flags are opt-IN: leave them unset for a real deployment. `demoMode`,
@@ -388,15 +362,15 @@ pattern: a bare `config.js` also drops `api/config.js` and the app boots unconfi
 
 ## 🧪 Test the Flow
 
-1. **Landing**: https://www.agmx.my
-2. **Assessment**: https://www.agmx.my/assessment
+1. **Landing**: https://agmx-v2.vercel.app
+2. **Assessment**: https://agmx-v2.vercel.app/assessment
    - Answer 12 questions → Get complexity score → Recommended plan
-3. **Leads** (operator): https://www.agmx.my/leads
+3. **Leads** (operator): https://agmx-v2.vercel.app/leads
    - Sign in with Supabase Auth (create user in Dashboard)
    - See assessment lead, generate quote
-4. **Checkout**: https://www.agmx.my/checkout
+4. **Checkout**: https://agmx-v2.vercel.app/checkout
    - Quote → Invoice → Payment (Billplz/HitPay sandbox)
-5. **AI Copilot**: https://www.agmx.my/app → "AI Copilot" tab
+5. **AI Copilot**: https://agmx-v2.vercel.app/app → "AI Copilot" tab
    - Ask questions about indexed documents
 
 ---
