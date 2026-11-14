@@ -57,6 +57,15 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 | SP5-01 | Partner portal | `partner-portal.html` | Done — real Supabase data |
 | SP5-02 | Federation organizations | `federation-dashboard.html` | Done for the roll-up view; consolidated multi-co-op reporting is still planned |
 
+## Sprint 7 — White-Label & Free LLM Router
+
+| ID | Title | Deliverable | State |
+|----|-------|-------------|-------|
+| SP7-01 | White-label co-op portal frontend | `white-label-portal.html`, `org-settings.html` | Done — reads `logo_url`/`primary_color`, admin settings page, storage bucket migration created |
+| SP7-02 | freellmapi free LLM router | `http://localhost:3001` | Done locally — 87 providers, 491 models, auto-failover; `.dev.vars` + Vercel env vars updated. Production needs public URL |
+| SP7-03 | Auto-provision on signup | Migration `20261113083423_auto_provision_user.sql` | Done — trigger on `auth.users` creates org + profile + membership |
+| SP7-04 | Resend send-email-hook | `supabase/functions/send-email-hook/index.ts` | Done — Edge function written, `config.toml` enabled, needs secrets in Supabase Dashboard |
+
 ## Sprint 6 — Prove it
 
 | ID | Title | Deliverable | State |
@@ -73,15 +82,26 @@ Auto-populated from AGMX_V2_PLAN.md (revenue roadmap, sprints, acceptance tests)
 - [ ] Custom domain `myagmx.com` (chosen 2026-11-07, not yet registered) —
       register, add in Vercel, point DNS, then widen §5/§19/§23 past their
       `*.vercel.app` match
-- [ ] White-label co-op portal — the schema arrived as `0010`
-      (`organizations.logo_url`, `primary_color`), but no page reads either column
-      and no policy says who may set one, so the scope decision is still open
-- [ ] Set a provider key on both platforms to turn the knowledge room on:
-      `NVIDIA_NIM_API_KEY` (or `NGC_API_KEY`) with `LLM_PROVIDER=nvidia`, or
-      `OPENAI_API_KEY` with `LLM_PROVIDER=openai`. `/api/config` publishes
+- [ ] White-label co-op portal — frontend built (`white-label-portal.html`,
+      `org-settings.html`), storage migration created (`20261113140833_white_label_storage.sql`,
+      `coop-logos` bucket, admin-only RLS, public read). Scope decision still open:
+      which fields, which pages, who uploads the logo, what a co-op's own domain
+      does to §19/§23.
+- [ ] freellmapi production URL — production env var
+      `NEXT_PUBLIC_NVIDIA_NIM_BASE_URL` is `http://localhost:3001/v1` which only
+      works locally. Deploy freellmapi publicly (Railway, Render, Fly.io, VPS)
+      and update this env var, or revert to `https://integrate.api.nvidia.com/v1`
+      for production.
+- [ ] Set a provider key on both platforms to turn the knowledge room on —
+      freellmapi aggregates 87 free providers (Google, Groq, NVIDIA, Mistral, etc.)
+      so no user API key is strictly required locally. For production, deploy
+      freellmapi publicly or set `NVIDIA_NIM_API_KEY` / `OPENAI_API_KEY` with
+      `LLM_PROVIDER=nvidia`/`openai`. `/api/config` publishes
       `knowledgeRagEnabled:false` until one exists, and `/api/health` reports the
-      same absence by the same names
+      same absence by the real variable names.
 - [ ] Set the `DEPLOY.md` secrets in the Supabase project
+- [ ] Rotate the exposed anon key — the key was pasted in chat earlier.
+      Rotate in Supabase Dashboard → Settings → API and update `config.js`.
 
 ## Deployment Smoke-Test Matrix
 

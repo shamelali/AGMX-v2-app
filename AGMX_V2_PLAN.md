@@ -183,6 +183,34 @@ Done since the 2026-08-12 plan:
 - [x] Stand up Supabase project + apply schema + RLS policies — `jchfalaibabmszewemat`
 - [x] Assessment → quote → invoice → payment (Sprint 2), and Sprints 3, 4, 5+
 - [x] §9's acceptance journey as an offline check (§24, §25)
+- [x] freellmapi installed locally — free LLM router at `http://localhost:3001`,
+      87 providers, 491 models, auto-failover. Local `.dev.vars` and Vercel
+      production env vars updated (`NEXT_PUBLIC_NVIDIA_NIM_BASE_URL`,
+      `NVIDIA_NIM_API_KEY`, `NEXT_PUBLIC_NVIDIA_NIM_CHAT_MODEL=auto`).
+      Production uses `localhost` so freellmapi only works locally until
+      deployed publicly; keep NVIDIA NIM URL for production until then.
+- [x] White-label co-op portal frontend — `white-label-portal.html` reads
+      `organizations.logo_url` / `primary_color` and applies brand color/logo;
+      `org-settings.html` lets admins upload logo + pick color, saves via REST
+      to `organizations` table. Storage bucket migration
+      `20261113140833_white_label_storage.sql` created (`coop-logos` bucket,
+      admin-only RLS, public read). Scope decisions still open.
+- [x] Auto-provision on signup — migration `20261113083423_auto_provision_user.sql`
+      deployed; trigger on `auth.users` auto-creates organization + profile +
+      organization_members (admin) so `loadDashboard()` no longer fails with
+      "Profile not found".
+- [x] Resend send-email-hook — Edge Function written at
+      `supabase/functions/send-email-hook/index.ts`; `config.toml` re-enabled.
+      Needs `RESEND_API_KEY`, `SMTP_FROM`, `SEND_EMAIL_HOOK_SECRETS` set in
+      Supabase Dashboard → Edge Functions → Secrets.
+- [x] config.toml blocker fixed — `auth.hook.send_email` URI updated to
+      production Supabase function URL.
+- [x] Schema bundle regenerated — `supabase/schema_final.sql` rebuilt from all
+      12 migrations (2490 lines).
+- [x] Domain reverted to `www.agmx.my` — all `myagmx.com` references removed
+      from active files; `robots.txt`, `sitemap.xml`, `index.html`, `app.html`,
+      `config.*`, `DEPLOY.md`, `VERCEL_ENV.md`, `README.md`, `TODO.md`,
+      `BACKLOG.md` all consistent.
 
 Open, in order:
 
@@ -214,19 +242,21 @@ Open, in order:
       production, which is the only place this repository permits writing. §27 is the
       read-only substitute: no check here has recorded a real ballot in a live,
       production-shaped database yet.
-- [x] Custom domain `www.agmx.my`. Cut over 2026-11-12 — Supabase site_url,
-      redirect allow list, APP_URL and BILLPLZ_CALLBACK_URL all upserted; app-side
-      canonical tags, sitemap and config fallbacks rewritten. §5, §19 and §23 now
-      read the host from sitemap.xml (www.agmx.my).
-- [ ] White-label co-op portal. The columns exist — `0010`, applied to production
-      a day before any file described it here, adds `organizations.logo_url` and
-      `primary_color` — but the portal does not: no page reads either column,
-      nothing uploads a logo, and no policy governs who may set one. Still a scope
-      decision (which fields, which pages, who uploads the logo, what a co-op's own
-      domain does to §19/§23) before it is a task.
-- [ ] Production secrets: `MIGRATION_PASSWORD`, `SERVICE_ROLE_KEY`,
+- [ ] **White-label co-op portal scope** — frontend built
+      (`white-label-portal.html`, `org-settings.html`), storage migration created,
+      but no policy says who may set logo/color, which pages read them, or whether
+      a co-op's own domain changes §19/§23. Still a scope decision before it is
+      complete.
+- [ ] **freellmapi production URL** — production env var
+      `NEXT_PUBLIC_NVIDIA_NIM_BASE_URL` is `http://localhost:3001/v1` which only
+      works locally. Deploy freellmapi publicly (Railway, Render, Fly.io, VPS)
+      and update this env var, or revert to
+      `https://integrate.api.nvidia.com/v1` for production.
+- [ ] **Production secrets** — `MIGRATION_PASSWORD`, `SERVICE_ROLE_KEY`,
       `DATABASE_URL`, `HITPAY_*` and `DEEPSEEK_API_KEY` are listed in `DEPLOY.md`
       and must be set in the Supabase project, not in this repository.
+- [ ] **Rotate the exposed anon key** — the key was pasted in chat earlier.
+      Rotate in Supabase Dashboard → Settings → API and update `config.js`.
 
 ### Deployment smoke-test matrix
 | URL | Expect |

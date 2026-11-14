@@ -132,7 +132,7 @@
       with the provider they select, and a query without a key answers
       `503 LLM_NOT_CONFIGURED` naming the missing variable. Remaining work is to
       set a provider key on both platforms, not to change the flag's meaning.
-- [x] 🌐 Custom domain `www.agmx.my` — registered and cut over 2026-11-12. Added
+- [x] 🌐 Custom domain `www.agmx.my` — registered and cut over. Added
       in Vercel, DNS pointed, §5/§19/§23 now read host from sitemap.xml.
 - [ ] 🎨 White-label co-op portal — **the schema exists, the portal does not.**
       `0010` gives `organizations.logo_url` and `primary_color` (default `#2563EB`),
