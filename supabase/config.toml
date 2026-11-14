@@ -300,11 +300,9 @@ max_frequency = "5s"
 #   RESEND_API_KEY=re_<your-resend-api-key>
 #   SMTP_FROM=noreply@agmx.my
 [auth.hook.send_email]
-# Temporarily disabled — no SMTP configured yet. Re-enable when SEND_EMAIL_HOOK_SECRETS
-# is set in Supabase Dashboard → Edge Functions → Secrets.
 enabled = false
-uri = "http://127.0.0.1:54321/functions/v1/send-email-hook"
-secrets = "env(SEND_EMAIL_HOOK_SECRETS)"
+uri = "https://zentniufgpsnhfowcjki.supabase.co/functions/v1/send-email-hook"
+secrets = "v1,whsec_ZHVtbXk="
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]

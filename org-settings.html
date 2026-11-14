@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Tetapan Organisasi — AGMX White-Label. Muat naik logo koperasi dan tetapkan warna prima.">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Tetapan Organisasi • AGMX</title>
+  <style>
+    .wl-preview {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+    }
+    .wl-preview-logo {
+      height: 48px;
+      width: auto;
+      border-radius: 8px;
+      background: #fff;
+      padding: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .wl-preview-info {
+      flex: 1;
+    }
+    .wl-preview-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin: 0 0 0.25rem 0;
+      color: #1e293b;
+    }
+    .wl-preview-color {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin: 0;
+    }
+    .wl-color-chip {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      vertical-align: middle;
+    }
+    .wl-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(280px,1fr));
+      gap: 1.5rem;
+    }
+    .wl-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .wl-field-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.05em;
+    }
+    .wl-file-input {
+      display: block;
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      background: #f8fafc;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .wl-file-input:hover {
+      border-color: #2563EB;
+      background: #eff6ff;
+    }
+    .wl-color-input {
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      background: none;
+      cursor: pointer;
+    }
+    .wl-color-input::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    .wl-color-input::-webkit-color-swatch {
+      border: none;
+      border-radius: 12px;
+    }
+    .wl-hint {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.25rem;
+    }
+    .wl-btn-save {
+      background: #2563EB;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 0.875rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 1rem;
+    }
+    .wl-btn-save:hover {
+      background: #1D4ED8;
+    }
+    .wl-btn-save:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .wl-status {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .wl-status.success {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .wl-status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .wl-logo-current {
+      margin-top: 0.5rem;
+    }
+    .wl-logo-current img {
+      height: 64px;
+      width: auto;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
+  <main class="page" style="max-width:800px;margin:2rem auto;padding:0 1rem;">
+    <header style="margin-bottom:2rem;">
+      <h1 style="margin:0 0 0.5rem 0;">Tetapan Organisasi</h1>
+      <p style="color:#64748b;margin:0;">Tetapkan branding koperasi anda — logo dan warna prima akan digunakan di seluruh portal tersuai.</p>
+    </header>
+
+    <div id="wlPreview" class="wl-preview">
+      <img id="wlPreviewLogo" class="wl-preview-logo" src="" alt="Logo pratonton" onerror="this.style.display='none'">
+      <div class="wl-preview-info">
+        <h2 id="wlPreviewName" class="wl-preview-name">Organisasi Koperasi</h2>
+        <p id="wlPreviewColor" class="wl-preview-color">Warna prima: <span id="wlPreviewColorValue" style="font-weight:600;">#2563EB</span></p>
+      </div>
+    </div>
+
+    <section style="border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem;background:#fff;">
+      <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Branding Organisasi</h2>
+
+      <div class="wl-form-grid">
+        <div class="wl-field">
+          <label class="wl-field-label">Logo Koperasi</label>
+          <input type="file" id="wlLogoInput" class="wl-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <div class="wl-logo-current" id="wlLogoCurrent" style="display:none;">
+            <p style="font-size:0.75rem;color:#64748b;margin:0 0 0.5rem 0;">Logo sedia ada:</p>
+            <img id="wlLogoCurrentImg" src="" alt="Logo sedia ada" style="height:64px;width:auto;border-radius:8px;">
+          </div>
+          <p class="wl-hint">Maksimum 5 MB. Format: PNG, JPEG, WebP, SVG.</p>
+        </div>
+
+        <div class="wl-field">
+          <label class="wl-field-label">Warna Prima</label>
+          <input type="color" id="wlColorInput" class="wl-color-input" value="#2563EB">
+          <p class="wl-hint">Digunakan untuk tajuk, butang, dan aksen di seluruh portal.</p>
+        </div>
+      </div>
+
+      <button id="wlSaveBtn" class="wl-btn-save" disabled>Simpan Perubahan</button>
+
+      <div id="wlStatus" class="wl-status"></div>
+    </section>
+
+    <section style="border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem;background:#fff;margin-top:2rem;">
+      <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Butit Organisasi</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;color:#475569;">
+        <div>
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Nama</div>
+          <div id="wlOrgName" style="font-weight:600;">-</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Slug</div>
+          <div id="wlOrgSlug" style="font-weight:600;">-</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Pelan</div>
+          <div id="wlOrgPlan" style="font-weight:600;">-</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Peranan anda</div>
+          <div id="wlUserRole" style="font-weight:600;">-</div>
+        </div>
+      </div>
+    </section>
+
+    <p style="margin-top:2rem;color:#64748b;text-align:center;">
+      Kembali ke <a href="white-label-portal.html" style="color:#2563EB;text-decoration:none;">Portal Tersuai</a>
+    </p>
+  </main>
+  <script type="module">
+    import { AGMX_API } from './supabase-client.js';
+
+    const preview = document.getElementById('wlPreview');
+    const previewLogo = document.getElementById('wlPreviewLogo');
+    const previewName = document.getElementById('wlPreviewName');
+    const previewColor = document.getElementById('wlPreviewColor');
+    const previewColorValue = document.getElementById('wlPreviewColorValue');
+
+    const logoInput = document.getElementById('wlLogoInput');
+    const logoCurrent = document.getElementById('wlLogoCurrent');
+    const logoCurrentImg = document.getElementById('wlLogoCurrentImg');
+    const colorInput = document.getElementById('wlColorInput');
+    const saveBtn = document.getElementById('wlSaveBtn');
+    const status = document.getElementById('wlStatus');
+
+    const detailEls = {
+      orgName: document.getElementById('wlOrgName'),
+      orgSlug: document.getElementById('wlOrgSlug'),
+      orgPlan: document.getElementById('wlOrgPlan'),
+      userRole: document.getElementById('wlUserRole'),
+    };
+
+    let currentOrg = null;
+    let hasChanges = false;
+
+    function showStatus(message, type = 'error') {
+      status.textContent = message;
+      status.className = `wl-status ${type}`;
+      status.style.display = 'block';
+      setTimeout(() => { status.style.display = 'none'; }, 5000);
+    }
+
+    function updatePreview() {
+      if (!currentOrg) return;
+      const color = currentOrg.primary_color || '#2563EB';
+      document.documentElement.style.setProperty('--wl-primary', color);
+      preview.style.borderColor = color;
+      previewName.style.color = color;
+      previewColorValue.textContent = color;
+      previewColorValue.style.color = color;
+      colorInput.value = color;
+
+      if (currentOrg.logo_url) {
+        previewLogo.src = currentOrg.logo_url;
+        previewLogo.style.display = 'block';
+        logoCurrentImg.src = currentOrg.logo_url;
+        logoCurrent.style.display = 'block';
+      }
+
+      previewName.textContent = currentOrg.name || 'Organisasi Koperasi';
+      detailEls.orgName.textContent = currentOrg.name || '-';
+      detailEls.orgSlug.textContent = currentOrg.slug || '-';
+      detailEls.orgPlan.textContent = currentOrg.plan || '-';
+      detailEls.userRole.textContent = 'Admin';
+    }
+
+    async function load() {
+      try {
+        if (!AGMX_API || !AGMX_API.isAuthenticated) {
+          document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Sila log masuk</h2><p>Anda perlu log masuk untuk mengakses tetapan organisasi.</p></div>';
+          return;
+        }
+        const isAuth = await AGMX_API.isAuthenticated();
+        if (!isAuth) {
+          document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Sesi tidak sah</h2><p>Sesi anda telah tamat. Sila log masuk sekali lagi.</p></div>';
+          return;
+        }
+
+        const profile = await AGMX_API.profile.getCurrent();
+        if (!profile || !profile.organization) {
+          document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Tiada Organisasi</h2><p>Akaun anda belum dikaitkan dengan organisasi manapun.</p></div>';
+          return;
+        }
+
+        currentOrg = profile.organization;
+        updatePreview();
+        saveBtn.disabled = false;
+        hasChanges = false;
+
+      } catch (e) {
+        showStatus('Gagal memuatkan: ' + (e.message || e));
+      }
+    }
+
+    logoInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Validate file type
+      const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+      if (!allowed.includes(file.type)) {
+        showStatus('Jenis fail tidak dibenarkan. Gunakan PNG, JPEG, WebP, atau SVG.');
+        return;
+      }
+
+      // Validate size (5 MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showStatus('Fail terlalu besar. Maksimum 5 MB.');
+        return;
+      }
+
+      hasChanges = true;
+      saveBtn.disabled = false;
+
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        previewLogo.src = ev.target.result;
+        previewLogo.style.display = 'block';
+        logoCurrent.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    colorInput.addEventListener('input', (e) => {
+      hasChanges = true;
+      saveBtn.disabled = false;
+      previewColorValue.textContent = e.target.value;
+      previewColorValue.style.color = e.target.value;
+      previewName.style.color = e.target.value;
+      document.documentElement.style.setProperty('--wl-primary', e.target.value);
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      if (!hasChanges || !currentOrg) return;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Menyimpan…';
+
+      try {
+        let logoUrl = currentOrg.logo_url;
+
+        // Upload logo if changed
+        if (logoInput.files && logoInput.files[0]) {
+          const file = logoInput.files[0];
+          const ext = file.name.split('.').pop().toLowerCase();
+          const storagePath = `${currentOrg.id}/logo.${ext}`;
+
+          const uploadResp = await fetch(
+            `https://jchfalaibabmszewemat.supabase.co/storage/v1/object/coop-logos/${storagePath}`,
+            {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaGZhbGFpYmFibXN6ZXdlbWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzA4OTMsImV4cCI6MjEwOTM0Njg5M30.6S0vuRtbUcextXfRSax8oCXhDs_03GOgAxcLqK3ZQ6c',
+                'Content-Type': file.type,
+                'x-upsert': 'true'
+              },
+              body: file
+            }
+          );
+
+          if (!uploadResp.ok) {
+            const err = await uploadResp.text().catch(() => '');
+            throw new Error('Gagal muat naik logo: ' + err);
+          }
+
+          logoUrl = `https://jchfalaibabmszewemat.supabase.co/storage/v1/object/public/coop-logos/${storagePath}`;
+        }
+
+        // Update organization record
+        const updateResp = await fetch(
+          `https://jchfalaibabmszewemat.supabase.co/rest/v1/organizations?id=eq.${currentOrg.id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaGZhbGFpYmFibXN6ZXdlbWF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzA4OTMsImV4cCI6MjEwOTM0Njg5M30.6S0vuRtbUcextXfRSax8oCXhDs_03GOgAxcLqK3ZQ6c',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+              logo_url: logoUrl,
+              primary_color: colorInput.value
+            })
+          }
+        );
+
+        if (!updateResp.ok) {
+          const err = await updateResp.text().catch(() => '');
+          throw new Error('Gagal simpan tetapan: ' + err);
+        }
+
+        hasChanges = false;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Disimpan';
+        showStatus('Tetapan organisasi telah disimpan.', 'success');
+
+        // Refresh preview
+        const updated = await updateResp.json();
+        currentOrg = { ...currentOrg, logo_url: logoUrl, primary_color: colorInput.value };
+        updatePreview();
+
+      } catch (e) {
+        showStatus(e.message || 'Ralat tidak diketahui');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Simpan Perubahan';
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

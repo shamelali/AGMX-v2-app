@@ -23,6 +23,8 @@
 --   0008_governance_bugfixes.sql  (157 lines)
 --   0009_audit_all_stages.sql  (25 lines)
 --   0010_white_label_branding.sql  (25 lines)
+--   20261113083423_auto_provision_user.sql  (39 lines)
+--   20261113140833_white_label_storage.sql  (111 lines)
 -- ============================================================
 
 
@@ -2295,3 +2297,163 @@ alter table public.organizations
 -- ------------------------------------------------------------
 comment on column public.organizations.logo_url is 'Cooperative logo image URL for white-label portal';
 comment on column public.organizations.primary_color is 'Co-op primary brand color (hex) for white-label portal';
+
+
+-- ============================================================
+-- 20261113083423_auto_provision_user.sql
+-- ============================================================
+-- Auto-provision organization + profile when a new user signs up.
+-- Without this, auth.users rows have no matching profiles row, so
+-- AGMX_API.loadDashboard() fails with "Profile not found" and the
+-- landing page never loads after sign-in.
+--
+-- Rerun-safe: every statement is create or replace / insert ... on conflict
+-- / drop trigger if exists.
+
+create or replace function public.auto_provision_user_on_signup()
+returns trigger language plpgsql as $$
+declare
+  v_org_id uuid;
+  v_email_prefix text;
+begin
+  v_email_prefix := coalesce(lower(split_part(new.email, '@', 1)), 'u' || substr(new.id::text, 1, 8));
+
+  -- Create a default organization for the new user
+  insert into public.organizations (slug, name, type, plan, status, settings)
+  values (v_email_prefix || '-' || substr(gen_random_uuid()::text, 1, 8),
+          coalesce(split_part(new.email, '@', 1), 'User ' || substr(new.id::text, 1, 8)) || 's Organization',
+          'cooperative',
+          'starter',
+          'active',
+          '{}'::jsonb)
+  returning id into v_org_id;
+
+  -- Link the user to the organization as a member (profile is created separately)
+  insert into public.organization_members (organization_id, user_id, member_id, role, permissions)
+  values (v_org_id, new.id, null, 'admin', '{}'::text[])
+  on conflict (organization_id, user_id) do nothing;
+
+  return new;
+end
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.auto_provision_user_on_signup();
+
+
+-- ============================================================
+-- 20261113140833_white_label_storage.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — White-Label Storage Bucket
+-- Creates a Supabase Storage bucket for co-op logo uploads
+-- and RLS policies so only org admins can manage logos.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Storage bucket: co-op logos
+-- Only applies when the storage extension is present (PGlite
+-- does not ship storage, so guard with a DO block).
+-- ------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values (
+      'coop-logos',
+      'coop-logos',
+      true,
+      5242880,                                    -- 5 MB
+      ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+    )
+    on conflict (id) do nothing;
+
+    -- Storage RLS policies (rerun-safe: drop + create)
+    -- Admins can upload logos to their own organization's folder
+    drop policy if exists coop_logos_admin_insert on storage.objects;
+    create policy coop_logos_admin_insert
+    on storage.objects
+    for insert
+    to authenticated
+    with check (
+      bucket_id = 'coop-logos'
+      and split_part(name, '/', 1) = auth.uid()::text
+      and exists (
+        select 1 from public.profiles
+        where id = auth.uid()
+          and role = 'admin'
+      )
+    );
+
+    -- Admins can update/delete their own organization's logos
+    drop policy if exists coop_logos_admin_update on storage.objects;
+    create policy coop_logos_admin_update
+    on storage.objects
+    for update
+    to authenticated
+    using (
+      bucket_id = 'coop-logos'
+      and split_part(name, '/', 1) = auth.uid()::text
+      and exists (
+        select 1 from public.profiles
+        where id = auth.uid()
+          and role = 'admin'
+      )
+    );
+
+    drop policy if exists coop_logos_admin_delete on storage.objects;
+    create policy coop_logos_admin_delete
+    on storage.objects
+    for delete
+    to authenticated
+    using (
+      bucket_id = 'coop-logos'
+      and split_part(name, '/', 1) = auth.uid()::text
+      and exists (
+        select 1 from public.profiles
+        where id = auth.uid()
+          and role = 'admin'
+      )
+    );
+
+    -- Anyone can read logos (public bucket)
+    drop policy if exists coop_logos_public_select on storage.objects;
+    create policy coop_logos_public_select
+    on storage.objects
+    for select
+    to public
+    using (bucket_id = 'coop-logos');
+  end if;
+end $$;
+
+-- ------------------------------------------------------------
+-- Organizations RLS: admins can update branding columns
+-- ------------------------------------------------------------
+drop policy if exists orgs_update_branding_admin on public.organizations;
+create policy orgs_update_branding_admin
+on public.organizations
+for update
+to authenticated
+using (
+  id = public.current_org_id()
+  and exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+  )
+)
+with check (
+  id = public.current_org_id()
+  and exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+  )
+);
+
+-- ------------------------------------------------------------
+-- Helper: upload path is <user-id>/logo.<ext>
+-- ------------------------------------------------------------
+-- Comment: coop-logos bucket stores co-op branding logos at <user-id>/logo.<ext>
