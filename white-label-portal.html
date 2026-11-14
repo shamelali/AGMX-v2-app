@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portal Koperasi Tersuai — AGMX White-Label. Platform tadbir urus AGM tersuai dengan logo, warna dan branding organisasi anda.">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Portal Tersuai • AGMX</title>
+  <style>
+    /* White-label theme overrides — applied from organizations.primary_color / logo_url */
+    :root {
+      --wl-primary: #2563EB;
+      --wl-logo: '';
+    }
+    .wl-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .wl-logo-img {
+      height: 40px;
+      width: auto;
+      border-radius: 8px;
+      background: #fff;
+      padding: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .wl-org-name {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--wl-primary);
+      margin: 0;
+    }
+    .wl-org-tagline {
+      color: #64748b;
+      margin: 0;
+      font-size: 0.875rem;
+    }
+    .wl-brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      background: var(--wl-primary);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .wl-brand-badge .wl-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
+  <main class="page" style="max-width:1100px;margin:2rem auto;padding:0 1rem;">
+    <header class="wl-header" style="margin-bottom:2rem;">
+      <img id="wlLogo" class="wl-logo-img" src="" alt="Logo koperasi" onerror="this.style.display='none'">
+      <div>
+        <h1 id="wlOrgName" class="wl-org-name">Portal Koperasi</h1>
+        <p id="wlOrgTagline" class="wl-org-tagline">Platform tadbir urus AGM tersuai</p>
+        <div id="wlBrandBadge" class="wl-brand-badge" style="display:none;">
+          <span class="wl-dot"></span>
+          <span id="wlBrandText">Dikuatkuasakan oleh AGMX</span>
+        </div>
+      </div>
+    </header>
+
+    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:2rem;background:#fff;">
+      <h2 style="margin-top:0;font-size:1.1rem;color:#374151;">Butir Organisasi</h2>
+      <div id="wlLoading" style="padding:1rem;color:#64748b;">Memuatkan butir organisasi...</div>
+      <div id="wlOrgCard" style="display:none;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+          <div>
+            <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Nama Organisasi</div>
+            <div style="font-weight:600;color:#1e293b;" id="wlOrgNameDetail">-</div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Slug</div>
+            <div style="font-weight:600;color:#1e293b;" id="wlOrgSlug">-</div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Jenis</div>
+            <div style="font-weight:600;color:#1e293b;" id="wlOrgType">-</div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Status</div>
+            <div style="font-weight:600;color:#16a34a;" id="wlOrgStatus">Aktif</div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Pelan</div>
+            <div style="font-weight:600;color:#1e293b;" id="wlOrgPlan">-</div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">No. Pendaftaran</div>
+            <div style="font-weight:600;color:#1e293b;" id="wlOrgRegNo">-</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
+      <h2 style="margin:0 0 1rem 0;padding:1rem 1.5rem;font-size:1.1rem;color:#374151;border-bottom:1px solid #e5e7eb;">Akses Cepat</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;padding:1rem;">
+        <a href="/org-settings.html" style="display:block;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;text-decoration:none;color:#1e293b;transition:all 0.2s;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;margin-bottom:0.5rem;">Tetapan Organisasi</div>
+          <div style="font-weight:600;">Konfigurasikan branding</div>
+        </a>
+        <a href="/app.html" style="display:block;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;text-decoration:none;color:#1e293b;transition:all 0.2s;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;margin-bottom:0.5rem;">Papan Pemuka AGM</div>
+          <div style="font-weight:600;">Buka ruang kerja</div>
+        </a>
+        <a href="/agm-schedule.html" style="display:block;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;text-decoration:none;color:#1e293b;transition:all 0.2s;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;margin-bottom:0.5rem;">Jadual AGM</div>
+          <div style="font-weight:600;">Jadukan mesyuarat</div>
+        </a>
+        <a href="/member-management.html" style="display:block;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;text-decoration:none;color:#1e293b;transition:all 0.2s;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;margin-bottom:0.5rem;">Ahli &amp; Organisasi</div>
+          <div style="font-weight:600;">Kelola ahli</div>
+        </a>
+        <a href="/subscription-management.html" style="display:block;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;text-decoration:none;color:#1e293b;transition:all 0.2s;">
+          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;margin-bottom:0.5rem;">Langganan</div>
+          <div style="font-weight:600;">Kelola pelan</div>
+        </a>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    import { AGMX_API } from './supabase-client.js';
+
+    const wlLogo = document.getElementById('wlLogo');
+    const wlOrgName = document.getElementById('wlOrgName');
+    const wlOrgTagline = document.getElementById('wlOrgTagline');
+    const wlBrandBadge = document.getElementById('wlBrandBadge');
+    const wlBrandText = document.getElementById('wlBrandText');
+    const wlLoading = document.getElementById('wlLoading');
+    const wlOrgCard = document.getElementById('wlOrgCard');
+
+    const detailEls = {
+      orgName: document.getElementById('wlOrgNameDetail'),
+      orgSlug: document.getElementById('wlOrgSlug'),
+      orgType: document.getElementById('wlOrgType'),
+      orgStatus: document.getElementById('wlOrgStatus'),
+      orgPlan: document.getElementById('wlOrgPlan'),
+      orgRegNo: document.getElementById('wlOrgRegNo'),
+    };
+
+    let primaryColor = '#2563EB';
+
+    async function load() {
+      try {
+        if (!AGMX_API || !AGMX_API.isAuthenticated) {
+          wlLoading.textContent = 'Sila log masuk terlebih dahulu.';
+          return;
+        }
+        const isAuth = await AGMX_API.isAuthenticated();
+        if (!isAuth) {
+          wlLoading.textContent = 'Sesi tidak sah.';
+          return;
+        }
+
+        const profile = await AGMX_API.profile.getCurrent();
+        wlLoading.style.display = 'none';
+
+        if (!profile || !profile.organization) {
+          document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Tiada Organisasi Ditemui</h2><p>Akaun anda belum dikaitkan dengan organisasi manapun. Hubungi pentadbir sistem.</p></div>';
+          return;
+        }
+
+        const org = profile.organization;
+        primaryColor = org.primary_color || '#2563EB';
+
+        // Apply white-label theme
+        document.documentElement.style.setProperty('--wl-primary', primaryColor);
+        document.documentElement.style.setProperty('--wl-logo', org.logo_url || '');
+        document.querySelectorAll('.wl-brand-badge').forEach(el => {
+          el.style.background = primaryColor;
+          el.style.display = 'inline-flex';
+        });
+        document.querySelectorAll('.wl-org-name').forEach(el => {
+          el.style.color = primaryColor;
+        });
+
+        // Logo
+        if (org.logo_url) {
+          wlLogo.src = org.logo_url;
+          wlLogo.style.display = 'block';
+        }
+
+        // Text
+        wlOrgName.textContent = org.name || 'Organisasi Koperasi';
+        wlOrgTagline.textContent = `Platform tadbir urus AGM tersuai untuk ${org.name}`;
+        wlBrandText.textContent = `Dikuatkuasakan oleh AGMX • ${org.name}`;
+
+        // Details
+        detailEls.orgName.textContent = org.name || '-';
+        detailEls.orgSlug.textContent = org.slug || '-';
+        detailEls.orgType.textContent = org.type || '-';
+        detailEls.orgStatus.textContent = org.status || '-';
+        detailEls.orgPlan.textContent = org.plan || '-';
+        detailEls.orgRegNo.textContent = org.registration_no || '-';
+
+        wlOrgCard.style.display = 'block';
+
+      } catch (e) {
+        wlLoading.textContent = 'Ralat: ' + (e.message || e);
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
