@@ -177,7 +177,7 @@ async function run() {
     process.env.BILLPLZ_API_KEY = "legacy-key";
     process.env.BILLPLZ_COLLECTION_ID = "legacy-collection";
     process.env.BILLPLZ_X_SIGNATURE_KEY = "legacy-signature";
-    process.env.BILLPLZ_CALLBACK_URL = "https://example.test/api/billplz/callback";
+    process.env.BILLPLZ_CALLBACK_URL = "https://example.test/callback";
     const billplz = await payments();
     assert.equal(billplz.provider, "billplz", "an older deployment reports the gateway it holds");
     assert.equal(billplz.configured, true);

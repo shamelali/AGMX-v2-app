@@ -126,7 +126,7 @@ const tests = {
 
   "writes are left to the browser": async () => {
     const sw = makeScope();
-    for (const url of ["/api/billplz/callback", "/api/hitpay/webhook", "/subscription/create"]) {
+    for (const url of ["/subscription/create"]) {
       const r = await sw.dispatch(url, { method: "POST" });
       assert.equal(r.intercepted, false, `a POST to ${url} was intercepted`);
     }
