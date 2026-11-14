@@ -8,16 +8,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="content">
   <meta name="apple-mobile-web-app-title" content="AGMX">
-  <link rel="canonical" href="https://www.agmx.my/">
+  <link rel="canonical" href="https://agmx-v2.vercel.app/">
   <meta property="og:title" content="AGMX · Platform Tadbir Urus AGM">
   <meta property="og:description" content="Rancang AGM, sahkan kuorum, kendalikan undi dan resolusi, dan simpan rekod yang boleh disahkan — dalam satu ruang kerja untuk setiap koperasi.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://www.agmx.my/">
-  <meta property="og:image" content="https://www.agmx.my/assets/enterprise/webp/01-hero-og-banner.613bb758.webp">
+  <meta property="og:url" content="https://agmx-v2.vercel.app/">
+  <meta property="og:image" content="https://agmx-v2.vercel.app/assets/enterprise/01-hero-og-banner.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AGMX · Platform Tadbir Urus AGM">
   <meta name="twitter:description" content="Platform AGM untuk koperasi Malaysia dengan pengasingan data dan jejak audit yang boleh disahkan.">
-  <meta name="twitter:image" content="https://www.agmx.my/assets/enterprise/webp/01-hero-og-banner.613bb758.webp">
+  <meta name="twitter:image" content="https://agmx-v2.vercel.app/assets/enterprise/01-hero-og-banner.png">
   <title>AGMX · Platform Tadbir Urus AGM untuk Koperasi Malaysia</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232563EB'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23EA580C'%3EAG%3C/text%3E%3C/svg%3E">
   <link rel="manifest" href="/manifest.json">
@@ -90,7 +90,7 @@
             </dl>
             <div class="record-row">
               <p class="record-label" data-en="M-001 · Dividend of 8% from RM1.42m surplus">M-001 · Dividen 8% daripada lebih surplus RM1.42 juta</p>
-              <p class="record-tally"><span>248</span> / <span>52</span> / <span>18</span></p>
+              <p class="record-tally"><span>248</span> / <span>47</span> / <span>18</span></p>
             </div>
             <p class="record-legend" data-en="Yes / No / Abstain">Ya / Tidak / Berkecuali</p>
             <div class="record-row">
@@ -246,7 +246,7 @@
         <article class="trust-row">
           <h3 data-en="Data separation between cooperatives">Pengasingan data antara koperasi</h3>
           <span class="status status-ready" data-en="Available">Sedia</span>
-          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables holding 52 policies. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual yang memegang 52 polisi. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
+          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables holding 47 policies. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual yang memegang 47 polisi. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
           <p class="trust-check" data-en="Check it yourself: ask for the money-flow tenant-isolation test. It signs in as a user with no organisation row and as a second cooperative's admin, and expects 403 on both.">Semak sendiri: minta ujian pengasingan penyewa money-flow. Ia log masuk sebagai pengguna tanpa baris organisasi dan sebagai admin koperasi kedua, dan jangkakan 403 untuk kedua-duanya.</p>
         </article>
 

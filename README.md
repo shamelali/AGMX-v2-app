@@ -10,12 +10,6 @@ Backend: Supabase — Postgres with row-level security, Auth, and Deno Edge
 Functions (`money-flow`, `governance`). Hosting: Vercel. No build step: the app
 is static HTML/JS served as it is.
 
-> **One branch.** Vercel's production branch for this project is `main` — a
-> merge to `main` deploys to `www.agmx.my`. It is the only long-lived
-> line: `master` and `sync-from-origin` were superseded and have been deleted,
-> so a manual `vercel --prod` cannot put stale content on the production alias
-> again. See the *Production branch* note in [`DEPLOY.md`](DEPLOY.md).
-
 - Deploy and operate: [`DEPLOY.md`](DEPLOY.md)
 - Verify: `npm test` (runs `tools/check.sh`)
 - Marketing copy: [`index.html`](index.html) — its numbers are re-measured against
@@ -155,7 +149,7 @@ first, so never point them at production.
 | `playwright` | `npx @playwright/mcp@latest` driving local chromium — the only way to actually render `app.html` and the AGM Hall, which the 23 static passes cannot do | nothing; works offline |
 | `vercel` | `https://mcp.vercel.com` — deployment status, env vars, logs for `agmx-v2-app` | one-time OAuth consent in the CLI |
 
-Supabase (project `jchfalaibabmszewemat`) is connected from the developer's own
+Supabase (project `lcrfsqocqavczgnzpadq`) is connected from the developer's own
 CLI config, not this file, so the access token never enters the repository.
 Checklist for anything else that needs a key — `SUPABASE_SECRET_KEY`, Billplz,
 HitPay — is in `VERCEL_ENV.md`.
@@ -181,8 +175,7 @@ AGMX/
 ├── api/                # Vercel Functions: config, health, billplz, hitpay
 ├── supabase/           # migrations/ (truth), schema_final.sql (generated),
 │                       #   config.toml, functions/governance|money-flow|knowledge-*
-├── archive/            # superseded PocketBase v1 and Neon layers (reference only),
-│                       #   plus archive/docs/ for retired design documents
+├── archive/            # superseded PocketBase v1 and Neon layers (reference only)
 ├── tools/              # check.sh + harnesses + CHECKS.md
 ├── sw.js               # service worker (see the cache-name rule inside it)
 ├── vercel.json         # routing, CSP, security headers
