@@ -145,7 +145,10 @@ jobs:
   deploy-production:
     name: Deploy Production
     needs: [lint-and-test, verify-deploy-author]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # `main` is the only branch that may reach production. It used to also
+    # deploy `master`, and those two branches hold unrelated histories — a push
+    # to the older one silently replaced the running site with stale files.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:

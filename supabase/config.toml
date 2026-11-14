@@ -300,9 +300,9 @@ max_frequency = "5s"
 #   RESEND_API_KEY=re_<your-resend-api-key>
 #   SMTP_FROM=noreply@agmx.my
 [auth.hook.send_email]
-enabled = false
-uri = "https://zentniufgpsnhfowcjki.supabase.co/functions/v1/send-email-hook"
-secrets = "v1,whsec_ZHVtbXk="
+enabled = true
+uri = "https://jchfalaibabmszewemat.supabase.co/functions/v1/send-email-hook"
+secrets = "v1,whsec_cF4ynsc8KFwBWXY6oXywWCf22BnOZT9LerFv4a+frX0="
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
@@ -384,7 +384,7 @@ enabled = false
 # OAuth server configuration
 [auth.oauth_server]
 # Enable OAuth server functionality
-enabled = false
+enabled = true
 # Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
