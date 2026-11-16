@@ -203,12 +203,38 @@
     import { AGMX_API } from './supabase-client.js';
     import AGMX_LIVE_MEETING from './live-meeting.js';
 
+    // Chair-only controls. The governance function rejects these for anyone who
+    // is not admin or secretary (403 "Operator access required"), so this list
+    // mirrors that rule to disable the buttons instead of letting a member press
+    // them and collect an error. It is presentation only; the server decides.
+    const OPERATOR_CONTROLS = [
+      'live-start-voting',
+      'live-call-speaker',
+      'live-encrypt-minutes',
+      'live-gen-key',
+      'live-rotate-key',
+    ];
+
+    let isOperator = false;
+
     const ctx = {
       api: AGMX_API,
       isAuthenticated: () => AGMX_API.isAuthenticated(),
-      isAdmin: () => true,
-      currentUser: { name: 'Pengerusi', id: 'chair-1' },
+      // Was hardcoded to true, which asserted an authority the caller may not
+      // have and would have gated real controls the day anything read it.
+      isAdmin: () => isOperator,
+      currentUser: null,
     };
+
+    function applyRole() {
+      for (const id of OPERATOR_CONTROLS) {
+        const control = document.getElementById(id);
+        if (control && !isOperator) {
+          control.disabled = true;
+          control.title = 'Hanya pengerusi atau setiausaha boleh menggunakan kawalan ini.';
+        }
+      }
+    }
 
     async function init() {
       if (!AGMX_API || !(await AGMX_API.isAuthenticated())) {
@@ -217,10 +243,14 @@
       }
 
       const profile = await AGMX_API.profile.getCurrent();
-      const orgId = profile?.organization?.id;
       const agm = await AGMX_API.governance.current();
 
-      ctx.currentUser = { name: profile?.full_name || 'Pengerusi', id: profile?.id || 'chair-1' };
+      const role = String(profile?.data?.role || '').toLowerCase();
+      isOperator = role === 'admin' || role === 'secretary' || role.includes('administrator');
+      // A member is their own name or nothing — never a stand-in chair.
+      ctx.currentUser = profile?.data
+        ? { name: profile.data.full_name || '', id: profile.data.id }
+        : null;
 
       if (agm && agm.agm) {
         currentAgm = agm.agm;
@@ -228,6 +258,7 @@
       }
 
       AGMX_LIVE_MEETING.init(ctx, currentAgm || { id: 'live-agm', title: 'Live AGM' });
+      applyRole();
     }
 
     let currentAgm = null;
