@@ -336,6 +336,12 @@
        navLink("subscription", "💳", "Langganan"),
        navLink("members", "♙", "Members"),
      ];
+     // Only surface the link when knowledge RAG is enabled, so it never points
+     // at the page's "service unavailable" state in a deployment that has not
+     // turned the feature on.
+     if ((window.AGMX_CONFIG || {}).knowledgeRagEnabled) {
+       links.push(navExternal("/knowledge", "✦", "Knowledge Q&A"));
+     }
      if (isAdmin(data)) {
        links.push(navLink("partner", "🤝", "Partner"));
        links.push(navLink("federation", "🏢", "Federation"));
@@ -369,6 +375,13 @@
     const link = node("a", "agmx-nav-link");
     link.href = routeHref(route);
     link.dataset.route = route;
+    append(link, [node("span", "agmx-nav-icon", icon), node("span", "", label)]);
+    return link;
+  }
+
+  function navExternal(href, icon, label) {
+    const link = node("a", "agmx-nav-link");
+    link.href = href;
     append(link, [node("span", "agmx-nav-icon", icon), node("span", "", label)]);
     return link;
   }
