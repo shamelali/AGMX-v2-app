@@ -219,18 +219,50 @@ async function existingHashes(orgId) {
   const rows = await restJson(
     `documents?select=id,filename,sha256&organization_id=eq.${orgId}&category=eq.obsidian`,
   );
-  return new Map((rows || []).map((row) => [row.sha256, row]));
+  const byHash = new Map();
+  const byFilename = new Map();
+  for (const row of rows || []) {
+    byHash.set(row.sha256, row);
+    byFilename.set(row.filename, row);
+  }
+  return { byHash, byFilename };
+}
+
+// Remove a document and its indexing jobs. The document row is inserted before
+// the embed runs, so a failure used to leak it forever — the job stayed
+// `processing` and `--prune` never removed it (its filename is still in the
+// vault). Knowledge_jobs has no FK toward documents, so the rows are removed in
+// the FK direction: jobs first (their document_id becomes NULL when the
+// document is deleted), then the document (which cascades to knowledge_chunks).
+// Best-effort: if the DB is down we still rethrow, and a later run re-tries the
+// note.
+async function deleteDocumentTree(documentId) {
+  if (!documentId) return;
+  await restJson(`knowledge_jobs?document_id=eq.${documentId}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+  await restJson(`documents?id=eq.${documentId}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
 }
 
 async function syncOne(note, orgId, known) {
   const markdown = await note.read();
   const sha256 = createHash("sha256").update(markdown).digest("hex");
-  if (known.has(sha256)) return { skipped: "unchanged" };
+  if (known.byHash.has(sha256)) return { skipped: "unchanged" };
 
   const body = stripFrontmatter(markdown);
   const pieces = chunk(body);
   if (pieces.length === 0) return { skipped: "empty" };
   if (DRY) return { title: titleOf(note.path, markdown), chunks: pieces.length, dry: true };
+
+  // The same vault file edited since the last sync carries a new hash. Replace
+  // its old document (and cascade away the old chunks) so the index reflects
+  // the current text instead of accumulating one document per edit.
+  const replacedId = known.byFilename.get(note.path)?.id;
+  if (replacedId) await deleteDocumentTree(replacedId);
 
   const [document] = await restJson("documents", {
     method: "POST",
@@ -258,38 +290,52 @@ async function syncOne(note, orgId, known) {
     }),
   });
 
-  const title = titleOf(note.path, markdown);
-  const embeddings = [];
-  for (const piece of pieces) embeddings.push(await embed(piece));
+  try {
+    const title = titleOf(note.path, markdown);
+    const embeddings = [];
+    for (const piece of pieces) embeddings.push(await embed(piece));
 
-  const rows = pieces.map((content, index) => ({
-    organization_id: orgId,
-    document_id: document.id,
-    job_id: job.id,
-    chunk_index: index,
-    title,
-    content,
-    token_count: Math.ceil(content.length / 4),
-    embedding: embeddings[index],
-    metadata: { source: "obsidian", path: note.path, sha256 },
-  }));
-  await restJson("knowledge_chunks", { method: "POST", body: JSON.stringify(rows) });
+    const rows = pieces.map((content, index) => ({
+      organization_id: orgId,
+      document_id: document.id,
+      job_id: job.id,
+      chunk_index: index,
+      title,
+      content,
+      token_count: Math.ceil(content.length / 4),
+      embedding: embeddings[index],
+      metadata: { source: "obsidian", path: note.path, sha256 },
+    }));
+    await restJson("knowledge_chunks", { method: "POST", body: JSON.stringify(rows) });
 
-  await restJson(`knowledge_jobs?id=eq.${job.id}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      status: "completed",
-      processed_chunks: pieces.length,
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }),
-  });
+    await restJson(`knowledge_jobs?id=eq.${job.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: "completed",
+        processed_chunks: pieces.length,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    });
+  } catch (error) {
+    // The embed is the fallible step (rate limits, timeouts, no network). On
+    // failure the document and its `processing` job must not stay behind, so
+    // this run deletes them; the note's hash is then gone from the store and a
+    // re-run processes it again from scratch instead of skipping it forever.
+    await deleteDocumentTree(document.id);
+    throw error;
+  }
 
-  return { title, chunks: pieces.length, documentId: document.id };
+  return { title: titleOf(note.path, markdown), chunks: pieces.length, replaced: Boolean(replacedId) };
 }
 
 async function prune(orgId, keepPaths) {
-  const rows = await restJson(`documents?select=id,filename&organization_id=eq.${orgId}&category=eq.obsidian`);
+  const rows = await restJson(
+    `documents?select=id,filename&organization_id=eq.${orgId}&category=eq.obsidian`,
+  );
+  // Only rows this script created, so co-op uploaded documents are never
+  // touched. Documents whose jobs are mid-flight or failed are also kept out of
+  // the stale set by not listing them.
   const stale = (rows || []).filter((row) => !keepPaths.has(row.filename));
   if (stale.length === 0) return 0;
   if (DRY) return stale.length;
@@ -307,7 +353,7 @@ async function main() {
 
   const known = await existingHashes(orgId);
   console.log(`AGMX Obsidian sync → org ${orgId}`);
-  console.log(`${notes.length} note(s), ${known.size} already indexed, embeddings ${LLM.provider}/${LLM.model}`);
+  console.log(`${notes.length} note(s), ${known.byHash.size} already indexed, embeddings ${LLM.provider}/${LLM.model}`);
 
   const stats = { added: 0, skipped: 0, failed: 0, chunks: 0 };
   for (let i = 0; i < notes.length; i += CONCURRENCY) {
