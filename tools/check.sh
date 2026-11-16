@@ -1186,6 +1186,20 @@ else
   warn "tools/test_health.js not found"
 fi
 
+# Obsidian sync must keep its bookkeeping straight: a failed embed pass cannot
+# leave an orphan document or a stuck `processing` job, and editing a note must
+# replace its old vector rather than stacking a duplicate. This drives the real
+# script against a local PostgREST + embeddings stub (no network).
+if [ -f tools/test_obsidian_sync.mjs ] && [ -f tools/obsidian_stub.mjs ]; then
+  if OUT=$(node tools/test_obsidian_sync.mjs 2>&1); then
+    ok "tools/test_obsidian_sync.mjs (obsidian sync rolls back failed writes, replaces edited notes)"
+  else
+    bad "tools/test_obsidian_sync.mjs failed — ${OUT%%$'\n'*}"
+  fi
+else
+  warn "tools/test_obsidian_sync.mjs / tools/obsidian_stub.mjs not found"
+fi
+
 # ----------------------------------------------------------------
 head_ "15. Supabase RPC calls match a declared SQL signature"
 
