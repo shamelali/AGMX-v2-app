@@ -94,10 +94,19 @@ async function run() {
     delete process.env.NVIDIA_NIM_API_KEY;
     process.env.OPENAI_API_KEY = "test-openai-key";
 
-    // Healthy path: both REST probes answer 200, no network involved.
+    // Healthy path: both REST probes answer 200 and the function reports its own
+    // LLM readiness, no network involved.
     const requested = [];
+    const functionAnswer = (body, status = 405) => ({
+      ok: false,
+      status,
+      json: async () => body,
+    });
     global.fetch = async (url) => {
       requested.push(String(url));
+      if (String(url).includes("/functions/v1/knowledge-query")) {
+        return functionAnswer({ error: "Method not allowed", provider: "openai", llmConfigured: true });
+      }
       return { ok: true, status: 200 };
     };
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co/";
@@ -111,10 +120,62 @@ async function run() {
     assert.equal(healthyPayload.checks.database.ok, true);
     assert.equal(typeof healthyPayload.checks.database.latencyMs, "number");
     assert.equal(healthyPayload.checks.knowledge.ready, true);
-    assert.deepEqual(requested, [
-      "https://project.supabase.co/rest/v1/organizations?select=id&limit=0",
-      "https://project.supabase.co/rest/v1/knowledge_chunks?select=id&limit=0",
-    ]);
+    assert.ok(
+      requested.includes("https://project.supabase.co/functions/v1/knowledge-query"),
+      "readiness must be read from the function, whose secrets this host cannot see"
+    );
+    assert.deepEqual(healthyPayload.checks.knowledge.invalid, []);
+    // The GET probe must stay a GET: a POST would embed the question and bill a
+    // completion on every health check.
+    assert.equal(
+      requested.filter((u) => u.includes("/functions/v1/knowledge-query")).length,
+      1,
+      "one probe per health call"
+    );
+
+    // The shape this guards against: this host holds NVIDIA_NIM_API_KEY, so the
+    // old check reported ready:true while the deployed function answered every
+    // question with 503 LLM_NOT_CONFIGURED because Supabase had no such secret.
+    global.fetch = async (url) => {
+      if (String(url).includes("/functions/v1/knowledge-query")) {
+        return functionAnswer({ error: "Method not allowed", provider: "nvidia", llmConfigured: false });
+      }
+      return { ok: true, status: 200 };
+    };
+    const keyOnHostNotFunction = response();
+    await health({ method: "GET" }, keyOnHostNotFunction);
+    const hostOnly = JSON.parse(keyOnHostNotFunction.body).checks.knowledge;
+    assert.equal(hostOnly.configured, true, "this host still holds a key");
+    assert.equal(hostOnly.ready, false, "but the function cannot answer");
+    assert.ok(hostOnly.invalid.includes("LLM_NOT_CONFIGURED"));
+    assert.equal(hostOnly.function.llmConfigured, false);
+
+    // A gateway 404 means the function was never deployed, which the schema
+    // probe cannot see: knowledge_chunks can exist without the function.
+    global.fetch = async (url) => {
+      if (String(url).includes("/functions/v1/knowledge-query")) {
+        return functionAnswer({ message: "Not Found" }, 404);
+      }
+      return { ok: true, status: 200 };
+    };
+    const notDeployed = response();
+    await health({ method: "GET" }, notDeployed);
+    const undeployed = JSON.parse(notDeployed.body).checks.knowledge;
+    assert.equal(undeployed.ready, false);
+    assert.ok(undeployed.invalid.includes("KNOWLEDGE_FUNCTION_NOT_DEPLOYED"));
+
+    // An unreachable probe proves nothing either way, so it must not flip the
+    // verdict to false: a transient network error is not a feature outage.
+    global.fetch = async (url) => {
+      if (String(url).includes("/functions/v1/knowledge-query")) throw new Error("fetch failed");
+      return { ok: true, status: 200 };
+    };
+    const probeDown = response();
+    await health({ method: "GET" }, probeDown);
+    const unproven = JSON.parse(probeDown.body).checks.knowledge;
+    assert.equal(unproven.function.reachable, false);
+    assert.equal(unproven.ready, true, "cannot disprove readiness, so do not claim it is broken");
+    assert.deepEqual(unproven.invalid, []);
 
     // Schema never applied: PostgREST answers 404 for both probes.
     global.fetch = async () => ({ ok: false, status: 404 });
@@ -226,6 +287,45 @@ async function run() {
       );
     }
     for (const name of PAYMENT_ENV) delete process.env[name];
+
+    // Both ports answer knowledge readiness from the same function probe, so
+    // they must agree on it too — the payments loop above only covers gateways.
+    const cfKnowledge = async (env, answer) => {
+      global.fetch = async (url) => {
+        if (String(url).includes("/functions/v1/knowledge-query")) return answer();
+        return { ok: true, status: 200 };
+      };
+      const res = await cf.onRequest({
+        request: { method: "GET", url: "https://cf.test/api/health" },
+        env: {
+          NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+          SUPABASE_SECRET_KEY: "service-test-key",
+          OPENAI_API_KEY: "test-openai-key",
+          ...env,
+        },
+      });
+      return (await res.json()).checks.knowledge;
+    };
+    for (const [label, answer, ready, invalid] of [
+      ["llm configured", () => functionAnswer({ provider: "openai", llmConfigured: true }), true, []],
+      ["llm missing in function", () => functionAnswer({ provider: "nvidia", llmConfigured: false }), false, ["LLM_NOT_CONFIGURED"]],
+      ["function not deployed", () => functionAnswer({ message: "Not Found" }, 404), false, ["KNOWLEDGE_FUNCTION_NOT_DEPLOYED"]],
+    ]) {
+      process.env.OPENAI_API_KEY = "test-openai-key";
+      global.fetch = async (url) => {
+        if (String(url).includes("/functions/v1/knowledge-query")) return answer();
+        return { ok: true, status: 200 };
+      };
+      const res = response();
+      await health({ method: "GET" }, res);
+      const vercel = JSON.parse(res.body).checks.knowledge;
+      const cloudflare = await cfKnowledge({}, answer);
+      assert.equal(vercel.ready, ready, `vercel port: ${label}`);
+      assert.equal(cloudflare.ready, ready, `cloudflare port: ${label}`);
+      assert.deepEqual(vercel.invalid, invalid, `vercel port: ${label}`);
+      assert.deepEqual(cloudflare.invalid, invalid, `cloudflare port: ${label}`);
+    }
+    global.fetch = async () => ({ ok: true, status: 200 });
 
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     process.env.SUPABASE_SECRET_KEY = "service-test-key";

@@ -73,6 +73,40 @@ async function restProbe(url, key, table) {
   }
 }
 
+// The LLM_* names this platform holds say nothing about the Supabase project's
+// secrets: the Edge Functions read their own environment, so a deployment could
+// report knowledge ready while every question answered 503 LLM_NOT_CONFIGURED.
+// A GET is rejected by the handler with 405 plus its own llmReadiness(), which
+// is the function's view of the same question — no question is embedded, no
+// completion is billed, and the tenant tables are never touched.
+async function llmProbe(url, key) {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${url}/functions/v1/knowledge-query`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      signal: controller.signal,
+    });
+    const body = await response.json().catch(() => null);
+    return {
+      checked: true,
+      reachable: true,
+      status: response.status,
+      // 405 is the only shape that carries a verdict; anything else means the
+      // gateway answered instead of the handler (404 = not deployed).
+      deployed: response.status === 405 || Boolean(body && "llmConfigured" in body),
+      llmConfigured: body && typeof body.llmConfigured === "boolean" ? body.llmConfigured : null,
+      provider: (body && body.provider) || null,
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch (_) {
+    return { checked: true, reachable: false, status: 0, deployed: null, llmConfigured: null, provider: null, latencyMs: Date.now() - startedAt };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function databaseStatus() {
   const { url, key, keyName } = supabaseSettings();
   if (!url || !key) {
@@ -140,25 +174,39 @@ async function knowledgeStatus(database) {
   const configured = present.length > 0;
   const missing = configured ? [] : chosen.needed;
   const schema = { configured: database.configured, ready: false, missing: [], invalid: [] };
+  const { url, key } = supabaseSettings();
   // knowledge_chunks is an authenticated-granted table too, so this probe is
   // only meaningful once the database check is holding a secret key.
   if (database.ok) {
-    const { url, key } = supabaseSettings();
     const probe = await restProbe(url, key, "knowledge_chunks");
     schema.ready = probe.ok;
     if (!probe.ok) schema.invalid = ["KNOWLEDGE_SCHEMA"];
   }
+  // `ready` used to mean "this platform holds an LLM key and the table exists",
+  // which was true of a project whose functions answered 503 to every question.
+  // The function is asked directly; an unreachable probe cannot prove readiness,
+  // so it reports null rather than falling back to this platform's guess.
+  const functionProbe = configured && database.ok
+    ? await llmProbe(url, key)
+    : { checked: false, reachable: null, status: 0, deployed: null, llmConfigured: null, provider: null, latencyMs: 0 };
+  const invalid = [...schema.invalid];
+  if (functionProbe.checked && functionProbe.reachable) {
+    if (functionProbe.deployed === false) invalid.push("KNOWLEDGE_FUNCTION_NOT_DEPLOYED");
+    if (functionProbe.llmConfigured === false) invalid.push("LLM_NOT_CONFIGURED");
+  }
   return {
     provider: `supabase-pgvector+${chosen.name}`,
     configured,
-    ready: configured && schema.ready,
+    ready: configured && schema.ready && functionProbe.llmConfigured !== false && functionProbe.deployed !== false,
     missing,
-    invalid: [],
+    invalid,
     schema,
-    note: "scope: this platform's environment variables, not the Supabase Edge Function's",
+    function: functionProbe,
+    note: functionProbe.checked
+      ? "llm readiness read from the knowledge-query function, not from this platform's variables"
+      : "scope: this platform's environment variables, not the Supabase Edge Function's",
   };
 }
-
 function send(res, status, payload) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
