@@ -14,7 +14,8 @@
 #                     BILLPLZ_API_KEY, BILLPLZ_COLLECTION_ID, BILLPLZ_X_SIGNATURE,
 #                     BILLPLZ_API_URL, HITPAY_API_KEY, HITPAY_SALT,
 #                     HITPAY_API_URL, APP_URL
-#   knowledge-*     → SUPABASE_URL, SUPABASE_SECRET_KEY (+ LLM_* in _shared/llm.ts)
+#   knowledge-*     → SUPABASE_URL, SUPABASE_SECRET_KEY, LLM_PROVIDER and the
+#                     key for that provider (NVIDIA_NIM_API_KEY or OPENAI_API_KEY)
 #
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are also injected by the Edge
 # Runtime. They are written explicitly here because a key rotation is not
@@ -84,6 +85,34 @@ if [ -z "$BILLPLZ_API_KEY" ] && [ -z "$HITPAY_API_KEY" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# LLM provider — leave blank to keep the Knowledge page down
+# ---------------------------------------------------------------------------
+# _shared/llm.ts reads LLM_PROVIDER, and then the key for that provider only.
+# The Knowledge page failed with 503 LLM_NOT_CONFIGURED on a deployment whose
+# Vercel side held NVIDIA_NIM_API_KEY: that variable had never reached the
+# Supabase project, because this script collected every gateway secret and no
+# LLM one. Health reported ready:true anyway; api/health.js now asks the
+# function itself, so the gap surfaces instead of being papered over.
+read -r -p "Enter LLM_PROVIDER [nvidia]: " LLM_PROVIDER
+LLM_PROVIDER="${LLM_PROVIDER:-nvidia}"
+NVIDIA_NIM_API_KEY=""
+OPENAI_API_KEY=""
+if [ "$LLM_PROVIDER" = "nvidia" ]; then
+  # Same key the deployment uses for chat; NVIDIA NIM serves both embeddings
+  # and completions from https://integrate.api.nvidia.com/v1.
+  read -r -s -p "Enter NVIDIA_NIM_API_KEY (or NGC_API_KEY; blank to skip Knowledge): " NVIDIA_NIM_API_KEY
+  echo
+else
+  read -r -s -p "Enter OPENAI_API_KEY (blank to skip Knowledge): " OPENAI_API_KEY
+  echo
+fi
+if [ -z "$NVIDIA_NIM_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
+  echo "    No LLM key: knowledge-query and knowledge-ingest will answer 503, and"
+  echo "    /api/health will keep reporting knowledge as not ready. That is honest,"
+  echo "    not a regression — set the key here when the Knowledge page should work."
+fi
+
+# ---------------------------------------------------------------------------
 # Supabase project credentials (dashboard > Settings > API)
 # ---------------------------------------------------------------------------
 read -r -p "Enter SUPABASE_URL (https://<ref>.supabase.co): " SUPABASE_URL
@@ -121,6 +150,9 @@ trap 'rm -rf "$TMP_DIR"' EXIT
   [ -n "$HITPAY_API_KEY" ]        && printf 'HITPAY_API_KEY=%s\n' "$HITPAY_API_KEY"
   [ -n "$HITPAY_API_KEY" ]        && printf 'HITPAY_API_URL=%s\n' "$HITPAY_API_URL"
   [ -n "$HITPAY_API_KEY" ]        && printf 'HITPAY_SALT=%s\n' "$HITPAY_SALT"
+  [ -n "$LLM_PROVIDER" ]          && printf 'LLM_PROVIDER=%s\n' "$LLM_PROVIDER"
+  [ -n "$NVIDIA_NIM_API_KEY" ]    && printf 'NVIDIA_NIM_API_KEY=%s\n' "$NVIDIA_NIM_API_KEY"
+  [ -n "$OPENAI_API_KEY" ]        && printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
   true
 } > "$ENV_FILE"
 
