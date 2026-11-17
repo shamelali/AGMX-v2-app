@@ -146,7 +146,15 @@
 // outputDirectory "." the function's own source is published at that path, so
 // visitors received "export default" as a classic <script>, never got
 // window.AGMX_CONFIG, and ran the entire site against no backend at all.
-const CACHE = "agmx-www-agmx-my-v8";
+// Bumped to v42: index.html and checkout.html no longer promise FPX or e-wallet
+// on the HitPay pill. api/hitpay/create-payment.js asks HitPay for
+// payment_methods: ["card"] and its webhook settles nothing else, so the
+// advertised rails did not exist — a co-operative read "FPX, card, e-wallet"
+// and landed on a card-only hosted page. Both files are precached, so an
+// installed client would keep showing the retired promise. check.sh §29 now
+// compares the rails named on the pages against the request the gateway
+// receives, so the copy cannot drift ahead of the code again.
+const CACHE = "agmx-www-agmx-my-v9";
 const PRECACHE = [
   "/",
   "/index.html",

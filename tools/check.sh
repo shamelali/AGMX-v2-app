@@ -2811,6 +2811,104 @@ rm -f "$DENO_ENV_OUT" "$SECRETS_TXT"
 [ "$DENOENV_RC" -eq 0 ] || bad "pass 28 could not complete (python exit $DENOENV_RC)"
 
 # ----------------------------------------------------------------
+head_ "29. Payment copy names only the rails the gateway actually offers"
+
+# api/hitpay/create-payment.js sends `payment_methods: ["card"]` and
+# api/hitpay/webhook.js refuses to settle anything whose recorded method is not
+# "card". The landing page and checkout page nevertheless promised "HitPay (FPX,
+# card, e-wallet)": a Malaysian co-operative read FPX, tapped online payment, and
+# landed on a card-only hosted page with no way to pay the way it was told it
+# could. That is the same class of defect as advertising a knowledge room whose
+# functions answer 500 — the claim, not the code, is what the customer acts on.
+#
+# The offer is read from the request the gateway receives, not from copy, and the
+# pages may only name a rail that request contains. Adding FPX is a code change
+# here first; the prose follows.
+PAYCOPY_OUT=$(mktemp /tmp/agmx-paycopy-XXXXXX.txt)
+python3 - "$PAYCOPY_OUT" <<'PY'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+REQUEST = pathlib.Path("api/hitpay/create-payment.js")
+WEBHOOK = pathlib.Path("api/hitpay/webhook.js")
+PAGES = [p for p in (pathlib.Path("index.html"), pathlib.Path("checkout.html")) if p.is_file()]
+
+if not REQUEST.is_file() or not PAGES:
+    emit("WARN", "api/hitpay/create-payment.js or the pages are missing — payment copy was not "
+                 "compared with the request the gateway receives")
+    out.close(); sys.exit(0)
+
+src = REQUEST.read_text(errors="replace")
+m = re.search(r"payment_methods\s*:\s*\[([^\]]*)\]", src)
+if not m:
+    emit("WARN", "create-payment.js no longer names payment_methods — read the request by hand "
+                 "before trusting the payment copy")
+    out.close(); sys.exit(0)
+offered = {v.strip().strip("\"'").lower() for v in m.group(1).split(",") if v.strip()}
+if not offered:
+    emit("BAD", "create-payment.js sends an empty payment_methods list — HitPay will show no way "
+                "to pay, yet the pages still advertise online payment")
+    out.close(); sys.exit(0)
+
+# The webhook is the other half of the contract: it settles a payment only when
+# the stored method matches what it expects, so a rail offered here but rejected
+# there would take the customer's money and never mark the invoice paid.
+settled = None
+if WEBHOOK.is_file():
+    w = WEBHOOK.read_text(errors="replace")
+    wm = re.search(r'method\s*!==\s*"([a-z_]+)"', w) or re.search(r'method\s*===\s*"([a-z_]+)"', w)
+    if wm:
+        settled = wm.group(1).lower()
+        if settled not in offered:
+            emit("BAD", "create-payment.js offers %s but webhook.js only settles %r — a payment made "
+                        "with the other method is taken and the invoice stays unpaid"
+                 % (sorted(offered), settled))
+
+# Rail names a reader would act on, and the gateway token each one means.
+CLAIMS = {
+    "fpx": {"fpx"},
+    "e-wallet": {"ewallet", "e-wallet", "ewallet"},
+    "card": {"card"},
+}
+TOKENS = [
+    ("fpx", re.compile(r"\bFPX\b", re.I)),
+    ("e-wallet", re.compile(r"\bE[-\s]?wallet\b", re.I)),
+]
+offenders = []
+for page in PAGES:
+    text = re.sub(r"<[^>]+>", " ", page.read_text(errors="replace"))
+    for label, pattern in TOKENS:
+        if pattern.search(text) and not (CLAIMS[label] & offered):
+            offenders.append("%s names %s" % (page, label))
+
+if offenders:
+    emit("BAD", "%s, but create-payment.js asks HitPay for %s only — the hosted page cannot offer it, "
+                "so the copy describes a payment a customer cannot make (fix the copy, or add the rail "
+                "to payment_methods and webhook.js first)"
+         % (", ".join(offenders), sorted(offered)))
+else:
+    emit("OK", "payment copy names only what create-payment.js requests (%s)%s"
+         % (", ".join(sorted(offered)),
+            "" if settled else "; webhook.js method check not found, settling was not compared"))
+out.close()
+PY
+PAYCOPY_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 29 emitted an unrecognised result line: $kind";;
+  esac
+done < "$PAYCOPY_OUT"
+rm -f "$PAYCOPY_OUT"
+[ "$PAYCOPY_RC" -eq 0 ] || bad "pass 29 could not complete (python exit $PAYCOPY_RC)"
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then
