@@ -157,7 +157,9 @@
 // Bumped to v10: complete landing page redesign (new hero, problem, how,
 // product-action, buyer, trust, proof, pricing, faq, cta-final sections),
 // new status.html page, index.html rewritten with new structure.
-const CACHE = "agmx-www-agmx-my-v10";
+// Bumped to v11: index.html nav class fix, landing.js load fix, language
+// toggle fix, status page verified.
+const CACHE = "agmx-www-agmx-my-v11";
 const PRECACHE = [
   "/",
   "/index.html",
