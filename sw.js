@@ -154,10 +154,14 @@
 // Bumped to v9 (from v8 in production): index.html adds Sign-in button,
 // config.toml updated to production site_url, documents bucket write
 // policies applied (migration 0013).
-const CACHE = "agmx-www-agmx-my-v9";
+// Bumped to v10: complete landing page redesign (new hero, problem, how,
+// product-action, buyer, trust, proof, pricing, faq, cta-final sections),
+// new status.html page, index.html rewritten with new structure.
+const CACHE = "agmx-www-agmx-my-v10";
 const PRECACHE = [
   "/",
   "/index.html",
+  "/status.html",
   "/app.html",
   "/theme.js",
   "/app.js",
