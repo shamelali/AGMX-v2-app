@@ -40,6 +40,14 @@
       "destination": "/leads.html"
     },
     {
+      "source": "/knowledge",
+      "destination": "/knowledge.html"
+    },
+    {
+      "source": "/knowledge/",
+      "destination": "/knowledge.html"
+    },
+    {
       "source": "/auth/callback",
       "destination": "/callback.html"
     },

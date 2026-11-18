@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Knowledge Q&A — tanya dokumen berkanun koperasi anda dengan AI Governance Copilot.">
+  <title>AI Copilot · AGMX</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/app-shell.css">
+  <script src="/theme.js"></script>
+  <style>
+    body { background: var(--c-bg); }
+    .kq-header {
+      background: linear-gradient(180deg, var(--c-primary-700), var(--c-primary));
+      color: #fff; padding: 14px 0;
+    }
+    .kq-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .kq-brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 18px; }
+    .kq-brand .ag-badge { width: 38px; height: 38px; border-radius: 11px; background: #fff; color: var(--c-primary); display: grid; place-items: center; font-size: 17px; font-weight: 800; }
+    .kq-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .kq-main { padding: 28px 0 72px; }
+    .kq-card { background: #fff; border: 1px solid var(--c-border); border-radius: 18px; box-shadow: var(--sh-md); padding: 24px; margin-bottom: 18px; }
+    .kq-card h2 { font-size: 18px; font-weight: 800; margin: 0 0 4px; }
+    .kq-card .sub { font-size: 13px; color: var(--c-text-2); margin-bottom: 14px; }
+    .kq-input { width: 100%; min-height: 90px; border: 1.5px solid var(--c-border); border-radius: 12px; padding: 12px 14px; font-size: 14px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+    .kq-input:focus { outline: none; border-color: var(--c-primary); }
+    .kq-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+    .kq-status { font-size: 12.5px; color: var(--c-text-3); }
+    .kq-hidden { display: none; }
+    [hidden] { display: none !important; }
+    .kq-header .btn-ghost {
+      color: #fff; border-color: rgba(255,255,255,0.45);
+      background: rgba(255,255,255,0.12);
+    }
+    .kq-header .btn-ghost:hover { background: rgba(255,255,255,0.22); }
+    .kq-banner { display: flex; gap: 12px; align-items: flex-start; background: var(--c-warning-100, #fef3c7); border: 1px solid var(--c-warning-300, #fcd34d); color: #78350f; border-radius: 12px; padding: 14px 16px; font-size: 13.5px; line-height: 1.55; }
+    .kq-banner.is-error { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
+    .kq-answer h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--c-text-3); margin: 18px 0 8px; }
+    .kq-claim { border-left: 3px solid var(--c-primary); padding: 8px 12px; margin-bottom: 10px; background: var(--c-surface-2, #f8fafc); border-radius: 0 10px 10px 0; font-size: 14px; line-height: 1.55; }
+    .kq-claim .src { color: var(--c-text-3); font-size: 12px; }
+    .kq-claim .src a, .kq-evidence a { color: var(--c-primary); }
+    .kq-unknown { font-size: 13.5px; color: var(--c-text-2); padding: 4px 0; }
+    .kq-evidence { font-size: 12.5px; color: var(--c-text-2); }
+    .kq-evidence .chunk { margin-top: 8px; border-top: 1px dashed var(--c-divider); padding-top: 8px; }
+    .kq-btn { display: inline-flex; align-items: center; gap: 6px; }
+    .kq-empty { color: var(--c-text-3); font-size: 13.5px; text-align: center; padding: 26px 0; }
+    .kq-link { color: var(--c-primary); font-weight: 700; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    @media (max-width: 640px) { .kq-card { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <header class="kq-header">
+    <div class="wrap">
+      <div class="kq-brand">
+        <span class="ag-badge">AG</span>
+        <span data-i18n="title">AI Copilot · Knowledge</span>
+      </div>
+      <div class="kq-actions">
+        <a class="kq-btn btn btn-ghost" href="/app" data-i18n="back">← Workspace</a>
+        <button class="kq-btn btn btn-ghost" id="lang-toggle" type="button" title="EN">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="kq-main wrap">
+    <section class="kq-card" id="auth-card" hidden>
+      <h2 data-i18n="signinNeeded">Sign in to your workspace</h2>
+      <p class="sub" data-i18n="signinNeededSub">Knowledge answers draw on your cooperative's own indexed documents, so they require your signed-in organisation.</p>
+      <div class="kq-row">
+        <button class="kq-btn btn btn-primary" id="google-signin" type="button" data-i18n="googleSignin">Continue with Google</button>
+        <a class="kq-link" href="/app" data-i18n="openApp">Open the app instead</a>
+      </div>
+    </section>
+
+    <section class="kq-card" id="unavailable-card" hidden>
+      <div class="kq-banner" id="unavailable-msg">
+      </div>
+    </section>
+
+    <section class="kq-card" id="ask-card" hidden>
+      <h2 data-i18n="askTitle">Ask your knowledge base</h2>
+      <p class="sub" data-i18n="askSub">Questions are answered only from your organisation's indexed documents (Acts, SOPs, past minutes). AI flags facts vs inferences and cites source chunks.</p>
+      <label class="sr-only" for="kq-question" data-i18n="questionLabel">Your question</label>
+      <textarea class="kq-input" id="kq-question" rows="4" maxlength="2000"
+        placeholder="Cth: Apakah keperluan kuorum untuk AGM mengikut Akta Koperasi?"></textarea>
+      <div class="kq-row">
+        <button class="kq-btn btn btn-primary" id="kq-ask" type="button" data-i18n="askBtn">Ask</button>
+        <span class="kq-status" id="kq-status" role="status"></span>
+      </div>
+    </section>
+
+    <section class="kq-card kq-hidden" id="answer-card">
+      <div id="kq-answer"></div>
+      <div class="kq-row"><a class="kq-link" href="/app" data-i18n="back">← Back to workspace</a></div>
+    </section>
+  </main>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    }
+  </script>
+  <script src="/config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script type="module">
+    import { db, auth, configProblem } from './supabase-client.js';
+
+    const I18N = {
+      BM: {
+        title: 'AI Copilot · Knowledge',
+        back: '← Ruang Kerja',
+        signinNeeded: 'Log masuk ke ruang kerja anda',
+        signinNeededSub: 'Jawapan AI dijana daripada dokumen berkanun koperasi anda yang diindeks, jadi ia memerlukan organisasi yang telah log masuk.',
+        googleSignin: 'Teruskan dengan Google',
+        openApp: 'Buka aplikasi sebaliknya',
+        askTitle: 'Tanya pangkalan pengetahuan anda',
+        askSub: 'Soalan dijawab hanya daripada dokumen organisasi anda yang diindeks (Akta, SOP, minit lalu). AI menandakan fakta vs inferens dan memetik sumber.',
+        questionLabel: 'Soalan anda',
+        askBtn: 'Tanya',
+        asking: 'Mencari jawapan…',
+        signToAsk: 'Log masuk dahulu untuk bertanya.',
+        answerTitle: 'Jawapan',
+        claimsLabel: 'Pernyataan',
+        unknownTitle: 'Tidak dapat dijawab',
+        evidenceTitle: 'Sumber (chunks)',
+        unavailableService: 'Perkhidmatan pengetahuan tidak tersedia.',
+        unavailableReason: 'Pembangun belum mengaktifkan RAG pengetahuan. Tiada data dihantar ke penyedia AI.',
+        notAuth: 'Anda belum log masuk.',
+        errGeneric: 'Ralat semasa bertanya. Cuba lagi sebentar lagi.',
+        backendNotConfigured: 'Perkhidmatan tidak dikonfigurasikan (tiada kunci perkhidmatan Supabase).',
+        llmNotConfigured: 'Penyedia AI belum dikonfigurasikan oleh pembangun.',
+        rateLimited: 'Terlalu banyak soalan. Tunggu sebentar dan cuba lagi.',
+        noSession: 'Sesi tamat. Log masuk semula untuk bertanya.',
+        source: 'Sumber',
+      },
+      EN: {
+        title: 'AI Copilot · Knowledge',
+        back: '← Workspace',
+        signinNeeded: 'Sign in to your workspace',
+        signinNeededSub: 'Knowledge answers are generated from your cooperative\'s own indexed documents, so they require your signed-in organisation.',
+        googleSignin: 'Continue with Google',
+        openApp: 'Open the app instead',
+        askTitle: 'Ask your knowledge base',
+        askSub: 'Questions are answered only from your organisation\'s indexed documents (Acts, SOPs, past minutes). AI flags facts vs inferences and cites source chunks.',
+        questionLabel: 'Your question',
+        askBtn: 'Ask',
+        asking: 'Searching for an answer…',
+        signToAsk: 'Sign in first to ask.',
+        answerTitle: 'Answer',
+        claimsLabel: 'Claims',
+        unknownTitle: 'What the documents don\'t cover',
+        evidenceTitle: 'Source chunks',
+        unavailableService: 'Knowledge service unavailable.',
+        unavailableReason: 'The operator has not enabled knowledge RAG. No data reaches an AI provider.',
+        notAuth: 'You are not signed in.',
+        errGeneric: 'Something went wrong while asking. Please try again shortly.',
+        backendNotConfigured: 'Service not configured (no Supabase service key).',
+        llmNotConfigured: 'The AI provider is not configured by the operator.',
+        rateLimited: 'Too many questions. Wait a moment and try again.',
+        noSession: 'Your session has ended. Sign in again to ask.',
+        source: 'Source',
+      }
+    };
+
+    function currentLang() {
+      var q = new URLSearchParams(location.search).get('lang');
+      if (q === 'en' || q === 'ms') return q === 'en' ? 'EN' : 'BM';
+      try { return localStorage.getItem('agmx-lang') === 'en' ? 'EN' : 'BM'; } catch (_) { return 'BM'; }
+    }
+    var lang = currentLang();
+    document.documentElement.lang = lang === 'EN' ? 'en' : 'ms';
+
+    var $ = function (id) { return document.getElementById(id); };
+    function t(key) { return (I18N[lang] || I18N.BM)[key] || key; }
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach(function (el) {
+        var key = el.getAttribute('data-i18n');
+        if (key && I18N[lang][key]) el.textContent = I18N[lang][key];
+      });
+    }
+
+    var langToggle = $('lang-toggle');
+    langToggle.textContent = lang === 'EN' ? 'BM' : 'EN';
+    langToggle.addEventListener('click', function () {
+      lang = lang === 'EN' ? 'BM' : 'EN';
+      document.documentElement.lang = lang === 'EN' ? 'en' : 'ms';
+      try { localStorage.setItem('agmx-lang', lang === 'EN' ? 'en' : 'ms'); } catch (_) {}
+      langToggle.textContent = lang === 'EN' ? 'BM' : 'EN';
+      applyI18n();
+    });
+    applyI18n();
+
+    var askCard = $('ask-card');
+    var authCard = $('auth-card');
+    var unavailableCard = $('unavailable-card');
+    var answerCard = $('answer-card');
+    var askBtn = $('kq-ask');
+    var questionEl = $('kq-question');
+    var statusEl = $('kq-status');
+
+    var ragEnabled = !!((window.AGMX_CONFIG || {}).knowledgeRagEnabled);
+
+    function showOnly(el) {
+      [authCard, unavailableCard, askCard, answerCard].forEach(function (c) { c.hidden = true; c.classList.add('kq-hidden'); });
+      if (el) { el.hidden = false; el.classList.remove('kq-hidden'); }
+    }
+
+    function markUnavailable(kind) {
+      var msg = $('unavailable-msg');
+      msg.textContent = (kind === 'config')
+        ? t('unavailableService') + ' ' + t('unavailableReason')
+        : t('unavailableService');
+      msg.classList.remove('is-error');
+      showOnly(unavailableCard);
+    }
+
+    // auth.getSession() resolves { session, error } — not the supabase-js
+    // { data: { session } } shape — so read both and return the session or null.
+    async function currentSession() {
+      try {
+        var r = await auth.getSession();
+        if (r && r.session) return r.session;
+        if (r && r.data && r.data.session) return r.data.session;
+        return null;
+      } catch (_) { return null; }
+    }
+
+    async function boot() {
+      if (configProblem) { markUnavailable('config'); return; }
+      if (!ragEnabled) { markUnavailable('off'); return; }
+      if (await currentSession()) showOnly(askCard);
+      else showOnly(authCard);
+    }
+
+    $('google-signin').addEventListener('click', function () {
+      auth.signInWithGoogle().catch(function (e) {
+        statusEl.textContent = (e && e.message) || t('errGeneric');
+      });
+    });
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+    function renderAnswer(data) {
+      var root = $('kq-answer');
+      root.innerHTML = '';
+      var h = '<h3>' + esc(t('answerTitle')) + '</h3>';
+
+      var claims = (data.claims || []).filter(Boolean);
+      if (claims.length) {
+        h += '<h3>' + esc(t('claimsLabel')) + '</h3>';
+        claims.forEach(function (c) {
+          var cites = (c.citations || []).map(function (n) { return '<a href="#evidence" class="src">[' + esc(n) + ']</a>'; }).join(' ');
+          var kind = c.kind ? ' <span class="src">(' + esc(String(c.kind)) + ')</span>' : '';
+          h += '<div class="kq-claim">' + esc(c.text) + kind + (cites ? ' <span class="src">' + cites + '</span>' : '') + '</div>';
+        });
+      }
+
+      var unknowns = (data.unknowns || []).filter(Boolean);
+      if (unknowns.length) {
+        h += '<h3>' + esc(t('unknownTitle')) + '</h3>';
+        unknowns.forEach(function (u) { h += '<div class="kq-unknown">• ' + esc(u) + '</div>'; });
+      }
+
+      var chunks = ((data.evidence || {}).chunks || []).filter(Boolean);
+      if (chunks.length) {
+        h += '<h3 id="evidence">' + esc(t('evidenceTitle')) + '</h3>';
+        chunks.forEach(function (r, i) {
+          var title = r.title || 'Untitled';
+          var page = r.page ? (' · p.' + esc(r.page)) : '';
+          var sim = typeof r.similarity === 'number' ? (' · ' + (r.similarity * 100).toFixed(0) + '%') : '';
+          h += '<div class="kq-evidence chunk"><strong>[' + (i + 1) + '] ' + esc(title) + '</strong>' + page + sim +
+               '<div>' + esc((r.content || '').slice(0, 600)) + '</div></div>';
+        });
+      }
+
+      if (!claims.length && !unknowns.length) {
+        h += '<p class="kq-empty">' + esc(t('unavailableService')) + '</p>';
+      }
+      root.innerHTML = h;
+      showOnly(answerCard);
+    }
+
+    // db.knowledge.query throws Error(<response body text>). The body carries a
+    // `code` for 503s and an `error` string otherwise — never the HTTP status —
+    // so map on that content instead of matching status digits.
+    function describeAskError(err) {
+      var raw = (err && err.message) || '';
+      var body = null;
+      try { body = JSON.parse(raw); } catch (_) {}
+      var code = (body && body.code) || '';
+      var text = (body && body.error) || raw;
+      if (code === 'LLM_NOT_CONFIGURED') return t('llmNotConfigured');
+      if (code === 'BACKEND_NOT_CONFIGURED') return t('backendNotConfigured');
+      if (/rate limit/i.test(text)) return t('rateLimited');
+      if (/unauthor|not authenticated|invalid jwt|token/i.test(text)) return t('noSession');
+      return t('errGeneric');
+    }
+
+    async function ask() {
+      var q = questionEl.value.trim();
+      if (!q) { statusEl.textContent = ''; return; }
+      if (q.length < 3) { statusEl.textContent = t('questionLabel'); return; }
+      if (!(await currentSession())) {
+        statusEl.textContent = t('noSession');
+        showOnly(authCard);
+        return;
+      }
+      askBtn.disabled = true;
+      statusEl.textContent = t('asking');
+      try {
+        renderAnswer(await db.knowledge.query(q));
+        statusEl.textContent = '';
+      } catch (err) {
+        statusEl.textContent = describeAskError(err);
+      } finally {
+        askBtn.disabled = false;
+      }
+    }
+
+    askBtn.addEventListener('click', ask);
+    questionEl.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) ask();
+    });
+    questionEl.addEventListener('input', function () { statusEl.textContent = ''; });
+
+    boot();
+
+    // Smoke-test handle: exposes the page's real functions so the checks in
+    // tools/test_knowledge_page.py can drive the exact code paths a visitor
+    // hits — stubbing only the SDK boundary (window.supabase / fetch).
+    window.__AGMX_KQ = {
+      showOnly: showOnly, renderAnswer: renderAnswer, ask: ask, boot: boot,
+      currentSession: currentSession, describeAskError: describeAskError,
+      askCard: askCard, authCard: authCard, unavailableCard: unavailableCard,
+      answerCard: answerCard, questionEl: questionEl, statusEl: statusEl,
+    };
+  </script>
+</body>
+</html>
