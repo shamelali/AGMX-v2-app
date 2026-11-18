@@ -66,10 +66,10 @@ for (const [points, members, key] of [
 }
 
 for (const [members, code] of [
-  [299, "governance_os_essential"], [300, "governance_os_professional"],
-  [999, "governance_os_professional"], [1000, "governance_os_enterprise"],
-  [1999, "governance_os_enterprise"], [2000, "governance_os_federation"],
-  [50000, "governance_os_federation"],
+  [299, "dutagovern_essential"], [300, "dutagovern_professional"],
+  [999, "dutagovern_professional"], [1000, "dutagovern_enterprise"],
+  [1999, "dutagovern_enterprise"], [2000, "dutagovern_federation"],
+  [50000, "dutagovern_federation"],
 ]) {
   const selected = pickAnnualPlan(members);
   const plan = RATE_CARD.byCode(code);

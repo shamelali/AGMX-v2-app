@@ -25,20 +25,20 @@
   /* Mirrors public.plans as read on 3 November 2026. */
   const PLANS = [
     {
-      code: "governance_os_essential", key: "essential", type: "governance_os",
-      name: "Governance OS Essential", memberCap: 300, monthly: 600, annual: 7200, oneoff: null,
+      code: "dutagovern_essential", key: "essential", type: "dutagovern",
+      name: "DutaGovern Essential", memberCap: 300, monthly: 600, annual: 7200, oneoff: null,
     },
     {
-      code: "governance_os_professional", key: "professional", type: "governance_os",
-      name: "Governance OS Professional", memberCap: 1000, monthly: 800, annual: 9600, oneoff: null,
+      code: "dutagovern_professional", key: "professional", type: "dutagovern",
+      name: "DutaGovern Professional", memberCap: 1000, monthly: 800, annual: 9600, oneoff: null,
     },
     {
-      code: "governance_os_enterprise", key: "enterprise", type: "governance_os",
-      name: "Governance OS Enterprise", memberCap: 2000, monthly: 1000, annual: 12000, oneoff: null,
+      code: "dutagovern_enterprise", key: "enterprise", type: "dutagovern",
+      name: "DutaGovern Enterprise", memberCap: 2000, monthly: 1000, annual: 12000, oneoff: null,
     },
     {
-      code: "governance_os_federation", key: "federation", type: "governance_os",
-      name: "Governance OS Federation", memberCap: 10000, monthly: 1250, annual: 15000, oneoff: null,
+      code: "dutagovern_federation", key: "federation", type: "dutagovern",
+      name: "DutaGovern Federation", memberCap: 10000, monthly: 1250, annual: 15000, oneoff: null,
     },
     {
       code: "essential_agm", key: "essential", type: "agm_service",
@@ -60,7 +60,7 @@
      lifts the band when the member count exceeds the package's own cap —
      recommendPlan() ignores member counts, so a quote can come back one tier
      below that recommendation. The server only ever recommends a one-off AGM
-     package — nothing recommends a Governance OS subscription, which is why
+     package — nothing recommends a DutaGovern subscription, which is why
      the subscription step cannot be reached from a live quote yet. */
   function planCodeByScore(score) {
     const s = Number(score) || 0;
@@ -68,7 +68,7 @@
   }
 
   const byCode = (code) => PLANS.find((p) => p.code === code) || null;
-  const subscriptions = () => PLANS.filter((p) => p.type === "governance_os");
+  const subscriptions = () => PLANS.filter((p) => p.type === "dutagovern");
   const services = () => PLANS.filter((p) => p.type === "agm_service");
 
   return {

@@ -1,5 +1,5 @@
 /* ============================================================
-   AGMX — Governance OS views (Sprint 4)
+   AGMX — DutaGovern views (Sprint 4)
    ------------------------------------------------------------
    AGM Hall (#/agm) and Compliance & Audit (#/governance).
    Every write goes through the governance Edge Function, which

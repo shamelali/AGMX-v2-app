@@ -1,5 +1,5 @@
 -- ============================================================
--- AGMX V2 — Sprint 3: Subscription Billing (Governance OS)
+-- AGMX V2 — Sprint 3: Subscription Billing (DutaGovern)
 -- Annual SaaS plans with recurring invoices and payment schedules
 -- ============================================================
 
@@ -10,16 +10,16 @@ alter table public.plans
   add column if not exists billing_cycle text check (billing_cycle in ('monthly', 'annual', 'oneoff')),
   add column if not exists is_subscription boolean not null default false;
 
--- Seed Governance OS subscription plans (annual billing)
+-- Seed DutaGovern subscription plans (annual billing)
 insert into public.plans (code, name, type, price_monthly, price_annual, price_oneoff, max_members, billing_cycle, is_subscription, features)
 values
-  ('governance_os_essential', 'Governance OS Essential', 'governance_os', 600, 7200, 0, 300, 'annual', true,
+  ('dutagovern_essential', 'DutaGovern Essential', 'dutagovern', 600, 7200, 0, 300, 'annual', true,
    '["Up to 300 members","Meetings & resolutions","Document vault","Compliance calendar","Basic audit trail","Email support"]'::jsonb),
-  ('governance_os_professional', 'Governance OS Professional', 'governance_os', 800, 9600, 0, 1000, 'annual', true,
+  ('dutagovern_professional', 'DutaGovern Professional', 'dutagovern', 800, 9600, 0, 1000, 'annual', true,
    '["Up to 1,000 members","All Essential features","AI Compliance agent","Advanced reporting","Priority support","API access"]'::jsonb),
-  ('governance_os_enterprise', 'Governance OS Enterprise', 'governance_os', 1000, 12000, 0, 2000, 'annual', true,
+  ('dutagovern_enterprise', 'DutaGovern Enterprise', 'dutagovern', 1000, 12000, 0, 2000, 'annual', true,
    '["Up to 2,000 members","All Professional features","AI Copilot (6 agents)","GP14/GP14B/UUK automation","Dedicated CSM","SSO / SAML","Custom integrations"]'::jsonb),
-  ('governance_os_federation', 'Governance OS Federation', 'governance_os', 1250, 15000, 0, 10000, 'annual', true,
+  ('dutagovern_federation', 'DutaGovern Federation', 'dutagovern', 1250, 15000, 0, 10000, 'annual', true,
    '["10,000+ members across federation","All Enterprise features","Federation roll-up dashboard","Multi-cooperative management","Consolidated billing","Custom SLA"]'::jsonb)
 on conflict (code) do update
   set name = excluded.name,
@@ -136,7 +136,7 @@ begin
 end $$;
 
 -- ------------------------------------------------------------
--- RPC: Create subscription from accepted quote (for Governance OS plans)
+-- RPC: Create subscription from accepted quote (for DutaGovern plans)
 -- ------------------------------------------------------------
 create or replace function public.create_subscription_from_quote(
   p_quote_id uuid,
