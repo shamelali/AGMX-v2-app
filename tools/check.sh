@@ -2811,68 +2811,70 @@ rm -f "$DENO_ENV_OUT" "$SECRETS_TXT"
 [ "$DENOENV_RC" -eq 0 ] || bad "pass 28 could not complete (python exit $DENOENV_RC)"
 
 # ----------------------------------------------------------------
-head_ "29. Payment copy names only the rails the gateway actually offers"
+head_ "29. Payment copy names only the rails checkout can actually reach"
 
-# api/hitpay/create-payment.js sends `payment_methods: ["card"]` and
-# api/hitpay/webhook.js refuses to settle anything whose recorded method is not
-# "card". The landing page and checkout page nevertheless promised "HitPay (FPX,
-# card, e-wallet)": a Malaysian co-operative read FPX, tapped online payment, and
-# landed on a card-only hosted page with no way to pay the way it was told it
-# could. That is the same class of defect as advertising a knowledge room whose
-# functions answer 500 — the claim, not the code, is what the customer acts on.
+# The landing page and checkout promised "HitPay (FPX, card, e-wallet)" while
+# checkout.html offered two radio values, card and bank_transfer. A Malaysian
+# co-operative read FPX, tapped online payment, and landed on a card-only hosted
+# page. Same class of defect as advertising a knowledge room whose functions
+# answer 500 — the claim is what the customer acts on.
 #
-# The offer is read from the request the gateway receives, not from copy, and the
-# pages may only name a rail that request contains. Adding FPX is a code change
-# here first; the prose follows.
+# The chain that decides what is true, strongest first:
+#   copy  ⊆  checkout.html radio values  ⊆  money-flow's method branches
+# A rail the UI cannot select is unreachable whatever money-flow supports, and a
+# rail money-flow cannot branch on fails after the payer commits. So the pages
+# may only name rails present in both. Read from source, never from copy.
+#
+# Deliberately not api/hitpay/*: those Vercel routes still write to PocketBase at
+# 127.0.0.1:8090 (README defect 8) and no page calls them — checkout.js posts to
+# functions/v1/money-flow. Judging the copy against a dead route would repeat the
+# mistake of trusting the copy.
 PAYCOPY_OUT=$(mktemp /tmp/agmx-paycopy-XXXXXX.txt)
-python3 - "$PAYCOPY_OUT" <<'PY'
+python3 - "$PAYCOPY_OUT" <<'PYEOF'
 import pathlib, re, sys
 
 out = open(sys.argv[1], "w")
 def emit(kind, text):
     out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
 
-REQUEST = pathlib.Path("api/hitpay/create-payment.js")
-WEBHOOK = pathlib.Path("api/hitpay/webhook.js")
-PAGES = [p for p in (pathlib.Path("index.html"), pathlib.Path("checkout.html")) if p.is_file()]
+CHECKOUT = pathlib.Path("checkout.html")
+FLOW = pathlib.Path("supabase/functions/money-flow/index.ts")
+PAGES = [p for p in (pathlib.Path("index.html"), CHECKOUT) if p.is_file()]
 
-if not REQUEST.is_file() or not PAGES:
-    emit("WARN", "api/hitpay/create-payment.js or the pages are missing — payment copy was not "
-                 "compared with the request the gateway receives")
+if not CHECKOUT.is_file() or not FLOW.is_file():
+    emit("WARN", "checkout.html or money-flow/index.ts is missing — payment copy was not compared "
+                 "with the rails checkout can reach")
     out.close(); sys.exit(0)
 
-src = REQUEST.read_text(errors="replace")
-m = re.search(r"payment_methods\s*:\s*\[([^\]]*)\]", src)
-if not m:
-    emit("WARN", "create-payment.js no longer names payment_methods — read the request by hand "
+# What the page lets a payer choose.
+ui = {v.lower() for v in re.findall(r'name="paymethod"\s+value="([a-z_]+)"',
+                                   CHECKOUT.read_text(errors="replace"))}
+if not ui:
+    emit("BAD", "checkout.html declares no paymethod radio values — the payment step cannot be "
+                "completed, yet the pages advertise online payment")
+    out.close(); sys.exit(0)
+
+# What the function receiving that choice can act on.
+flow_src = FLOW.read_text(errors="replace")
+flow = {m.lower() for m in re.findall(r'input\.method\s*===\s*"([a-z_]+)"', flow_src)}
+# bank_transfer is money-flow's else branch, signalled only in the return URL.
+flow |= {m.lower() for m in re.findall(r'method=([a-z_]+)', flow_src)}
+if not flow:
+    declared = re.search(r'method:\s*(["\'])([a-z_ |]+)\1', flow_src)
+    if declared:
+        flow = {v.strip().lower() for v in declared.group(2).split("|") if v.strip()}
+if not flow:
+    emit("WARN", "money-flow no longer branches on input.method — read the payment path by hand "
                  "before trusting the payment copy")
     out.close(); sys.exit(0)
-offered = {v.strip().strip("\"'").lower() for v in m.group(1).split(",") if v.strip()}
-if not offered:
-    emit("BAD", "create-payment.js sends an empty payment_methods list — HitPay will show no way "
-                "to pay, yet the pages still advertise online payment")
+
+reachable = ui & flow
+if not reachable:
+    emit("BAD", "checkout.html offers %s but money-flow branches on %s — no overlap, so every payment "
+                "the UI can start fails after the payer commits" % (sorted(ui), sorted(flow)))
     out.close(); sys.exit(0)
 
-# The webhook is the other half of the contract: it settles a payment only when
-# the stored method matches what it expects, so a rail offered here but rejected
-# there would take the customer's money and never mark the invoice paid.
-settled = None
-if WEBHOOK.is_file():
-    w = WEBHOOK.read_text(errors="replace")
-    wm = re.search(r'method\s*!==\s*"([a-z_]+)"', w) or re.search(r'method\s*===\s*"([a-z_]+)"', w)
-    if wm:
-        settled = wm.group(1).lower()
-        if settled not in offered:
-            emit("BAD", "create-payment.js offers %s but webhook.js only settles %r — a payment made "
-                        "with the other method is taken and the invoice stays unpaid"
-                 % (sorted(offered), settled))
-
-# Rail names a reader would act on, and the gateway token each one means.
-CLAIMS = {
-    "fpx": {"fpx"},
-    "e-wallet": {"ewallet", "e-wallet", "ewallet"},
-    "card": {"card"},
-}
+# Rail names a reader would act on.
 TOKENS = [
     ("fpx", re.compile(r"\bFPX\b", re.I)),
     ("e-wallet", re.compile(r"\bE[-\s]?wallet\b", re.I)),
@@ -2881,20 +2883,19 @@ offenders = []
 for page in PAGES:
     text = re.sub(r"<[^>]+>", " ", page.read_text(errors="replace"))
     for label, pattern in TOKENS:
-        if pattern.search(text) and not (CLAIMS[label] & offered):
-            offenders.append("%s names %s" % (page, label))
+        if pattern.search(text) and label not in reachable:
+            where = "checkout.html cannot select it" if label not in ui else "money-flow cannot branch on it"
+            offenders.append("%s names %s (%s)" % (page, label, where))
 
 if offenders:
-    emit("BAD", "%s, but create-payment.js asks HitPay for %s only — the hosted page cannot offer it, "
-                "so the copy describes a payment a customer cannot make (fix the copy, or add the rail "
-                "to payment_methods and webhook.js first)"
-         % (", ".join(offenders), sorted(offered)))
+    emit("BAD", "%s, but the reachable rails are %s only — the copy describes a payment a customer "
+                "cannot make. Fix the copy, or add the rail to checkout.html and money-flow first."
+         % (", ".join(offenders), sorted(reachable)))
 else:
-    emit("OK", "payment copy names only what create-payment.js requests (%s)%s"
-         % (", ".join(sorted(offered)),
-            "" if settled else "; webhook.js method check not found, settling was not compared"))
+    emit("OK", "payment copy names only rails checkout can reach (%s; UI %s, money-flow %s)"
+         % (", ".join(sorted(reachable)), sorted(ui), sorted(flow)))
 out.close()
-PY
+PYEOF
 PAYCOPY_RC=$?
 while IFS=$'\t' read -r kind text; do
   [ -n "${kind:-}" ] || continue
