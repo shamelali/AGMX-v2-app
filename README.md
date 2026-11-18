@@ -47,15 +47,15 @@ Nothing in this repository may claim a capability by showing a screen for it.
 | Organisation isolation | Live | `current_org_id()` used by RLS across the schema (`0001_schema.sql`) |
 | Member roster (read, eligibility, attendance views) | Live | `supabase-client.js:142-149`, rendered by `app-bootstrap.js:656-676` |
 | Member CSV **import** | Planned | export exists for the lead pipeline only (`leads.js:147-171`); there is no file input or parser |
-| AGM hall: start/close, check-in, quorum, motions, vote, resolutions | Live with named gaps | `governance-ui.js` → `governance` Edge Function → `0007_governance_rpc.sql`. Gaps: a failed quorum does **not** block a vote (`0007:191-216`) and the passed-or-failed test ignores abstentions and the motion type (`0007:314`) |
-| Ballot casting | Live, **not secret** | `cast_vote` (`0007:225-262`). No WebCrypto/AES anywhere; ballots are plaintext rows. `votes_read using (false)` hides them from reads, but see *Open defects* #2 |
+| AGM hall: start/close, check-in, quorum, motions, vote, resolutions | Live with named gaps | `governance-ui.js` → `governance` Edge Function → `0007_governance_rpc.sql` (+ `0008_governance_bugfixes.sql`). Quorum gates voting (`0008:43-60`, fail-closed) and thresholds are motion-type-aware (`0008:132-141`). Remaining gaps: `khas` (special) resolutions are scored as a simple majority, and the `ok`/`error` contract between `governance-ui.js` and its Edge Function is undocumented |
+| Ballot casting | Live, **not secret** | `cast_vote` supersedes `0007:225-262` with `0008:19`. Gated on live AGM, voting window (`voting_opens_at` set unconditionally by `start_agm`, `0007:73`), eligible member, latest quorum snapshot (fail-closed), double-vote guard. No WebCrypto/AES anywhere; ballots are plaintext rows. `votes_read using (false)` hides them from reads, but see *Open defects* #2 |
 | Audit chain | Written, **never verified** | `log_audit` SHA-256 chaining in Postgres (`0007:11-41`) and in `money-flow` for commercial events. No code recomputes a link, and ballots do not enter the chain — so do not claim immutability |
-| Statutory checks | Three of four rules evaluate | `run_compliance_checks` (`0007:362+`): `sec17_notice`, `gp14_quorum`, `gp14b_motions`. `akta1993_immutable` returns **not evaluated**; the loop no longer defaults to a pass |
-| Follow-up actions | Live, manual | created by an operator (`governance-ui.js:757-771`); nothing derives tasks from passed motions |
-| Document register | Live, metadata only | `register_document` (`0007:448-470`) stores a typed path and an optional hand-typed sha256. **There is no upload** — no `storage.from()` in this repo |
-| Subscription + recurring invoices + payment schedule | Built, **not reachable** | the screens, the client contract (`tools/test_subscription_client.js`) and the RPCs exist, but `create_subscription_from_quote` requires `plans.is_subscription`, and every `*_agm` plan row is `false` — so a subscription started from an AGM quote cannot complete |
+| Statutory checks | Three of four evaluate; `akta1993_immutable` not evaluated | `run_compliance_checks` (`0007:400`): `sec17_notice`, `gp14_quorum`, `gp14b_motions` return decisions; `akta1993_immutable` returns **not evaluated** — still reachable, so it reports rather than blocks |
+| Follow-up actions | Live, manual | created by an operator (`governance-ui.js:788`); nothing derives tasks from passed motions |
+| Document register | Live, metadata only | `register_document` (`0007:504`) stores a typed path and an optional hand-typed sha256. **There is no upload** — no `storage.from()` in this repo |
+| Subscription + recurring invoices + payment schedule | Live but needs sorting | `money-flow` `/subscription/create` → `create_subscription_from_quote` (`0006:141`); all four plans (Essential/Professional/Enterprise/Federation) are `is_subscription=true` (`0006:14`). Handler guards quote ownership and `status=accepted`. Gap: `start_date`/expiry-window validation is unverified |
 | AI copilot (chairman, secretary/minutes, compliance, question organiser) | Planned | `copilot.js` is loaded by **no** page and calls `api.canQueryKnowledge` / `api.queryKnowledge`, which `supabase-client.js` does not define. No speech-to-text exists |
-| RAG knowledge room | Deployed, **off** | `knowledge-query` / `knowledge-ingest` are deployed and load; a non-POST answers 405 with the provider they select. No provider key exists on either platform, so `/api/config` publishes `knowledgeRagEnabled:false` — the flag needs the opt-in **and** a key this platform can see |
+| RAG knowledge room | Deployed, **on** | `knowledge-query` / `knowledge-ingest` deployed and reachable; prod `knowledgeRagEnabled:true` (verified 2026-11-18). POST to the function returns 401 Unauthorized without a session (handler gates it). No provider key on either platform, so real answers depend on a signed-in session + indexed vault |
 | Federation / multi-org roll-up, distribution portal | Built, not reachable | tables and RLS exist; `AGMX_API.loadDistributionPortal` is never defined, so the route always renders "Distribution data unavailable" (`app-bootstrap.js:518-526, 741-743`) |
 | SSO, custom domain, public API | Planned | marketing text only |
 | 5 hall layouts, speaker queue, video, live captions, "panic button" | Planned | no code; the landing page says so plainly |
@@ -104,24 +104,33 @@ database or a deployed Edge Function.
 1. **No `profiles` row on signup.** `handle_new_user` does not exist, so a brand-new
    user authenticates and then fails on the profile read. Nothing in the documented
    deploy creates one.
-2. **`votes_insert` validates only `organization_id`** (`0001:676-677`), so any member
+2. **`votes_insert` validates only `organization_id`** (`0001:651`), so any member
    of an organisation can insert a ballot for another voter through raw PostgREST with
    the published publishable key, and `votes_read using (false)` means nobody sees it.
    Tighten to `auth.uid() = member_id`.
 3. **Broad `authenticated` INSERT/UPDATE grants** on `motions`, `resolutions`,
-   `attendance`, `quorum_snapshots`, `agms`, `audit_events` (`0001:831-834`) sit
+   `attendance`, `quorum_snapshots`, `agms`, `audit_events` (`0001:802-816`) sit
    beside RPCs that already do the job. Drop them in favour of the RPCs.
 4. **`check_rate_limit` is SECURITY DEFINER and not revoked from `anon`**
-   (`0001:707-708`); with `p_window = '100 years'` the table empties itself.
-5. **Quorum gates nothing and the threshold rule is wrong** (see the table above).
-   `start_agm`'s bare `update agm_settings` (`0007:64`) can silently invalidate every
-   ballot in flight.
-6. **`handleActionCreate` (`governance/index.ts:420-435`) has no ownership check.**
-7. **Subscriptions cannot start from an AGM quote** (see the table above).
+   (`0001:672,707`); with `p_window = '100 years'` the table empties itself.
+5. **`agm_settings` is created only by the handler, not the schema.** `handleAgmCreate`
+   (`governance/index.ts:267`) inserts the settings row and `start_agm` sets
+   `voting_opens_at` unconditionally (`0007:73`), so the web flow works. But an AGM
+   created outside the handler (raw PostgREST, import, drift) has no settings row, and
+   `cast_vote` (`0008:44`) then returns "Voting not open" with no migration to create it.
+   Fix: move settings creation into `start_agm`, not the handler.
+6. **`handleActionCreate` (`governance/index.ts:420`) checks isOperator only.**
+   The `create_action` RPC (`0007:373`) scopes the insert to `p_org`, but the endpoint
+   passes `profile.organization_id` and performs no row-level membership check, so the
+   boundary — and whether the operator can act outside their own org — is unverified.
+7. **`handleAgmCreate` does not validate `quorum_pct`.** It passes
+   `Number(input.quorumPct ?? 25)` straight into the INSERT, so a caller can set a
+   quorum of `0` or `101`, or a negative, and `start_agm`/`close_agm` never bounds it.
 8. **`api/billplz/*` and `api/hitpay/*` on Vercel still write to PocketBase**
    (`api/billplz/_shared.js:117`, `api/hitpay/_shared.js:119` — the default URL is
    `http://127.0.0.1:8090`). Adding gateway keys does **not** make these routes work;
-   the working path is `money-flow/payment/intent`.
+   the working path is `money-flow/payment/intent`. A stale `sw.js:150` comment about
+   `api/hitpay/create-payment.js` mirrors this and was cleaned.
 9. **`money-flow` defaults to sandbox endpoints** (`BILLPLZ_API_URL` → billplz-sandbox,
    `HITPAY_API_URL` → api.sandbox.hit-pay.com). With production keys but unset URLs it
    would send a real payer to a sandbox bill.
