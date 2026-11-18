@@ -2635,16 +2635,25 @@ head_ "26. The linked project still runs the SQL in this repository"
 # files that describe them. It needs credentials, so an unreadable project is a
 # warning (exit 2) rather than a failure — the pre-commit hook on a machine with no
 # project linked must not go red for the wrong reason.
-if [ ! -f tools/test_production_drift.mjs ]; then
-  warn "tools/test_production_drift.mjs not found"
-elif ! command -v supabase >/dev/null 2>&1; then
-  warn "supabase CLI not installed — the linked project was not compared with this tree"
+# The runner is chosen at run time: the .mjs harness is the original, and the
+# .py port reads the same live catalog through the Management API so the pass
+# still answers the question on a machine that has no node (the one this
+# repository is developed on).
+DRIFT_CMD=""
+if command -v node >/dev/null 2>&1 && [ -f tools/test_production_drift.mjs ]; then
+  DRIFT_CMD="node tools/test_production_drift.mjs"
+elif command -v python3 >/dev/null 2>&1 && [ -f tools/test_production_drift.py ]; then
+  DRIFT_CMD="python3 tools/test_production_drift.py"
+fi
+
+if [ -z "$DRIFT_CMD" ]; then
+  warn "no drift runner (node or python3) — the linked project was not compared with this tree"
 elif [ "${AGMX_SKIP_NET:-0}" = "1" ]; then
   warn "AGMX_SKIP_NET=1 — production drift not checked; clear it before a release"
 elif [ ! -f supabase/.temp/linked-project.json ] || [ ! -f supabase/.temp/project-ref ]; then
   warn "no linked project — run \`supabase link\` to compare the live catalog with supabase/schema_final.sql"
 else
-  if OUT=$(node tools/test_production_drift.mjs 2>&1); then
+  if OUT=$($DRIFT_CMD 2>&1); then
     ok "$(printf '%s\n' "$OUT" | tail -1)"
   else
     CODE=$?

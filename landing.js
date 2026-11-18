@@ -1,0 +1,257 @@
+/* ============================================================
+   AGMX — Landing enhancement layer
+   ------------------------------------------------------------
+   Progressive enhancement for index.html. Loaded with `defer`, so
+   the DOM is parsed before this runs.
+
+   Rules this file keeps:
+   - It never changes text content, only classes, CSS custom properties
+     and one element's text (the counters), which is restored to the
+     exact original string when the count-up finishes.
+   - It never moves an element that carries an id, so no reference in
+     the page's own scripts breaks. The only node it relocates is the
+     hero nav, which is moved to the document body so it can be sticky
+     for the whole page; if that fails, the page still renders.
+   - Every animated behaviour is skipped when the visitor asks for
+     reduced motion, and every observer is optional: a browser without
+     IntersectionObserver gets the static page, not a blank one.
+
+   The marker class `lp-js` on <html> is what unlocks the hidden
+   starting state in landing.css. It is added before any node is
+   touched, so a script that throws leaves the page fully visible.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  var root = document.documentElement;
+  var reduceMotion = !!(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var finePointer = !!(window.matchMedia &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches);
+
+  root.classList.add("lp-js");
+
+  /* ------------------------------------------------------------
+     1. Promote the hero nav to a page-level sticky bar
+     ------------------------------------------------------------
+     In the markup the nav sits inside .hero > .container, which
+     bounds a sticky element to the hero. Moving it to <body> — and
+     leaving it after the skip link, so keyboard order still starts
+     with "skip to main content" — lets one header serve the whole
+     document. */
+  var nav = document.querySelector(".nav-top");
+  if (nav && nav.parentNode && nav.parentNode !== document.body) {
+    var skipLink = document.querySelector("body > .skip-link");
+    try {
+      if (skipLink && skipLink.parentNode === document.body) {
+        skipLink.after(nav);
+      } else {
+        document.body.insertBefore(nav, document.body.firstChild);
+      }
+    } catch (err) {
+      /* A failed move is cosmetic only: the nav stays where the
+         markup put it and the page reads the same. */
+    }
+  }
+
+  /* ------------------------------------------------------------
+     2. Scroll state: stuck header, progress, scroll-spy
+     ------------------------------------------------------------ */
+  var progressBar = document.createElement("div");
+  progressBar.className = "lp-progress";
+  progressBar.setAttribute("aria-hidden", "true");
+  document.body.appendChild(progressBar);
+
+  var sections = Array.prototype.slice.call(
+    document.querySelectorAll("main section[id]")
+  );
+  var navLinks = Array.prototype.slice.call(
+    document.querySelectorAll('.nav-link[href^="#"]')
+  );
+  var linkById = {};
+  navLinks.forEach(function (link) {
+    linkById[link.getAttribute("href").slice(1)] = link;
+  });
+
+  var ticking = false;
+
+  function updateScrollState() {
+    ticking = false;
+
+    var y = window.scrollY || window.pageYOffset || 0;
+    var viewport = window.innerHeight || 0;
+
+    if (nav) nav.classList.toggle("lp-nav-stuck", y > 8);
+
+    var scrollable = (root.scrollHeight || 0) - viewport;
+    var progress = scrollable > 0 ? y / scrollable : 0;
+    progress = Math.min(1, Math.max(0, progress));
+    progressBar.style.setProperty("--lp-progress", progress.toFixed(4));
+
+    /* Scroll-spy: the section owning the line just under the header
+       wins, so the marker tracks what the reader is looking at rather
+       than what scrolled past. */
+    var activeId = null;
+    var probe = y + viewport * 0.35;
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].offsetTop <= probe) activeId = sections[i].id;
+    }
+    if (scrollable > 0 && y >= scrollable - 2 && sections.length) {
+      activeId = sections[sections.length - 1].id;
+    }
+    navLinks.forEach(function (link) {
+      link.classList.toggle("lp-active", link.getAttribute("href").slice(1) === activeId);
+    });
+  }
+
+  function requestScrollUpdate() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(updateScrollState);
+  }
+
+  window.addEventListener("scroll", requestScrollUpdate, { passive: true });
+  window.addEventListener("resize", requestScrollUpdate);
+
+  /* ------------------------------------------------------------
+     3. Scroll reveal
+     ------------------------------------------------------------ */
+  var revealSelector = [
+    ".section-header",
+    ".availability-card",
+    ".stage-card",
+    ".trust-row",
+    ".compliance-card",
+    ".resource-card",
+    ".pricing-card",
+    ".faq-item",
+    ".cta-card",
+    ".scoping-block",
+    ".footer-grid > *"
+  ].join(",");
+
+  var revealTargets = Array.prototype.slice.call(
+    document.querySelectorAll(revealSelector)
+  );
+
+  if (!reduceMotion && revealTargets.length &&
+      "IntersectionObserver" in window) {
+    var groups = [];
+    revealTargets.forEach(function (el) {
+      var parent = el.parentNode;
+      if (!parent) return;
+      if (groups.indexOf(parent) === -1) groups.push(parent);
+      el.style.setProperty("--lp-i", Array.prototype.indexOf.call(parent.children, el));
+      el.classList.add("lp-reveal");
+    });
+    groups.forEach(function (parent) { parent.classList.add("lp-stagger"); });
+
+    var revealObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("lp-visible");
+        revealObserver.unobserve(entry.target);
+      });
+    }, { rootMargin: "0px 0px -6% 0px", threshold: 0.06 });
+
+    revealTargets.forEach(function (el) {
+      var rect = el.getBoundingClientRect();
+      /* Anything already on screen is shown at once — the reveal is a
+         scroll effect, not a loading gate. */
+      if (rect.top < (window.innerHeight || 0) && rect.bottom > 0) {
+        el.classList.add("lp-visible");
+      } else {
+        revealObserver.observe(el);
+      }
+    });
+  }
+
+  /* ------------------------------------------------------------
+     4. Count-up on the sample AGM record
+     ------------------------------------------------------------
+     The final value is the exact original string, restored when the
+     animation ends, so the numbers on the page are the numbers in the
+     markup — never a rounded approximation. */
+  function groupDigits(value) {
+    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function animateCount(el, target, original) {
+    var duration = 1100;
+    var start = null;
+
+    function step(timestamp) {
+      if (start === null) start = timestamp;
+      var elapsed = timestamp - start;
+      var ratio = Math.min(1, elapsed / duration);
+      var eased = 1 - Math.pow(1 - ratio, 3);
+      el.textContent = groupDigits(Math.round(target * eased));
+      if (ratio < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        el.textContent = original;
+      }
+    }
+
+    window.requestAnimationFrame(step);
+  }
+
+  var counters = Array.prototype.slice.call(
+    document.querySelectorAll(".record-stats dd, .record-tally span")
+  ).filter(function (el) {
+    return /^\d[\d,]*$/.test((el.textContent || "").trim());
+  });
+
+  if (!reduceMotion && counters.length) {
+    counters.forEach(function (el) {
+      var original = el.textContent.trim();
+      el.classList.add("lp-count");
+      el.setAttribute("data-lp-final", original);
+    });
+
+    var recordCard = document.querySelector(".record-card");
+    var startCounters = function () {
+      counters.forEach(function (el) {
+        var target = parseInt(el.getAttribute("data-lp-final").replace(/,/g, ""), 10);
+        if (!isNaN(target)) animateCount(el, target, el.getAttribute("data-lp-final"));
+      });
+    };
+
+    if (recordCard && "IntersectionObserver" in window) {
+      var countObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          countObserver.unobserve(entry.target);
+          startCounters();
+        });
+      }, { threshold: 0.2 });
+      countObserver.observe(recordCard);
+    } else {
+      startCounters();
+    }
+  }
+
+  /* ------------------------------------------------------------
+     5. Cursor spotlight on the sample record
+     ------------------------------------------------------------ */
+  if (finePointer) {
+    var spotlight = document.querySelector(".record-card");
+    if (spotlight) {
+      spotlight.addEventListener("pointermove", function (event) {
+        var rect = spotlight.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        spotlight.style.setProperty(
+          "--lp-mx",
+          (((event.clientX - rect.left) / rect.width) * 100).toFixed(2) + "%"
+        );
+        spotlight.style.setProperty(
+          "--lp-my",
+          (((event.clientY - rect.top) / rect.height) * 100).toFixed(2) + "%"
+        );
+      });
+    }
+  }
+
+  /* First paint of the scroll-dependent chrome. */
+  updateScrollState();
+})();

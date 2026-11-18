@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>AGMX Demo — Panduan AGM Interaktif · Koperasi Contoh Berhad</title>
+<style>
+  :root{
+    --ink:#0F172A; --ink-2:#334155; --ink-3:#64748B; --ink-4:#94A3B8;
+    --line:#E2E8F0; --line-2:#CBD5E1; --bg:#FFF; --bg-2:#F8FAFC; --bg-3:#F1F5F9;
+    --primary:#2563EB; --primary-700:#1D4ED8; --primary-50:#EFF6FF; --primary-200:#BFDBFE;
+    --mint:#10B981; --mint-ink:#052E23; --mint-50:#ECFDF5;
+    --amber:#F59E0B; --amber-50:#FFFBEB; --amber-line:#FDE68A; --amber-ink:#92400E;
+    --red:#DC2626; --red-50:#FEF2F2;
+    --navy:#0B1B33;
+    --r:12px; --r-lg:16px;
+    --shadow:0 1px 2px rgba(15,23,42,.06), 0 8px 24px -14px rgba(15,23,42,.18);
+    --font:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:var(--bg-2);color:var(--ink);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{margin:0;line-height:1.2;letter-spacing:-.025em;font-weight:800}
+  p{margin:0}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;cursor:pointer}
+
+  /* ── sample banner (unmissable, on every screen) ── */
+  .sample-bar{
+    background:repeating-linear-gradient(135deg,#FEF3C7,#FEF3C7 10px,#FFFBEB 10px,#FFFBEB 20px);
+    border-bottom:1px solid var(--amber-line);color:var(--amber-ink);
+    font-size:12.5px;font-weight:700;padding:9px 16px;text-align:center;line-height:1.45;
+  }
+  .sample-bar b{font-weight:800}
+
+  /* ── top bar ── */
+  .topbar{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:60}
+  .topbar-in{max-width:1180px;margin:0 auto;padding:0 16px;height:60px;display:flex;align-items:center;gap:12px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;letter-spacing:-.03em}
+  .brand svg{width:24px;height:24px}
+  .tenant{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;background:var(--bg-3);font-size:12px;font-weight:700;color:var(--ink-2)}
+  .tenant i{width:6px;height:6px;border-radius:99px;background:var(--mint);display:block}
+  .tenant em{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--amber-ink);background:#FEF3C7;padding:2px 6px;border-radius:4px}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .lang{display:inline-flex;border:1px solid var(--line-2);border-radius:999px;overflow:hidden;background:#fff}
+  .lang button{border:0;background:transparent;padding:0 12px;min-height:44px;font-size:12px;font-weight:800;color:var(--ink-3)}
+  .lang button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:11px 18px;border-radius:9px;font-size:14px;font-weight:800;border:1px solid transparent;transition:.15s}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{background:var(--primary-700)}
+  .btn-ghost{background:#fff;border-color:var(--line-2);color:var(--ink)}
+  .btn-ghost:hover{background:var(--bg-3)}
+  .btn-mint{background:var(--mint);color:#fff}
+  .btn-mint:hover{background:#059669}
+  .btn-sm{min-height:38px;padding:8px 14px;font-size:13px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ── layout ── */
+  .shell{max-width:1180px;margin:0 auto;padding:20px 16px 60px;display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
+  .rail{position:sticky;top:80px;background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;box-shadow:var(--shadow)}
+  .rail-t{font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-4);padding:4px 8px 12px}
+  .rail ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+  .rail li button{
+    width:100%;display:flex;align-items:center;gap:10px;background:none;border:0;
+    padding:10px 9px;border-radius:9px;text-align:left;font-size:13.5px;font-weight:700;color:var(--ink-2);
+    transition:.15s;
+  }
+  .rail li button:hover{background:var(--bg-3)}
+  .rail li.on button{background:var(--primary-50);color:var(--primary-700)}
+  .rail .num{
+    width:22px;height:22px;border-radius:7px;background:var(--bg-3);color:var(--ink-3);
+    display:grid;place-items:center;font-size:11px;font-weight:800;flex:0 0 auto;
+  }
+  .rail li.on .num{background:var(--primary);color:#fff}
+  .rail li.done .num{background:var(--mint);color:#fff}
+  .rail-foot{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .progress{height:5px;border-radius:99px;background:var(--bg-3);overflow:hidden;margin-bottom:8px}
+  .progress i{display:block;height:100%;background:var(--mint);border-radius:99px;transition:width .3s}
+  .progress-l{font-size:11.5px;color:var(--ink-3);font-weight:700}
+
+  /* ── stage ── */
+  .stage{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden;min-height:520px;display:flex;flex-direction:column}
+  .stage-head{padding:20px 22px 16px;border-bottom:1px solid var(--line)}
+  .step-tag{font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--primary-700);margin-bottom:7px}
+  .stage-head h2{font-size:21px;letter-spacing:-.025em}
+  .stage-head p{margin-top:7px;font-size:13.5px;color:var(--ink-3);max-width:56em;line-height:1.6}
+  .stage-body{padding:20px 22px 24px;flex:1}
+  .stage-foot{padding:14px 22px;border-top:1px solid var(--line);background:var(--bg-2);display:flex;align-items:center;gap:10px}
+  .stage-foot .hint{font-size:12.5px;color:var(--ink-3);margin-right:auto;line-height:1.5}
+  .pane{display:none}
+  .pane.on{display:block;animation:fade .22s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ── shared bits ── */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .kpi{border:1px solid var(--line);border-radius:var(--r);padding:13px 14px}
+  .kpi .l{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4)}
+  .kpi .v{font-size:22px;font-weight:800;letter-spacing:-.03em;margin-top:5px;line-height:1.1}
+  .kpi .v small{font-size:11px;font-weight:700;color:var(--ink-4)}
+  .kpi .s{font-size:11px;color:var(--ink-3);margin-top:2px}
+  .kpi.good .v{color:#047857}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:99px}
+  .pill-ok{background:#D1FAE5;color:#047857}
+  .pill-wait{background:#FEF3C7;color:#92400E}
+  .pill-red{background:#FEE2E2;color:#B91C1C}
+  .sec-lbl{font-size:10.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-4);margin:20px 0 10px}
+  .list{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .lrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #F1F5F9;font-size:13px}
+  .lrow:last-child{border-bottom:0}
+  .lrow .g{flex:1;min-width:0}
+  .lrow .n{font-weight:700}
+  .lrow .m{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+  .lrow.done{background:var(--mint-50)}
+  .check{width:20px;height:20px;border-radius:99px;border:1.5px solid var(--line-2);display:grid;place-items:center;font-size:10px;font-weight:900;color:transparent;flex:0 0 auto}
+  .lrow.done .check{background:var(--mint);border-color:var(--mint);color:#fff}
+  .emptyhint{font-size:12.5px;color:var(--ink-3);padding:14px;text-align:center;border:1px dashed var(--line-2);border-radius:var(--r);line-height:1.6}
+
+  /* voting */
+  .res{border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:10px}
+  .res .top{display:flex;align-items:flex-start;gap:12px;margin-bottom:11px}
+  .res .rt{flex:1}
+  .res .rt b{font-size:13.5px;display:block;line-height:1.35}
+  .res .rt span{font-size:11.5px;color:var(--ink-3)}
+  .bar{height:8px;border-radius:99px;background:var(--bg-3);overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  .tally{display:flex;gap:14px;font-size:11.5px;color:var(--ink-3);margin-top:7px;flex-wrap:wrap}
+  .tally b{color:var(--ink);font-weight:800}
+  .vote-btns{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+  .vbtn{min-height:38px;padding:8px 14px;border-radius:8px;border:1px solid var(--line-2);background:#fff;font-size:12.5px;font-weight:800;color:var(--ink-2)}
+  .vbtn:hover{border-color:var(--primary-200);background:var(--primary-50)}
+  .vbtn.yes:hover{border-color:#6EE7B7;background:#ECFDF5;color:#047857}
+  .vbtn.no:hover{border-color:#FCA5A5;background:#FEF2F2;color:#B91C1C}
+  .vbtn.sel-yes{background:#ECFDF5;border-color:var(--mint);color:#047857}
+  .vbtn.sel-no{background:#FEF2F2;border-color:#FCA5A5;color:#B91C1C}
+
+  /* minutes */
+  .doc{border:1px solid var(--line);border-radius:var(--r);padding:20px;background:#fff;font-size:13px;line-height:1.72;color:var(--ink-2)}
+  .doc h4{font-size:14px;margin-bottom:4px;color:var(--ink)}
+  .doc .meta{font-size:11.5px;color:var(--ink-3);margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .doc .blk{margin-bottom:12px}
+  .doc .blk b{display:block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-4);margin-bottom:3px}
+  .doc .tag-live{background:#ECFDF5;color:#047857;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px}
+
+  /* audit */
+  .audit{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .audit-h{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-2);border-bottom:1px solid var(--line)}
+  .audit-h b{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+  .audit-h span{font-size:10.5px;font-weight:800;color:#047857;background:#D1FAE5;padding:2px 7px;border-radius:99px}
+  .arow{display:grid;grid-template-columns:54px 1fr auto;gap:10px;padding:9px 14px;border-bottom:1px solid #F1F5F9;font-size:12px;align-items:start}
+  .arow:last-child{border-bottom:0}
+  .arow .t{font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+  .arow .w{color:var(--ink-2)}
+  .arow .w b{color:var(--ink);font-weight:700}
+  .arow .h{font-family:var(--mono);font-size:9.5px;color:var(--ink-4);text-align:right;white-space:nowrap}
+  .new-row{animation:pop .3s ease}
+  @keyframes pop{from{background:#ECFDF5}to{background:transparent}}
+
+  /* end */
+  .end{text-align:center;padding:8px 0 4px}
+  .end h3{font-size:19px;margin-bottom:8px}
+  .end p{font-size:13.5px;color:var(--ink-3);max-width:42em;margin:0 auto 20px;line-height:1.65}
+  .end-cta{display:grid;gap:9px;max-width:340px;margin:0 auto}
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0}
+  .tier{border:1px solid var(--line);border-radius:var(--r);padding:14px;text-align:left}
+  .tier.now{border-color:var(--primary);background:var(--primary-50)}
+  .tier .tn{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-700)}
+  .tier.b2 .tn,.tier.b3 .tn{color:var(--ink-4)}
+  .tier b{display:block;font-size:13px;margin:5px 0 4px}
+  .tier span{font-size:11.5px;color:var(--ink-3);line-height:1.5;display:block}
+
+  @media (max-width:880px){
+    .shell{grid-template-columns:1fr;padding:14px 12px 48px}
+    .rail{position:static;order:2}
+    .rail ol{grid-template-columns:repeat(3,1fr)}
+    .rail li button{flex-direction:column;gap:5px;text-align:center;padding:9px 4px;font-size:11px}
+    .rail-t{display:none}
+    .stage{order:1;min-height:0}
+    .kpis{grid-template-columns:1fr 1fr}
+    .tiers{grid-template-columns:1fr}
+    .stage-head,.stage-body,.stage-foot{padding-left:16px;padding-right:16px}
+    .arow{grid-template-columns:44px 1fr;row-gap:2px}
+    .arow .h{grid-column:2;text-align:left}
+    .stage-foot{flex-wrap:wrap}
+    .stage-foot .hint{flex:1 1 100%;margin-bottom:4px}
+  }
+</style>
+</head>
+<body>
+
+<div class="sample-bar">
+  <b data-en="Sample data — this is a guided demo, not a real co-operative.">Data contoh — ini demo berpandu, bukan koperasi sebenar.</b>
+  <span data-en="Koperasi Contoh Berhad is fictional. Nothing you do here is saved or sent anywhere.">Koperasi Contoh Berhad adalah rekaan. Tiada apa yang anda lakukan di sini disimpan atau dihantar ke mana-mana.</span>
+</div>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <span class="brand">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#0B1B33"/>
+        <path d="M16 7 L25 25 H20.4 L16 15.6 L11.6 25 H7 Z" fill="#34D399"/>
+      </svg>
+      AGMX
+    </span>
+    <span class="tenant">
+      <i></i>
+      <span>Koperasi Contoh Berhad</span>
+      <em data-en="SAMPLE">CONTOH</em>
+    </span>
+    <div class="top-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" id="btn-ms" aria-pressed="true">BM</button>
+        <button type="button" id="btn-en" aria-pressed="false">EN</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="reset" data-en="Reset demo">Set semula</button>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- ══ rail ══ -->
+  <aside class="rail">
+    <div class="rail-t" data-en="AGM workflow">Aliran kerja AGM</div>
+    <ol id="rail"></ol>
+    <div class="rail-foot">
+      <div class="progress"><i id="prog" style="width:0%"></i></div>
+      <div class="progress-l"><span id="prog-l">0 / 6</span> <span data-en="steps explored">langkah diterokai</span></div>
+    </div>
+  </aside>
+
+  <!-- ══ stage ══ -->
+  <section class="stage">
+    <div class="stage-head">
+      <div class="step-tag" id="step-tag">01</div>
+      <h2 id="step-h">Papan pemuka AGM</h2>
+      <p id="step-p"></p>
+    </div>
+
+    <div class="stage-body">
+
+      <!-- 1 · dashboard -->
+      <div class="pane on" data-pane="0">
+        <div class="kpis">
+          <div class="kpi" id="k-quorum">
+            <div class="l" data-en="Quorum">Kuorum</div>
+            <div class="v" id="v-quorum">—<small>/100</small></div>
+            <div class="s" id="s-quorum" data-en="Awaiting check-in">Menunggu daftar masuk</div>
+          </div>
+          <div class="kpi">
+            <div class="l" data-en="Attendance">Kehadiran</div>
+            <div class="v" id="v-att">0<small>%</small></div>
+            <div class="s" id="s-att" data-en="0 of 12 members">0 daripada 12 ahli</div>
+          </div>
+          <div class="kpi">
+            <div class="l" data-en="Resolutions">Resolusi</div>
+            <div class="v" id="v-res">0<small>/3</small></div>
+            <div class="s" data-en="Passed">Diluluskan</div>
+          </div>
+          <div class="kpi">
+            <div class="l" data-en="Audit entries">Entri audit</div>
+            <div class="v" id="v-aud">1</div>
+            <div class="s" data-en="Append-only">Append-only</div>
+          </div>
+        </div>
+
+        <div class="sec-lbl" data-en="Readiness checklist">Senarai semak kesiapan</div>
+        <div class="list" id="checklist">
+          <div class="lrow" data-ck="notice"><span class="check">✓</span><div class="g"><div class="n" data-en="Notice issued (21 days)">Notis dikeluarkan (21 hari)</div><div class="m" data-en="Sent to 120 members">Dihantar kepada 120 ahli</div></div><span class="pill pill-ok" data-en="Done">Selesai</span></div>
+          <div class="lrow" data-ck="agenda"><span class="check">✓</span><div class="g"><div class="n" data-en="Agenda published">Agenda diterbitkan</div><div class="m" data-en="6 items, 3 resolutions">6 item, 3 resolusi</div></div><span class="pill pill-ok" data-en="Done">Selesai</span></div>
+          <div class="lrow" data-ck="elig"><span class="check">✓</span><div class="g"><div class="n" data-en="Eligibility screened">Kelayakan disaring</div><div class="m" data-en="112 eligible · 8 in arrears">112 layak · 8 tunggakan</div></div><span class="pill pill-ok" data-en="Done">Selesai</span></div>
+          <div class="lrow" data-ck="docs"><span class="check">✓</span><div class="g"><div class="n" data-en="Documents uploaded">Dokumen dimuat naik</div><div class="m" data-en="Annual report, audited accounts">Laporan tahunan, akaun diaudit</div></div><span class="pill pill-ok" data-en="Done">Selesai</span></div>
+        </div>
+      </div>
+
+      <!-- 2 · setup -->
+      <div class="pane" data-pane="1">
+        <div class="sec-lbl" data-en="Meeting settings">Tetapan mesyuarat</div>
+        <div class="list">
+          <div class="lrow"><div class="g"><div class="n" data-en="Notice period">Tempoh notis</div><div class="m" data-en="Co-operative Societies Act · configurable">Akta Koperasi · boleh dikonfigurasi</div></div><span class="pill pill-ok">21 <span data-en="days">hari</span></span></div>
+          <div class="lrow"><div class="g"><div class="n" data-en="Quorum target">Sasaran kuorum</div><div class="m" data-en="Share of members entitled to vote">Bahagian ahli yang berhak mengundi</div></div><span class="pill pill-ok">100</span></div>
+          <div class="lrow"><div class="g"><div class="n" data-en="Voting mode">Mod undian</div><div class="m" data-en="One member, one vote">Satu ahli, satu undi</div></div><span class="pill pill-ok" data-en="Enabled">Diaktifkan</span></div>
+          <div class="lrow"><div class="g"><div class="n" data-en="Proxy limit">Had proksi</div><div class="m" data-en="As set in your constitution (UUK)">Seperti dalam perlembagaan (UUK)</div></div><span class="pill pill-ok" data-en="Per UUK">Ikut UUK</span></div>
+        </div>
+
+        <div class="sec-lbl" data-en="Agenda">Agenda</div>
+        <div class="list">
+          <div class="lrow"><div class="g"><div class="n">1 · <span data-en="Chairman's address">Ucapan Pengerusi</span></div><div class="m" data-en="No resolution">Tiada resolusi</div></div></div>
+          <div class="lrow"><div class="g"><div class="n">2 · <span data-en="Confirmation of previous minutes">Pengesahan minit terdahulu</span></div><div class="m" data-en="No resolution">Tiada resolusi</div></div></div>
+          <div class="lrow"><div class="g"><div class="n">3 · <span data-en="Annual report and audited accounts">Laporan tahunan dan akaun diaudit</span></div><div class="m" data-en="Resolution 1">Resolusi 1</div></div><span class="pill pill-ok" data-en="On agenda">Dalam agenda</span></div>
+          <div class="lrow"><div class="g"><div class="n">4 · <span data-en="Appointment of auditor">Pelantikan juruaudit</span></div><div class="m" data-en="Resolution 2">Resolusi 2</div></div><span class="pill pill-ok" data-en="On agenda">Dalam agenda</span></div>
+          <div class="lrow"><div class="g"><div class="n">5 · <span data-en="Board election">Pemilihan lembaga</span></div><div class="m" data-en="Resolution 3">Resolusi 3</div></div><span class="pill pill-ok" data-en="On agenda">Dalam agenda</span></div>
+        </div>
+      </div>
+
+      <!-- 3 · attendance -->
+      <div class="pane" data-pane="2">
+        <p style="font-size:13px;color:var(--ink-3);margin-bottom:14px;line-height:1.6">
+          <span data-en="Check members in as they arrive at the hall. Quorum is calculated as they register — the counter cannot be edited by hand, which is the point.">Daftar masuk ahli semasa mereka tiba di dewan. Kuorum dikira semasa mereka mendaftar — kiraan tidak boleh diubah dengan tangan, itulah maksudnya.</span>
+        </p>
+        <div class="list" id="attend-list"></div>
+        <p class="emptyhint" id="attend-done" style="display:none">
+          <span data-en="Quorum reached. The meeting may proceed.">Kuorum dicapai. Mesyuarat boleh diteruskan.</span>
+        </p>
+      </div>
+
+      <!-- 4 · voting -->
+      <div class="pane" data-pane="3">
+        <p style="font-size:13px;color:var(--ink-3);margin-bottom:14px;line-height:1.6">
+          <span data-en="Cast the three resolutions. Tallies update live and each result is written to the audit trail — the record is created by the action, not typed up afterwards.">Undi ketiga-tiga resolusi. Kiraan dikemas kini secara langsung dan setiap keputusan ditulis ke jejak audit — rekod dijana oleh tindakan, bukan ditaip kemudian.</span>
+        </p>
+        <div id="resolutions"></div>
+      </div>
+
+      <!-- 5 · minutes -->
+      <div class="pane" data-pane="4">
+        <p style="font-size:13px;color:var(--ink-3);margin-bottom:14px;line-height:1.6">
+          <span data-en="Minutes are assembled from the actions you took, not retyped. Fields marked LIVE came from the record.">Minit dibina daripada tindakan yang anda ambil, bukan ditaip semula. Medan bertanda LIVE datang daripada rekod.</span>
+        </p>
+        <div class="doc">
+          <h4 data-en="MINUTES OF THE 27TH ANNUAL GENERAL MEETING">MINIT MESYUARAT AGUNG TAHUNAN KE-27</h4>
+          <div class="meta">
+            Koperasi Contoh Berhad · <span data-en="Registration">Pendaftaran</span> KPM-0000/2026 ·
+            <span data-en="Held">Diadakan</span> 12 <span data-en="March">Mac</span> 2026
+          </div>
+
+          <div class="blk">
+            <b data-en="Quorum">Kuorum</b>
+            <span id="doc-quorum">—</span> <span class="tag-live">LIVE</span>
+          </div>
+          <div class="blk">
+            <b data-en="Attendance">Kehadiran</b>
+            <span id="doc-att">—</span> <span class="tag-live">LIVE</span>
+          </div>
+          <div class="blk">
+            <b data-en="Resolutions">Resolusi</b>
+            <div id="doc-res">—</div>
+          </div>
+          <div class="blk">
+            <b data-en="Audit reference">Rujukan audit</b>
+            <span id="doc-audit">—</span> <span class="tag-live">LIVE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 · audit -->
+      <div class="pane" data-pane="5">
+        <p style="font-size:13px;color:var(--ink-3);margin-bottom:14px;line-height:1.6">
+          <span data-en="Every action from the steps you just walked through, in order, each entry chained to the hash before it. Nothing here can be edited — only appended.">Setiap tindakan daripada langkah yang anda lalui, mengikut urutan, setiap entri dirantai kepada cincangan sebelumnya. Tiada apa di sini boleh disunting — hanya ditambah.</span>
+        </p>
+        <div class="audit">
+          <div class="audit-h">
+            <b data-en="Audit trail · append-only">Jejak audit · append-only</b>
+            <span id="audit-count">1 <span data-en="entries">entri</span></span>
+          </div>
+          <div id="audit-rows"></div>
+        </div>
+
+        <div class="tiers" style="margin-top:22px">
+          <div class="tier now">
+            <div class="tn">01</div>
+            <b data-en="Guided demo">Demo berpandu</b>
+            <span data-en="What you are in now. No account, 2–3 minutes.">Apa yang anda lalui sekarang. Tiada akaun, 2–3 minit.</span>
+          </div>
+          <div class="tier b2">
+            <div class="tn">02</div>
+            <b data-en="Sandbox">Sandbox</b>
+            <span data-en="Preloaded tenant with roles, 7-day access.">Tenan prabeban dengan peranan, akses 7 hari.</span>
+          </div>
+          <div class="tier b3">
+            <div class="tn">03</div>
+            <b data-en="Pilot">Pilot</b>
+            <span data-en="Your own AGM, 30 days, scoped and paid.">AGM anda sendiri, 30 hari, berskop dan berbayar.</span>
+          </div>
+        </div>
+
+        <div class="end">
+          <h3 data-en="This is the end of the guided tour.">Ini penghujung lawatan berpandu.</h3>
+          <p data-en="Find out what your own AGM would need — member count, quorum, resolutions and timeline — and get a package recommendation in about 60 seconds.">
+            Ketahui apa yang AGM anda sendiri perlukan — bilangan ahli, kuorum, resolusi dan jadual — dan dapatkan cadangan pakej dalam kira-kira 60 saat.
+          </p>
+          <div class="end-cta">
+            <a class="btn btn-primary" href="/assessment.html" data-en="Get your free AGM assessment">Dapatkan penilaian AGM percuma</a>
+            <a class="btn btn-ghost" href="/assessment.html#sandbox" data-en="Request sandbox access">Mohon akses sandbox</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="stage-foot">
+      <span class="hint" id="hint"></span>
+      <button class="btn btn-ghost btn-sm" id="prev" data-en="Back">Kembali</button>
+      <button class="btn btn-primary btn-sm" id="next" data-en="Next step">Langkah seterusnya</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ── i18n ── */
+  var texts=[];
+  document.querySelectorAll('[data-en]').forEach(function(el){
+    texts.push({el:el, ms:el.innerHTML, en:el.getAttribute('data-en')});
+  });
+  function setLang(lang){
+    texts.forEach(function(t){ t.el.innerHTML = lang==='en' ? t.en : t.ms; });
+    document.documentElement.lang = lang==='en'?'en':'ms';
+    document.getElementById('btn-ms').setAttribute('aria-pressed', String(lang!=='en'));
+    document.getElementById('btn-en').setAttribute('aria-pressed', String(lang==='en'));
+    try{ localStorage.setItem('agmx-demo-lang', lang); }catch(e){}
+    // dynamically-rendered regions (step heading, rail, lists) are not covered by
+    // the [data-en] sweep above, so refresh them explicitly on every switch
+    if (typeof refreshAll === 'function') refreshAll();
+  }
+  document.getElementById('btn-ms').addEventListener('click',function(){setLang('ms');});
+  document.getElementById('btn-en').addEventListener('click',function(){setLang('en');});
+  try{ if(localStorage.getItem('agmx-demo-lang')==='en') setLang('en'); }catch(e){}
+
+  /* ── state ── */
+  // 12 sample members stand in for a 120-member register. Quorum is 8 of the 10
+  // members entitled to vote, so the number the visitor moves is reachable and
+  // the threshold they cross is the one the KPI shows.
+  var TOTAL_MEMBERS=12, QUORUM_TARGET=8;
+  var MEMBERS=[
+    {id:'A-0042',name:'Pn. Aishah Rahman',role:'Setiausaha',shares:1200,arrears:false,checked:false},
+    {id:'A-0117',name:'Tn. Hj. Kamaruddin',role:'Pengerusi',shares:2400,arrears:false,checked:false},
+    {id:'A-0088',name:'Pn. Tan Mei Ling',role:'Ahli',shares:800,arrears:false,checked:false},
+    {id:'A-0203',name:'En. Ravi Kumar',role:'Ahli',shares:600,arrears:false,checked:false},
+    {id:'A-0156',name:'Pn. Nurul Izzah',role:'Ahli',shares:1400,arrears:false,checked:false},
+    {id:'A-0244',name:'Pn. Siti Aminah',role:'Ahli',shares:900,arrears:false,checked:false},
+    {id:'A-0271',name:'En. Lim Chee Keong',role:'Ahli',shares:1100,arrears:false,checked:false},
+    {id:'A-0288',name:'Tn. Ahmad Faizal',role:'Ahli',shares:700,arrears:false,checked:false},
+    {id:'A-0302',name:'Pn. Kavitha Nair',role:'Ahli',shares:1000,arrears:false,checked:false},
+    {id:'A-0325',name:'En. Syafiq Omar',role:'Ahli',shares:500,arrears:false,checked:false},
+    {id:'A-0311',name:'Tn. Wong Kah Fai',role:'Ahli',shares:400,arrears:true,checked:false},
+    {id:'A-0333',name:'Pn. Rohana Yusof',role:'Ahli',shares:300,arrears:true,checked:false}
+  ];
+  var RESOLUTIONS=[
+    {id:1,ms:'Meluluskan Laporan Tahunan dan Akaun Diaudit 2025',en:'Approve the 2025 Annual Report and Audited Accounts',yes:0,no:0,status:'pending'},
+    {id:2,ms:'Melantik Tet Khidmat Audit sebagai juruaudit 2026',en:'Appoint Tet Khidmat Audit as auditor for 2026',yes:0,no:0,status:'pending'},
+    {id:3,ms:'Meluluskan dividen 8% bagi tahun kewangan 2025',en:'Approve an 8% dividend for financial year 2025',yes:0,no:0,status:'pending'}
+  ];
+  var audit=[];
+
+  /* ── audit chain ── */
+  function hash(s){
+    var h=0x811c9dc5;
+    for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193); }
+    return ('00000000'+(h>>>0).toString(16)).slice(-8);
+  }
+  var lastHash='00000000';
+  function log(action, detail){
+    var d=new Date();
+    var ts=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2);
+    lastHash=hash(lastHash+action+detail+ts);
+    audit.unshift({ts:ts,action:action,detail:detail,hash:lastHash});
+    renderAudit();
+    var v=document.getElementById('v-aud');
+    if(v) v.textContent=audit.length;
+    var c=document.getElementById('audit-count');
+    if(c){ c.innerHTML = audit.length + ' <span>' + (document.documentElement.lang==='en'?'entries':'entri') + '</span>'; }
+    renderMinutes();
+  }
+
+  function renderAudit(){
+    var wrap=document.getElementById('audit-rows');
+    if(!wrap) return;
+    wrap.innerHTML='';
+    audit.forEach(function(a,i){
+      var row=document.createElement('div');
+      row.className='arow'+(i===0?' new-row':'');
+      row.innerHTML='<span class="t">'+a.ts+'</span>'+
+        '<span class="w"><b>'+a.action+'</b> — '+a.detail+'</span>'+
+        '<span class="h">'+a.hash+'</span>';
+      wrap.appendChild(row);
+    });
+  }
+
+  /* ── derived numbers ── */
+  function checkedIn(){ return MEMBERS.filter(function(m){return m.checked;}).length; }
+  function updateKpis(){
+    var n=checkedIn(), pct=Math.round(n/TOTAL_MEMBERS*100);
+    document.getElementById('v-quorum').innerHTML = n + '<small>/'+QUORUM_TARGET+'</small>';
+    document.getElementById('v-att').innerHTML = pct + '<small>%</small>';
+    document.getElementById('s-att').textContent = n + ' ' + (document.documentElement.lang==='en'?'of '+TOTAL_MEMBERS+' members':'daripada '+TOTAL_MEMBERS+' ahli');
+    var q=document.getElementById('s-quorum'), kq=document.getElementById('k-quorum');
+    if(n>=QUORUM_TARGET){ q.textContent = document.documentElement.lang==='en'?'✓ Quorum reached':'✓ Kuorum tercapai'; kq.classList.add('good'); }
+    else { q.textContent = document.documentElement.lang==='en'?'Awaiting check-in':'Menunggu daftar masuk'; kq.classList.remove('good'); }
+    var passed=RESOLUTIONS.filter(function(r){return r.status==='passed';}).length;
+    document.getElementById('v-res').innerHTML = passed + '<small>/3</small>';
+  }
+
+  /* ── minutes ── */
+  function renderMinutes(){
+    var n=checkedIn();
+    var en=document.documentElement.lang==='en';
+    var q=document.getElementById('doc-quorum');
+    if(q) q.textContent = n>=QUORUM_TARGET
+      ? n+' '+(en?'members present — quorum of '+QUORUM_TARGET+' satisfied':'ahli hadir — kuorum '+QUORUM_TARGET+' dipenuhi')
+      : n+' '+(en?'members present — quorum of '+QUORUM_TARGET+' not yet met':'ahli hadir — kuorum '+QUORUM_TARGET+' belum dipenuhi');
+    var a=document.getElementById('doc-att');
+    if(a) a.textContent = Math.round(n/TOTAL_MEMBERS*100)+'% '+(en?'of '+TOTAL_MEMBERS+' members':'daripada '+TOTAL_MEMBERS+' ahli');
+    var r=document.getElementById('doc-res');
+    if(r){
+      r.innerHTML = RESOLUTIONS.map(function(x){
+        var label = en?x.en:x.ms;
+        var st = x.status==='passed' ? (en?'CARRIED':'LULUS') : x.status==='rejected' ? (en?'REJECTED':'DITOLAK') : (en?'pending':'belum');
+        var tally = x.status==='pending' ? '' : ' ('+x.yes+' / '+x.no+')';
+        return '<div style="padding:2px 0">• '+label+' — <b style="color:'+(x.status==='passed'?'#047857':x.status==='rejected'?'#B91C1C':'#64748B')+'">'+st+'</b>'+tally+'</div>';
+      }).join('');
+    }
+    var au=document.getElementById('doc-audit');
+    if(au) au.textContent = audit.length+' '+(en?'entries · head ':'entri · kepala ')+lastHash;
+  }
+
+  /* ── attendance UI ── */
+  function renderAttendance(){
+    var wrap=document.getElementById('attend-list');
+    if(!wrap) return;
+    var en=document.documentElement.lang==='en';
+    wrap.innerHTML='';
+    MEMBERS.forEach(function(m,idx){
+      var row=document.createElement('div');
+      row.className='lrow'+(m.checked?' done':'');
+      var badge = m.arrears
+        ? '<span class="pill pill-red">'+(en?'In arrears — cannot vote':'Tunggakan — tidak boleh undi')+'</span>'
+        : m.checked
+          ? '<span class="pill pill-ok">'+(en?'Checked in':'Daftar masuk')+'</span>'
+          : '<button class="btn btn-ghost btn-sm" data-check="'+idx+'">'+(en?'Check in':'Daftar masuk')+'</button>';
+      row.innerHTML='<span class="check">✓</span><div class="g"><div class="n">'+m.name+'</div>'+
+        '<div class="m">'+m.id+' · '+(en?'delegate':'wakil')+' · '+m.role+' · '+m.shares+' '+(en?'shares':'syer')+'</div></div>'+badge;
+      wrap.appendChild(row);
+    });
+    wrap.querySelectorAll('[data-check]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var m=MEMBERS[+b.getAttribute('data-check')];
+        if(m.arrears) return;
+        m.checked=true;
+        log(en?'ATTENDANCE_CHECKIN':'DAFTAR_MASUK', m.id+' · '+m.name);
+        renderAttendance(); updateKpis();
+        if(checkedIn()>=QUORUM_TARGET){
+          document.getElementById('attend-done').style.display='block';
+        }
+      });
+    });
+    if(checkedIn()>=QUORUM_TARGET) document.getElementById('attend-done').style.display='block';
+  }
+
+  /* ── voting UI ── */
+  function renderVoting(){
+    var wrap=document.getElementById('resolutions');
+    if(!wrap) return;
+    var en=document.documentElement.lang==='en';
+    wrap.innerHTML='';
+    RESOLUTIONS.forEach(function(r,idx){
+      var total=r.yes+r.no;
+      var pctY=total?Math.round(r.yes/total*100):0;
+      var pctN=total?100-pctY:0;
+      var el=document.createElement('div');
+      el.className='res';
+      var statusPill = r.status==='passed' ? '<span class="pill pill-ok">'+(en?'CARRIED':'LULUS')+'</span>'
+        : r.status==='rejected' ? '<span class="pill pill-red">'+(en?'REJECTED':'DITOLAK')+'</span>'
+        : '<span class="pill pill-wait">'+(en?'Poll open':'Undian terbuka')+'</span>';
+      el.innerHTML =
+        '<div class="top"><div class="rt"><b>'+(en?r.en:r.ms)+'</b>'+
+        '<span>'+(en?'Resolution ':'Resolusi ')+r.id+' · '+(en?'simple majority of votes cast':'majoriti mudah undi dikira')+'</span></div>'+statusPill+'</div>'+
+        '<div class="bar"><i style="width:'+pctY+'%;background:var(--mint)"></i><i style="width:'+pctN+'%;background:#FCA5A5"></i></div>'+
+        '<div class="tally"><span>'+(en?'For':'Setuju')+' <b>'+r.yes+'</b></span><span>'+(en?'Against':'Tidak setuju')+' <b>'+r.no+'</b></span><span>'+(en?'Total':'Jumlah')+' <b>'+total+'</b></span></div>'+
+        (r.status==='pending'
+          ? '<div class="vote-btns">'+
+              '<button class="vbtn yes" data-vote="'+idx+'" data-yes="1">'+(en?'Vote for':'Undi setuju')+'</button>'+
+              '<button class="vbtn no" data-vote="'+idx+'" data-yes="0">'+(en?'Vote against':'Undi tidak setuju')+'</button>'+
+              (total>0 ? '<button class="vbtn" data-close="'+idx+'">'+(en?'Close poll':'Tutup undian')+'</button>' : '')+
+            '</div>'
+          : '');
+      wrap.appendChild(el);
+    });
+    wrap.querySelectorAll('[data-vote]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var r=RESOLUTIONS[+b.getAttribute('data-vote')];
+        var yes=b.getAttribute('data-yes')==='1';
+        if(yes) r.yes++; else r.no++;
+        log(en?'BALLOT_CAST':'UNDI_DIBUANG',
+            (en?'Resolution ':'Resolusi ')+r.id+' · '+(en?'for ':'setuju ')+r.yes+' · '+(en?'against ':'tidak setuju ')+r.no);
+        renderVoting(); updateKpis();
+      });
+    });
+    wrap.querySelectorAll('[data-close]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var r=RESOLUTIONS[+b.getAttribute('data-close')];
+        if(r.yes+r.no===0) return;
+        r.status = r.yes>r.no ? 'passed' : r.yes===r.no ? 'rejected' : 'rejected';
+        log(en?'RESOLUTION_DECIDED':'RESOLUSI_DIPUTUSKAN',
+            (en?'Resolution ':'Resolusi ')+r.id+' · '+(r.status==='passed'?(en?'carried ':'lulus '):(en?'rejected ':'ditolak '))+r.yes+'/'+r.no);
+        renderVoting(); updateKpis(); renderMinutes();
+      });
+    });
+  }
+
+  function refreshAll(){
+    applyStepText();
+    renderRail(); renderAttendance(); renderVoting(); renderMinutes(); updateKpis();
+  }
+
+  /* ── steps ── */
+  var STEPS=[
+    {ms:'Papan pemuka',en:'Dashboard',pms:'Kuorum, kehadiran dan kesiapan AGM dalam satu paparan — satu-satunya tempat pengerusi perlu lihat.',pen:'Quorum, attendance and AGM readiness in one view — the only place a chairman needs to look.'},
+    {ms:'Persediaan AGM',en:'AGM setup',pms:'Notis, agenda, kelayakan dan dokumen dikonfigurasi sebelum mesyuarat, bukan semasa.',pen:'Notice, agenda, eligibility and documents configured before the meeting, not during it.'},
+    {ms:'Kehadiran & kuorum',en:'Attendance & quorum',pms:'Daftar masuk ahli satu demi satu. Kiraan kuorum hanya bergerak apabila rekod bergerak.',pen:'Check members in one at a time. The quorum counter only moves when the record moves.'},
+    {ms:'Undian & resolusi',en:'Voting & resolutions',pms:'Tiga resolusi, kiraan langsung, keputusan ditulis ke jejak audit.',pen:'Three resolutions, live tallies, results written straight into the audit trail.'},
+    {ms:'Minit',en:'Minutes',pms:'Minit dipasang daripada tindakan yang anda ambil, bukan ditaip semula dari draf.',pen:'Minutes assembled from the actions you took, not retyped from a draft.'},
+    {ms:'Jejak audit',en:'Audit trail',pms:'Rantai append-only bagi setiap tindakan dalam sesi ini.',pen:'An append-only chain of every action in this session.'}
+  ];
+  var current=0, seen={};
+
+  function hintText(){
+    var en=document.documentElement.lang==='en';
+    var h=[
+      ['Four items already done before the meeting opened.','Empat item sudah siap sebelum mesyuarat dibuka.'],
+      ['These are settings, not screenshots — each maps to a rule in the constitution.','Ini tetapan, bukan tangkapan skrin — setiap satu memetakan kepada peraturan dalam perlembagaan.'],
+      ['Check members in until the counter reaches 8. The two in arrears cannot be checked in.','Daftar masuk ahli sehingga kiraan mencapai 8. Dua yang tertunggak tidak boleh didaftar.'],
+      ['Vote on a resolution, then close the poll to record the decision.','Undi satu resolusi, kemudian tutup undian untuk merekod keputusan.'],
+      ['Nothing appears below without a matching audit entry.','Tiada apa muncul di bawah tanpa entri audit yang sepadan.'],
+      ['Every row commits to the hash above it.','Setiap baris terikat kepada cincangan di atasnya.']
+    ];
+    return en?h[current][0]:h[current][1];
+  }
+
+  function renderRail(){
+    var rail=document.getElementById('rail');
+    var en=document.documentElement.lang==='en';
+    rail.innerHTML='';
+    STEPS.forEach(function(s,i){
+      var li=document.createElement('li');
+      li.className=(i===current?'on ':'')+(seen[i]?'done':'');
+      li.innerHTML='<button data-step="'+i+'"><span class="num">'+(seen[i]&&i!==current?'✓':(i+1))+'</span><span>'+(en?s.en:s.ms)+'</span></button>';
+      rail.appendChild(li);
+    });
+    rail.querySelectorAll('[data-step]').forEach(function(b){
+      b.addEventListener('click',function(){ go(+b.getAttribute('data-step')); });
+    });
+    var pct=Math.round(Object.keys(seen).length/STEPS.length*100);
+    document.getElementById('prog').style.width=pct+'%';
+    document.getElementById('prog-l').textContent=Object.keys(seen).length+' / '+STEPS.length;
+  }
+
+  function applyStepText(){
+    var en=document.documentElement.lang==='en';
+    document.getElementById('step-tag').textContent='0'+(current+1);
+    document.getElementById('step-h').textContent = en?STEPS[current].en:STEPS[current].ms;
+    document.getElementById('step-p').textContent = en?STEPS[current].pen:STEPS[current].pms;
+    var hintEl=document.getElementById('hint');
+    if(hintEl) hintEl.textContent = hintText();
+  }
+
+  function go(i){
+    current=Math.max(0,Math.min(STEPS.length-1,i));
+    seen[current]=true;
+    var en=document.documentElement.lang==='en';
+    document.querySelectorAll('.pane').forEach(function(p){
+      p.classList.toggle('on', +p.getAttribute('data-pane')===current);
+    });
+    applyStepText();
+    document.getElementById('prev').disabled = current===0;
+    var next=document.getElementById('next');
+    next.textContent = current===STEPS.length-1
+      ? (en?'Start the assessment':'Mulakan penilaian')
+      : (en?'Next step':'Langkah seterusnya');
+    renderRail();
+    if(current===2) renderAttendance();
+    if(current===3) renderVoting();
+    renderMinutes(); updateKpis();
+    var st=document.querySelector('.stage');
+    if(st && typeof st.scrollIntoView==='function'){ st.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  }
+
+  document.getElementById('next').addEventListener('click',function(){
+    if(current===STEPS.length-1){ window.location.href='/assessment.html'; return; }
+    go(current+1);
+  });
+  document.getElementById('prev').addEventListener('click',function(){ go(current-1); });
+
+  document.getElementById('reset').addEventListener('click',function(){
+    MEMBERS.forEach(function(m){ m.checked=false; });
+    RESOLUTIONS.forEach(function(r){ r.yes=0; r.no=0; r.status='pending'; });
+    audit=[]; lastHash='00000000'; seen={};
+    log('DEMO_START', document.documentElement.lang==='en'?'session opened':'sesi dibuka');
+    go(0);
+  });
+
+  /* re-render language-dependent panes on switch */
+  /* ── boot ── */
+  log(document.documentElement.lang==='en'?'DEMO_START':'DEMO_MULA',
+      document.documentElement.lang==='en'?'sample tenant · Koperasi Contoh Berhad':'tenan contoh · Koperasi Contoh Berhad');
+  go(0);
+})();
+</script>
+</body>
+</html>

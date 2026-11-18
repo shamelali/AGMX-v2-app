@@ -91,9 +91,14 @@ for (const r of rows) {
   live.get(r.name).add(r.hash);
 }
 
+// The version is the filename up to its first underscore: "0007_governance_rpc.sql"
+// is version 0007, but "20261113140833_white_label_storage.sql" is version
+// 20261113140833. Truncating to four characters turned every timestamped
+// migration into a version the project had "applied with no file", which is
+// how two real migrations were reported missing while both were on disk.
 const localFiles = new Set(readdirSync('supabase/migrations')
   .filter((f) => f.endsWith('.sql'))
-  .map((f) => f.slice(0, 4)));
+  .map((f) => f.split('_')[0]));
 
 const bad = [];
 const warn = [];
