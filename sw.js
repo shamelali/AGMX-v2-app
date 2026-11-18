@@ -159,7 +159,9 @@
 // new status.html page, index.html rewritten with new structure.
 // Bumped to v11: index.html nav class fix, landing.js load fix, language
 // toggle fix, status page verified.
-const CACHE = "agmx-www-agmx-my-v11";
+// Bumped to v12: index.html hero-proof text updated (removed "Data hosted in Singapore"),
+// DutaGovern branding applied across page, Undraw illustrations added.
+const CACHE = "agmx-www-agmx-my-v12";
 const PRECACHE = [
   "/",
   "/index.html",
