@@ -23,7 +23,10 @@
 --   0008_governance_bugfixes.sql  (157 lines)
 --   0009_audit_all_stages.sql  (25 lines)
 --   0010_white_label_branding.sql  (25 lines)
---   20261113083423_auto_provision_user.sql  (39 lines)
+--   0011_knowledge_embedding_halfvec2048.sql  (109 lines)
+--   0012_documents_bucket.sql  (64 lines)
+--   0013_documents_bucket_write_policies.sql  (83 lines)
+--   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (111 lines)
 -- ============================================================
 
@@ -2300,6 +2303,277 @@ comment on column public.organizations.primary_color is 'Co-op primary brand col
 
 
 -- ============================================================
+-- 0011_knowledge_embedding_halfvec2048.sql
+-- ============================================================
+-- ============================================================
+-- 0011 — Knowledge embeddings move to halfvec(2048)
+-- ------------------------------------------------------------
+-- This version was applied to the linked project before its file
+-- existed in this repository, so the migration history named a
+-- version no file here could describe. It is reconstructed from the
+-- live catalog: knowledge_chunks.embedding is halfvec(2048), the
+-- similarity index is HNSW over halfvec_cosine_ops, and
+-- knowledge_search() takes an unbounded vector and casts it to the
+-- stored halfvec dimension inside the function.
+--
+-- Why halfvec: a half-precision vector stores two bytes per
+-- dimension, so 2048 dimensions fit the space a 1024-dimension
+-- float4 vector used to occupy, and the index fits in memory at
+-- the member counts a cooperative reaches. The embedding provider
+-- returns 2048-dimension vectors, so the previous vector(1024)
+-- column could not hold them at all.
+--
+-- Rerun-safe: every statement is `if exists` / `or replace` / a
+-- drop before a create.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- The column itself
+-- ------------------------------------------------------------
+do $$
+begin
+  if exists (
+    select 1 from pg_namespace where nspname = 'extensions'
+  ) and exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'knowledge_chunks'
+      and column_name = 'embedding'
+  ) then
+    execute 'alter table public.knowledge_chunks '
+         || 'alter column embedding type halfvec(2048) '
+         || 'using embedding::halfvec(2048)';
+  end if;
+end $$;
+
+-- ------------------------------------------------------------
+-- The index: ivfflat over float4 is replaced by HNSW over
+-- half-precision cosine distance
+-- ------------------------------------------------------------
+drop index if exists public.idx_knowledge_chunks_embedding;
+create index if not exists idx_knowledge_chunks_embedding
+  on public.knowledge_chunks using hnsw (embedding halfvec_cosine_ops);
+
+-- ------------------------------------------------------------
+-- knowledge_search()
+-- ------------------------------------------------------------
+-- The old signature took vector(1024). It is dropped rather than
+-- replaced, because a bounded vector(1024) and an unbounded vector
+-- are different argument types: `create or replace` cannot change
+-- a function's argument types, and leaving the old signature in
+-- place would keep a function that casts 2048-dimension input
+-- into 1024 dimensions and silently truncates it.
+--
+-- The body below is the text the live catalog stores, byte for
+-- byte, so the generated bundle hashes the same as production.
+-- ------------------------------------------------------------
+drop function if exists public.knowledge_search(vector(1024), int, numeric);
+
+create or replace function public.knowledge_search(
+  p_query_embedding vector,
+  p_limit integer default 10,
+  p_threshold numeric default 0.65
+)
+returns table(
+  chunk_id uuid,
+  document_id uuid,
+  title text,
+  content text,
+  page integer,
+  similarity numeric,
+  assertions jsonb
+)
+language sql
+stable
+security definer
+set search_path to 'public', 'pg_catalog'
+as $function$
+  select
+    kc.id as chunk_id,
+    kc.document_id,
+    kc.title,
+    kc.content,
+    kc.page,
+    1 - (kc.embedding <=> p_query_embedding::halfvec(2048)) as similarity,
+    (
+      select coalesce(jsonb_agg(
+        jsonb_build_object(
+          'subject', ka.subject, 'predicate', ka.predicate, 'object', ka.object,
+          'quote', ka.quote, 'confidence', ka.confidence
+        )
+      ), '[]'::jsonb)
+      from public.knowledge_assertions ka
+      where ka.chunk_id = kc.id
+    ) as assertions
+  from public.knowledge_chunks kc
+  where kc.organization_id = public.current_org_id()
+    and kc.embedding is not null
+    and 1 - (kc.embedding <=> p_query_embedding::halfvec(2048)) >= p_threshold
+  order by kc.embedding <=> p_query_embedding::halfvec(2048)
+  limit p_limit;
+$function$;
+
+revoke execute on function public.knowledge_search(vector, integer, numeric) from public, anon;
+grant execute on function public.knowledge_search(vector, integer, numeric) to authenticated;
+
+
+-- ============================================================
+-- 0012_documents_bucket.sql
+-- ============================================================
+-- ============================================================
+-- 0012 — The private documents bucket
+-- ------------------------------------------------------------
+-- Knowledge documents (the PDFs and minutes a cooperative files
+-- against an AGM) live in a private Supabase Storage bucket. The
+-- bucket is private: `public = false` means the object URL is not
+-- a capability, every read is a policy decision.
+--
+-- This version was applied to the linked project before its file
+-- existed in this repository. The file here is reconstructed from
+-- the live catalog: the bucket that is actually there is private,
+-- capped at 50 MB, and accepts PDF, plain text, Markdown, Word 97
+-- and Word 2007 documents.
+--
+-- Object layout: every object is stored under its organisation's
+-- folder, <organization_id>/<file>. The read policy below reads the
+-- first path segment as a uuid and compares it with the signed-in
+-- user's organisation, so one cooperative cannot read another's
+-- documents even if it learns an object id.
+--
+-- The guard is the repository's storage pattern: PGlite, which the
+-- bundle replay test uses, has no storage schema, so the block does
+-- nothing there instead of aborting the replay.
+--
+-- Rerun-safe: on conflict do nothing, and every policy is dropped
+-- before it is created.
+-- ============================================================
+
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values (
+      'documents',
+      'documents',
+      false,
+      52428800,                                  -- 50 MB
+      ARRAY[
+        'application/pdf',
+        'text/plain',
+        'text/markdown',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ]
+    )
+    on conflict (id) do nothing;
+
+    -- Read: the object's folder must be the signed-in user's
+    -- organisation. A user with no organisation sees nothing.
+    drop policy if exists documents_read_own_org on storage.objects;
+    create policy documents_read_own_org
+    on storage.objects
+    for select
+    to authenticated
+    using (
+      bucket_id = 'documents'
+      and (storage.foldername(name))[1]::uuid in (
+        select p.organization_id
+        from public.profiles p
+        where p.id = auth.uid()
+      )
+    );
+  end if;
+end $$;
+
+
+-- ============================================================
+-- 0013_documents_bucket_write_policies.sql
+-- ============================================================
+-- ============================================================
+-- 0013 — Write access to the private documents bucket
+-- ------------------------------------------------------------
+-- 0012 created the bucket and made it readable by the owning
+-- organisation. It could not be written to by anyone but the
+-- service role: the knowledge-ingest function reads with the
+-- service role, so ingestion worked, but an operator could not
+-- upload the document in the first place, and the knowledge store
+-- could only ever be filled by hand.
+--
+-- These three policies close that: an authenticated member of a
+-- cooperative may write, replace and remove objects inside that
+-- cooperative's own folder and nowhere else. The predicate is the
+-- same one the read policy uses, so a tenant boundary is enforced
+-- by the database rather than by the client that calls it.
+--
+-- The object path must start with the organisation id:
+-- <organization_id>/<file>. A path that does not parse as a uuid
+-- fails the cast and is rejected.
+--
+-- The guard is the repository's storage pattern: PGlite, which the
+-- bundle replay test uses, has no storage schema.
+--
+-- Rerun-safe: every policy is dropped before it is created.
+-- ============================================================
+
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'storage') then
+    -- Upload
+    drop policy if exists documents_insert_own_org on storage.objects;
+    create policy documents_insert_own_org
+    on storage.objects
+    for insert
+    to authenticated
+    with check (
+      bucket_id = 'documents'
+      and (storage.foldername(name))[1]::uuid in (
+        select p.organization_id
+        from public.profiles p
+        where p.id = auth.uid()
+      )
+    );
+
+    -- Replace an existing object in place
+    drop policy if exists documents_update_own_org on storage.objects;
+    create policy documents_update_own_org
+    on storage.objects
+    for update
+    to authenticated
+    using (
+      bucket_id = 'documents'
+      and (storage.foldername(name))[1]::uuid in (
+        select p.organization_id
+        from public.profiles p
+        where p.id = auth.uid()
+      )
+    )
+    with check (
+      bucket_id = 'documents'
+      and (storage.foldername(name))[1]::uuid in (
+        select p.organization_id
+        from public.profiles p
+        where p.id = auth.uid()
+      )
+    );
+
+    -- Remove an object
+    drop policy if exists documents_delete_own_org on storage.objects;
+    create policy documents_delete_own_org
+    on storage.objects
+    for delete
+    to authenticated
+    using (
+      bucket_id = 'documents'
+      and (storage.foldername(name))[1]::uuid in (
+        select p.organization_id
+        from public.profiles p
+        where p.id = auth.uid()
+      )
+    );
+  end if;
+end $$;
+
+
+-- ============================================================
 -- 20261113083423_auto_provision_user.sql
 -- ============================================================
 -- Auto-provision organization + profile when a new user signs up.
@@ -2307,35 +2581,46 @@ comment on column public.organizations.primary_color is 'Co-op primary brand col
 -- AGMX_API.loadDashboard() fails with "Profile not found" and the
 -- landing page never loads after sign-in.
 --
+-- The body below is the text the linked project runs, byte for byte:
+-- the version that shipped from a branch which never landed in this
+-- repository also creates the profiles row, and the file that was
+-- here did not, so the repository described a trigger production
+-- never ran.
+--
 -- Rerun-safe: every statement is create or replace / insert ... on conflict
 -- / drop trigger if exists.
 
 create or replace function public.auto_provision_user_on_signup()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql as $function$
 declare
   v_org_id uuid;
   v_email_prefix text;
 begin
-  v_email_prefix := coalesce(lower(split_part(new.email, '@', 1)), 'u' || substr(new.id::text, 1, 8));
+  v_email_prefix := lower(split_part(new.email, '@', 1));
 
   -- Create a default organization for the new user
   insert into public.organizations (slug, name, type, plan, status, settings)
   values (v_email_prefix || '-' || substr(gen_random_uuid()::text, 1, 8),
-          coalesce(split_part(new.email, '@', 1), 'User ' || substr(new.id::text, 1, 8)) || 's Organization',
+          v_email_prefix || 's Organization',
           'cooperative',
           'starter',
           'active',
           '{}'::jsonb)
   returning id into v_org_id;
 
-  -- Link the user to the organization as a member (profile is created separately)
+  -- Create the profile linked to the auth user
+  insert into public.profiles (id, organization_id, full_name, role, phone, language, senior_mode, theme, created_at)
+  values (new.id, v_org_id, coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+          'member', new.raw_user_meta_data->>'phone', 'BM', false, 'default', now());
+
+  -- Create the organization_members link (admin role)
   insert into public.organization_members (organization_id, user_id, member_id, role, permissions)
   values (v_org_id, new.id, null, 'admin', '{}'::text[])
   on conflict (organization_id, user_id) do nothing;
 
   return new;
 end
-$$;
+$function$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created

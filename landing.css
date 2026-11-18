@@ -1,0 +1,613 @@
+/* ============================================================
+   AGMX — Landing polish layer (2027 enterprise standard)
+   ------------------------------------------------------------
+   Additive on top of styles.css. Loaded AFTER styles.css so these
+   rules win on equal specificity without editing the minified
+   bundle.
+
+   Everything here is progressive enhancement:
+   - Content is fully visible with JS disabled. The reveal state is
+     gated on `html.lp-js`, which landing.js adds before it ever
+     touches a node, so a script that fails to run leaves the page
+     readable rather than blank.
+   - `prefers-reduced-motion: reduce` disables every animation and the
+     reveal transform, so the page renders as static, readable content.
+   - Print is unaffected — reveal state and decorative layers are
+     suppressed in the print media block.
+
+   Contracts this file must not break:
+   - .hero, .nav-top, .hero-grid, .hero h1, .hero-actions, .hero-proof
+   - .record-card, .record-stats dd, .record-tally, .record-row
+   - .availability-card, .stage-card, .trust-row, .compliance-card
+   - .resource-card, .pricing-card, .faq-item, .cta-card, .footer
+   - .status / .status-ready / .status-build / .status-plan
+   - .nav-link, .btn-primary, .btn-secondary, .container
+   ============================================================ */
+
+/* ---------- Theme tokens (shared by both colour schemes) ---------- */
+:root {
+  --lp-aurora-1: rgba(37, 99, 235, 0.20);
+  --lp-aurora-2: rgba(234, 88, 12, 0.16);
+  --lp-aurora-3: rgba(16, 185, 129, 0.16);
+  --lp-aurora-4: rgba(139, 92, 246, 0.14);
+  --lp-gradient-text: linear-gradient(100deg, #2563eb 0%, #7c3aed 45%, #ea580c 100%);
+  --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --lp-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --lp-reveal-distance: 18px;
+  --lp-header-h: 73px;
+}
+
+html.dark {
+  --lp-aurora-1: rgba(59, 130, 246, 0.26);
+  --lp-aurora-2: rgba(249, 115, 22, 0.18);
+  --lp-aurora-3: rgba(16, 185, 129, 0.16);
+  --lp-aurora-4: rgba(167, 139, 250, 0.18);
+  --lp-gradient-text: linear-gradient(100deg, #60a5fa 0%, #c4b5fd 45%, #fb923c 100%);
+}
+
+/* ---------- Reveal-on-scroll ----------
+   Gated on html.lp-js: without the marker class nothing is hidden,
+   so a blocked script or a parse error cannot blank the page. */
+html.lp-js .lp-reveal {
+  opacity: 0;
+  transform: translate3d(0, var(--lp-reveal-distance), 0);
+  transition:
+    opacity 0.7s var(--lp-ease-out),
+    transform 0.7s var(--lp-ease-out);
+  will-change: opacity, transform;
+}
+
+html.lp-js .lp-reveal.lp-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger groups so siblings cascade instead of popping together. */
+.lp-stagger > * {
+  transition-delay: calc(var(--lp-i, 0) * 70ms);
+}
+
+/* ---------- Aurora hero backdrop ---------- */
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(1100px 620px at 12% -12%, var(--lp-aurora-1), transparent 62%),
+    radial-gradient(900px 560px at 92% -6%, var(--lp-aurora-2), transparent 60%),
+    linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+}
+
+html.dark .hero {
+  background:
+    radial-gradient(1100px 620px at 12% -12%, var(--lp-aurora-1), transparent 62%),
+    radial-gradient(900px 560px at 92% -6%, var(--lp-aurora-2), transparent 60%),
+    linear-gradient(180deg, #10233f 0%, #0f172a 100%);
+}
+
+/* The aurora layer: soft orbs drifting on transform only, so the
+   animation stays on the compositor and never triggers layout. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -30% -20% auto -20%;
+  height: 780px;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(42px);
+  opacity: 0.85;
+  background:
+    radial-gradient(420px 420px at 18% 34%, var(--lp-aurora-1), transparent 68%),
+    radial-gradient(380px 380px at 62% 18%, var(--lp-aurora-4), transparent 66%),
+    radial-gradient(460px 460px at 88% 52%, var(--lp-aurora-2), transparent 70%);
+  animation: lp-drift 22s ease-in-out infinite alternate;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.6) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.6) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(900px 460px at 30% 0%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(900px 460px at 30% 0%, #000 0%, transparent 78%);
+}
+
+@keyframes lp-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(3%, -2%, 0) scale(1.06); }
+  100% { transform: translate3d(-2%, 2%, 0) scale(1.02); }
+}
+
+/* ---------- Page-level sticky nav ----------
+   landing.js promotes the hero nav to a direct child of <body>, which
+   makes it sticky for the whole document instead of only for the hero.
+   The bar spans the viewport; its gutters are computed from the same
+   1160px measure .container uses, so the brand, the links and the
+   controls stay aligned with the content below them.
+
+   styles.css pins `body, html { height: 100% }`. A sticky element can
+   only travel inside its containing block, so a body that is exactly
+   one viewport tall lets the header stick for one screen and no
+   further. The body is given its content height here, and the page
+   still fills the viewport on a short document. */
+html.lp-js body {
+  height: auto;
+  min-height: 100%;
+}
+
+html.lp-js body > .nav-top {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 14px max(20px, calc((100% - 1160px) / 2 + 20px));
+  background: #eff6ff;
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color 0.35s var(--lp-ease),
+    border-color 0.35s var(--lp-ease),
+    box-shadow 0.35s var(--lp-ease);
+}
+
+html.dark.lp-js body > .nav-top {
+  background: #10233f;
+}
+
+html.lp-js body > .nav-top.lp-nav-stuck {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.35);
+}
+
+html.dark.lp-js body > .nav-top.lp-nav-stuck {
+  background: rgba(15, 23, 42, 0.80);
+  border-bottom-color: rgba(148, 163, 184, 0.14);
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+}
+
+/* Scroll-spy: the section currently in view is marked. */
+.nav-link {
+  position: relative;
+  padding-block: 4px;
+  transition: color 0.2s var(--lp-ease);
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--lp-gradient-text);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.32s var(--lp-ease);
+}
+
+.nav-link:hover::after,
+.nav-link.lp-active::after {
+  transform: scaleX(1);
+}
+
+.nav-link.lp-active {
+  color: #1d4ed8;
+}
+
+html.dark .nav-link.lp-active {
+  color: #93c5fd;
+}
+
+/* ---------- Reading progress ---------- */
+.lp-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: calc(var(--lp-progress, 0) * 100%);
+  height: 3px;
+  z-index: 200;
+  pointer-events: none;
+  background: var(--lp-gradient-text);
+  background-size: 100vw 100%;
+  background-repeat: no-repeat;
+  transition: width 0.12s linear;
+}
+
+/* ---------- Hero typography ---------- */
+.hero h1 {
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.hero h1 .highlight {
+  background: var(--lp-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.hero-subtitle {
+  text-wrap: pretty;
+}
+
+.hero .badge-accent {
+  box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.08);
+  animation: lp-pulse-ring 3.2s var(--lp-ease) infinite;
+}
+
+@keyframes lp-pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.08); }
+  50%      { box-shadow: 0 0 0 8px rgba(234, 88, 12, 0.03); }
+}
+
+/* ---------- Buttons: lift + sheen ---------- */
+.hero-actions .btn,
+.cta-actions .btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.25s var(--lp-ease),
+    box-shadow 0.25s var(--lp-ease),
+    background-color 0.25s var(--lp-ease);
+}
+
+.hero-actions .btn:hover,
+.cta-actions .btn:hover {
+  transform: translateY(-2px);
+}
+
+.hero-actions .btn-primary,
+.cta-actions .btn-primary {
+  box-shadow: 0 10px 26px -10px rgba(234, 88, 12, 0.75);
+}
+
+/* Sheen sweeps across the primary CTA. */
+.hero-actions .btn-primary::after,
+.cta-actions .btn-primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.7s var(--lp-ease);
+  pointer-events: none;
+}
+
+.hero-actions .btn-primary:hover::after,
+.cta-actions .btn-primary:hover::after {
+  left: 140%;
+}
+
+/* ---------- Record card: float + spotlight ---------- */
+.record-card {
+  position: relative;
+  transition:
+    transform 0.45s var(--lp-ease),
+    box-shadow 0.45s var(--lp-ease);
+  animation: lp-float 7s ease-in-out infinite;
+}
+
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+
+/* Cursor-tracked spotlight. JS writes --lp-mx / --lp-my; the gradient
+   falls back to a centred sheen when JS is off. */
+.record-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s var(--lp-ease);
+  background: radial-gradient(
+    340px circle at var(--lp-mx, 50%) var(--lp-my, 0%),
+    rgba(37, 99, 235, 0.13),
+    transparent 62%
+  );
+}
+
+.record-card:hover::before {
+  opacity: 1;
+}
+
+/* ---------- Cards: consistent lift + spotlight ---------- */
+.availability-card,
+.stage-card,
+.compliance-card,
+.resource-card,
+.pricing-card,
+.trust-row,
+.faq-item,
+.accessibility-block,
+.scoping-block {
+  position: relative;
+  transition:
+    transform 0.3s var(--lp-ease),
+    box-shadow 0.3s var(--lp-ease),
+    border-color 0.3s var(--lp-ease);
+}
+
+.availability-card:hover,
+.stage-card:hover,
+.compliance-card:hover,
+.pricing-card:hover,
+.faq-item:hover {
+  transform: translateY(-3px);
+  border-color: #bfdbfe;
+  box-shadow: 0 18px 40px -24px rgba(15, 23, 42, 0.45);
+}
+
+html.dark .availability-card:hover,
+html.dark .stage-card:hover,
+html.dark .compliance-card:hover,
+html.dark .pricing-card:hover,
+html.dark .faq-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.9);
+}
+
+.pricing-card.featured {
+  position: relative;
+  overflow: hidden;
+}
+
+.pricing-card.featured::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--lp-gradient-text);
+}
+
+/* ---------- Section headers: hairline rule ---------- */
+.section-header {
+  position: relative;
+}
+
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-label::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--lp-gradient-text);
+}
+
+.section-header h2 {
+  text-wrap: balance;
+}
+
+.section-subtitle {
+  text-wrap: pretty;
+}
+
+/* ---------- Counters ---------- */
+.lp-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Anchors land clear of the sticky header ---------- */
+main section[id],
+.cta-section {
+  scroll-margin-top: calc(var(--lp-header-h) + 16px);
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  background:
+    radial-gradient(900px 420px at 50% 0%, rgba(37, 99, 235, 0.06), transparent 62%),
+    #fff;
+}
+
+html.dark .footer {
+  background:
+    radial-gradient(900px 420px at 50% 0%, rgba(59, 130, 246, 0.10), transparent 62%),
+    #0f172a;
+}
+
+/* ---------- Grid tracks may shrink ----------
+   `1fr` floors a track at the item's min-content width, so one long
+   unbroken label used to push a whole grid past the edge of a phone.
+   minmax(0, 1fr) lets the track take the space it has and lets the
+   label wrap inside it. */
+.availability-grid,
+.compliance-grid,
+.resources-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stage-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pricing-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* The trust matrix rows carry long inline headings beside a status
+   label; without a zero minimum the column grows past the card it
+   sits in and the text is clipped on a phone. */
+.trust-matrix,
+.faq-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A status label has to be allowed to wrap: the longest ones on the
+   page — the languages row and the append-only row — must not widen
+   their column or be clipped on a phone. */
+.availability-card .status,
+.trust-row .status {
+  white-space: normal;
+  text-align: left;
+}
+
+/* ---------- Small screens: keep the header on one line ----------
+   The header carries the brand, five section links and four controls.
+   Below ~1100px that row cannot fit a laptop viewport without pushing
+   the page sideways, so the section links (which the footer repeats)
+   give way first, then the controls tighten, and only on the narrowest
+   phones does the secondary sample link follow. */
+@media (max-width: 1180px) {
+  .nav-links {
+    gap: 14px;
+  }
+
+  .nav-link {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 1080px) {
+  .nav-links {
+    display: none;
+  }
+
+  .nav-actions .btn {
+    padding: 11px 16px;
+    font-size: 0.8125rem;
+  }
+
+  .nav-actions button[data-agmx-theme-toggle] {
+    min-width: 0 !important;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .availability-grid,
+  .compliance-grid,
+  .resources-grid,
+  .stage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pricing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  /* Two columns of capability cards or price cards are unreadable on a
+     phone. One column, one card per screen, is the honest layout. */
+  .availability-grid,
+  .compliance-grid,
+  .resources-grid,
+  .stage-grid,
+  .pricing-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html.lp-js body > .nav-top {
+    padding: 12px 16px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .nav-actions .btn {
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .nav-actions button[data-agmx-theme-toggle] {
+    min-width: 0 !important;
+    padding-inline: 10px;
+  }
+
+  /* The sample-workspace link is duplicated in the footer and in the
+     hero, so dropping it here keeps the header from overflowing a
+     narrow phone instead of pushing the page sideways. */
+  .nav-actions a[href="/app.html"] {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  /* The hero carries the primary call to action immediately below the
+     header, so the phone header keeps only the theme and language
+     controls rather than overflow. */
+  .nav-actions a[href="#demo"] {
+    display: none;
+  }
+}
+
+/* ---------- Motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .hero::before {
+    animation: none;
+  }
+
+  .record-card {
+    animation: none;
+  }
+
+  .hero .badge-accent {
+    animation: none;
+  }
+
+  html.lp-js .lp-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .lp-stagger > * {
+    transition-delay: 0ms;
+  }
+
+  .hero-actions .btn,
+  .cta-actions .btn,
+  .availability-card,
+  .stage-card,
+  .compliance-card,
+  .pricing-card,
+  .record-card {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  .hero::before,
+  .hero::after {
+    display: none;
+  }
+
+  html.lp-js .lp-reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  html.lp-js body > .nav-top {
+    position: static;
+  }
+
+  .lp-progress {
+    display: none;
+  }
+}

@@ -146,7 +146,15 @@
 // outputDirectory "." the function's own source is published at that path, so
 // visitors received "export default" as a classic <script>, never got
 // window.AGMX_CONFIG, and ran the entire site against no backend at all.
-const CACHE = "agmx-www-agmx-my-v3";
+// Bumped to v42: index.html gained an additive design layer (landing.css +
+// landing.js) and the hero nav is promoted to a page-level sticky bar. Both
+// new files are precached, and index.html itself changed, so the bump is
+// what stops an installed client from serving the previous markup against
+// the new stylesheet.
+// Bumped to v9 (from v8 in production): index.html adds Sign-in button,
+// config.toml updated to production site_url, documents bucket write
+// policies applied (migration 0013).
+const CACHE = "agmx-www-agmx-my-v9";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -158,6 +166,8 @@ const PRECACHE = [
   "/app-shell.css",
   "/runtime-diagnostics.js",
   "/styles.css",
+  "/landing.css",
+  "/landing.js",
   "/data.js",
   "/price-list.js",
   "/assessment.html",

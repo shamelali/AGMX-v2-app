@@ -25,6 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/landing.css">
   <script src="/theme.js"></script>
 </head>
 <body>
@@ -51,6 +52,7 @@
           <button type="button" class="btn btn-ghost" style="min-width:96px;font-weight:700" data-agmx-theme-toggle></button>
           <button type="button" id="lang-toggle" class="btn btn-ghost" style="min-width:48px;font-weight:800" aria-label="Tukar bahasa / Change language">EN</button>
           <a href="/app.html" class="btn btn-ghost" data-en="Sample AGM">Contoh AGM</a>
+          <a href="/app.html" class="btn btn-ghost" data-en="Sign in">Log masuk</a>
           <a href="#demo" class="btn btn-primary" data-en="Book a Demo">Tempah Demo</a>
         </div>
       </nav>
@@ -246,7 +248,7 @@
         <article class="trust-row">
           <h3 data-en="Data separation between cooperatives">Pengasingan data antara koperasi</h3>
           <span class="status status-ready" data-en="Available">Sedia</span>
-          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables holding 52 policies. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual yang memegang 52 polisi. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
+          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables protected by 56 policies across the bundle, the last four governing the private documents bucket. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual dilindungi oleh 56 polisi dalam pakej yang sama, empat yang terakhir mengawal tong peribadi dokumen. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
           <p class="trust-check" data-en="Check it yourself: ask for the money-flow tenant-isolation test. It signs in as a user with no organisation row and as a second cooperative's admin, and expects 403 on both.">Semak sendiri: minta ujian pengasingan penyewa money-flow. Ia log masuk sebagai pengguna tanpa baris organisasi dan sebagai admin koperasi kedua, dan jangkakan 403 untuk kedua-duanya.</p>
         </article>
 
@@ -661,5 +663,6 @@
   }
 })();
 </script>
+<script src="/landing.js" defer></script>
 </body>
 </html>
