@@ -1186,6 +1186,20 @@ else
   warn "tools/test_health.js not found"
 fi
 
+# Obsidian sync must keep its bookkeeping straight: a failed embed pass cannot
+# leave an orphan document or a stuck `processing` job, and editing a note must
+# replace its old vector rather than stacking a duplicate. This drives the real
+# script against a local PostgREST + embeddings stub (no network).
+if [ -f tools/test_obsidian_sync.mjs ] && [ -f tools/obsidian_stub.mjs ]; then
+  if OUT=$(node tools/test_obsidian_sync.mjs 2>&1); then
+    ok "tools/test_obsidian_sync.mjs (obsidian sync rolls back failed writes, replaces edited notes)"
+  else
+    bad "tools/test_obsidian_sync.mjs failed — ${OUT%%$'\n'*}"
+  fi
+else
+  warn "tools/test_obsidian_sync.mjs / tools/obsidian_stub.mjs not found"
+fi
+
 # ----------------------------------------------------------------
 head_ "15. Supabase RPC calls match a declared SQL signature"
 
@@ -2804,6 +2818,105 @@ while IFS=$'\t' read -r kind text; do
 done < "$DENO_ENV_OUT"
 rm -f "$DENO_ENV_OUT" "$SECRETS_TXT"
 [ "$DENOENV_RC" -eq 0 ] || bad "pass 28 could not complete (python exit $DENOENV_RC)"
+
+# ----------------------------------------------------------------
+head_ "29. Payment copy names only the rails checkout can actually reach"
+
+# The landing page and checkout promised "HitPay (FPX, card, e-wallet)" while
+# checkout.html offered two radio values, card and bank_transfer. A Malaysian
+# co-operative read FPX, tapped online payment, and landed on a card-only hosted
+# page. Same class of defect as advertising a knowledge room whose functions
+# answer 500 — the claim is what the customer acts on.
+#
+# The chain that decides what is true, strongest first:
+#   copy  ⊆  checkout.html radio values  ⊆  money-flow's method branches
+# A rail the UI cannot select is unreachable whatever money-flow supports, and a
+# rail money-flow cannot branch on fails after the payer commits. So the pages
+# may only name rails present in both. Read from source, never from copy.
+#
+# Deliberately not api/hitpay/*: those Vercel routes still write to PocketBase at
+# 127.0.0.1:8090 (README defect 8) and no page calls them — checkout.js posts to
+# functions/v1/money-flow. Judging the copy against a dead route would repeat the
+# mistake of trusting the copy.
+PAYCOPY_OUT=$(mktemp /tmp/agmx-paycopy-XXXXXX.txt)
+python3 - "$PAYCOPY_OUT" <<'PYEOF'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+CHECKOUT = pathlib.Path("checkout.html")
+FLOW = pathlib.Path("supabase/functions/money-flow/index.ts")
+PAGES = [p for p in (pathlib.Path("index.html"), CHECKOUT) if p.is_file()]
+
+if not CHECKOUT.is_file() or not FLOW.is_file():
+    emit("WARN", "checkout.html or money-flow/index.ts is missing — payment copy was not compared "
+                 "with the rails checkout can reach")
+    out.close(); sys.exit(0)
+
+# What the page lets a payer choose.
+ui = {v.lower() for v in re.findall(r'name="paymethod"\s+value="([a-z_]+)"',
+                                   CHECKOUT.read_text(errors="replace"))}
+if not ui:
+    emit("BAD", "checkout.html declares no paymethod radio values — the payment step cannot be "
+                "completed, yet the pages advertise online payment")
+    out.close(); sys.exit(0)
+
+# What the function receiving that choice can act on.
+flow_src = FLOW.read_text(errors="replace")
+flow = {m.lower() for m in re.findall(r'input\.method\s*===\s*"([a-z_]+)"', flow_src)}
+# bank_transfer is money-flow's else branch, signalled only in the return URL.
+flow |= {m.lower() for m in re.findall(r'method=([a-z_]+)', flow_src)}
+if not flow:
+    declared = re.search(r'method:\s*(["\'])([a-z_ |]+)\1', flow_src)
+    if declared:
+        flow = {v.strip().lower() for v in declared.group(2).split("|") if v.strip()}
+if not flow:
+    emit("WARN", "money-flow no longer branches on input.method — read the payment path by hand "
+                 "before trusting the payment copy")
+    out.close(); sys.exit(0)
+
+reachable = ui & flow
+if not reachable:
+    emit("BAD", "checkout.html offers %s but money-flow branches on %s — no overlap, so every payment "
+                "the UI can start fails after the payer commits" % (sorted(ui), sorted(flow)))
+    out.close(); sys.exit(0)
+
+# Rail names a reader would act on.
+TOKENS = [
+    ("fpx", re.compile(r"\bFPX\b", re.I)),
+    ("e-wallet", re.compile(r"\bE[-\s]?wallet\b", re.I)),
+]
+offenders = []
+for page in PAGES:
+    text = re.sub(r"<[^>]+>", " ", page.read_text(errors="replace"))
+    for label, pattern in TOKENS:
+        if pattern.search(text) and label not in reachable:
+            where = "checkout.html cannot select it" if label not in ui else "money-flow cannot branch on it"
+            offenders.append("%s names %s (%s)" % (page, label, where))
+
+if offenders:
+    emit("BAD", "%s, but the reachable rails are %s only — the copy describes a payment a customer "
+                "cannot make. Fix the copy, or add the rail to checkout.html and money-flow first."
+         % (", ".join(offenders), sorted(reachable)))
+else:
+    emit("OK", "payment copy names only rails checkout can reach (%s; UI %s, money-flow %s)"
+         % (", ".join(sorted(reachable)), sorted(ui), sorted(flow)))
+out.close()
+PYEOF
+PAYCOPY_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 29 emitted an unrecognised result line: $kind";;
+  esac
+done < "$PAYCOPY_OUT"
+rm -f "$PAYCOPY_OUT"
+[ "$PAYCOPY_RC" -eq 0 ] || bad "pass 29 could not complete (python exit $PAYCOPY_RC)"
 
 # ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
