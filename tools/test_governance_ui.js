@@ -1,7 +1,7 @@
 /* ============================================================
    AGMX — governance-ui.js view harness
    ------------------------------------------------------------
-   Credential-free, offline. Runs the Governance OS views against a
+   Credential-free, offline. Runs the DutaGovern views against a
    minimal DOM stub and a stubbed governance API, asserting that:
      * role gates in the view match the Edge Function's contract,
      * payloads are sent with the field names the function reads,

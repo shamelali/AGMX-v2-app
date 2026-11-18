@@ -69,7 +69,7 @@
 // phrasing, which implied a scarcity incentive and a benefit that cannot be
 // contractually substantiated. index.html is precached.
 //
-// Bumped to v34: Sprint 4 Governance OS — the AGM Hall and Compliance & Audit
+// Bumped to v34: Sprint 4 DutaGovern — the AGM Hall and Compliance & Audit
 // views (governance-ui.js) join the precache, and app.html/app-shell.css/
 // supabase-client.js/app-bootstrap.js changed with them.
 //

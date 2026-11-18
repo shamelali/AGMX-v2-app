@@ -293,7 +293,7 @@
     append(brand, [
       node("span", "agmx-brand-mark", "AG"),
       node("span", "agmx-brand-name", "AGMX"),
-      node("span", "agmx-brand-context", valueOf(cooperative.shortName || cooperative.name, "Governance OS")),
+      node("span", "agmx-brand-context", valueOf(cooperative.shortName || cooperative.name, "DutaGovern")),
     ]);
 
     const userGroup = node("div", "agmx-header-user");

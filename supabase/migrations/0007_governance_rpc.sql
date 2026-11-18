@@ -1,5 +1,5 @@
 -- ============================================================
--- AGMX V2 — Sprint 4: Governance OS (AGM lifecycle RPCs)
+-- AGMX V2 — Sprint 4: DutaGovern (AGM lifecycle RPCs)
 -- Server-side enforcement of AGM workflow: start/close, attendance,
 -- quorum snapshots, motions, votes, resolutions, compliance, actions,
 -- documents and audit chain.

@@ -303,9 +303,9 @@
     // Quote
     $("quote-amount").textContent = RM(pkg.price);
     $("quote-annual").textContent = RATE_CARD
-      ? T(`+ Governance OS: ${annual.name} ${RM(annual.monthly)}/bulan (${RM(annual.annual)}/tahun) — bayaran selepas AGM`,
-        `+ Governance OS: ${annual.name} ${RM(annual.monthly)}/mo (${RM(annual.annual)}/yr) — billed after the AGM`)
-      : T("Governance OS: kad harga tidak dimuatkan", "Governance OS: the rate card did not load");
+      ? T(`+ DutaGovern: ${annual.name} ${RM(annual.monthly)}/bulan (${RM(annual.annual)}/tahun) — bayaran selepas AGM`,
+        `+ DutaGovern: ${annual.name} ${RM(annual.monthly)}/mo (${RM(annual.annual)}/yr) — billed after the AGM`)
+      : T("DutaGovern: kad harga tidak dimuatkan", "DutaGovern: the rate card did not load");
 
     // Reveal result
     $("result-card").classList.remove("result-hidden");

@@ -1,5 +1,5 @@
 -- ============================================================
--- AGMX V2 — Sprint 4: Governance OS bug fixes
+-- AGMX V2 — Sprint 4: DutaGovern bug fixes
 -- Fixes two server-side gaps identified on 2026-11-05:
 --
 -- 1. cast_vote: a failed quorum must block all voting
