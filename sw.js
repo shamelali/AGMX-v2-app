@@ -146,7 +146,6 @@
 // outputDirectory "." the function's own source is published at that path, so
 // visitors received "export default" as a classic <script>, never got
 // window.AGMX_CONFIG, and ran the entire site against no backend at all.
-<<<<<<< HEAD
 // Bumped to v42: index.html gained an additive design layer (landing.css +
 // landing.js) and the hero nav is promoted to a page-level sticky bar. Both
 // new files are precached, and index.html itself changed, so the bump is
@@ -163,17 +162,6 @@
 // Bumped to v12: index.html hero-proof text updated (removed "Data hosted in Singapore"),
 // DutaGovern branding applied across page, Undraw illustrations added.
 const CACHE = "agmx-www-agmx-my-v12";
-=======
-// Bumped to v42: index.html and checkout.html now name only the rails the
-// checkout can actually reach. checkout.html exposes exactly two paymethod
-// values (card, bank_transfer) that the UI posts to the money-flow Edge
-// Function; nothing else is selectable, so "FPX, card, e-wallet" promised a
-// payment no co-operative could choose. Both pages are precached, so an
-// installed client would keep showing the retired promise. check.sh §29 now
-// compares the copy against the UI values and the money-flow branches at
-// once, so the copy cannot drift ahead of what checkout can reach again.
-const CACHE = "agmx-www-agmx-my-v9";
->>>>>>> 04d079b4fc589dc08b2bc96c59e6d487104cd161
 const PRECACHE = [
   "/",
   "/index.html",
@@ -203,7 +191,6 @@ const PRECACHE = [
   "/404.html",
   "/offline.html",
   "/manifest.json",
-  "/knowledge.html",
 ];
 
 const PRECACHED = new Set(PRECACHE);
