@@ -73,8 +73,23 @@ const rest = makeRestClient(db);
 ok(stats.statements > 150, `bundle executed ${stats.statements} statements on real Postgres`);
 ok(stats.claims.tables > 30 && stats.claims.policies > 30,
   `every claimed object exists (${stats.claims.tables} tables, ${stats.claims.functions} functions, ${stats.claims.policies} policies)`);
-ok(stats.skippedSections.join() === "0002_knowledge.sql",
-  "only the pgvector knowledge section is unavailable to PGlite");
+ok(stats.skippedSections.join() === "0002_knowledge.sql,0011_knowledge_embedding_halfvec2048.sql",
+  "only the pgvector knowledge sections are unavailable to PGlite");
+
+const { rows: ballotPermissions } = await db.query(`
+  select rolname,
+         has_any_column_privilege(rolname, 'public.votes', 'INSERT') as can_insert,
+         has_function_privilege(rolname, 'public.cast_vote(uuid, uuid, text)', 'EXECUTE') as can_cast
+    from pg_roles
+   where rolname in ('anon', 'authenticated', 'service_role')
+   order by rolname
+`);
+eq(ballotPermissions.length, 3, "all ballot roles are present");
+for (const { rolname, can_insert, can_cast } of ballotPermissions) {
+  const isServiceRole = rolname === "service_role";
+  eq(can_insert, isServiceRole, `${rolname} ballot INSERT permission`);
+  eq(can_cast, isServiceRole, `${rolname} cast_vote EXECUTE permission`);
+}
 
 /* ---------- 2. load both Edge Functions as written ---------- */
 section("2. Edge Function sources");

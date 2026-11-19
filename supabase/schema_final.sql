@@ -28,6 +28,7 @@
 --   0013_documents_bucket_write_policies.sql  (83 lines)
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (111 lines)
+--   20261119151200_restrict_ballot_writes.sql  (6 lines)
 -- ============================================================
 
 
@@ -2742,3 +2743,14 @@ with check (
 -- Helper: upload path is <user-id>/logo.<ext>
 -- ------------------------------------------------------------
 -- Comment: coop-logos bucket stores co-op branding logos at <user-id>/logo.<ext>
+
+
+-- ============================================================
+-- 20261119151200_restrict_ballot_writes.sql
+-- ============================================================
+-- Ballots must pass through the governance Edge Function, which resolves the
+-- voter from the session before invoking cast_vote with the service role.
+drop policy if exists votes_insert on public.votes;
+create policy votes_insert on public.votes as restrictive for insert with check (false);
+revoke insert on table public.votes from public, anon, authenticated;
+revoke execute on function public.cast_vote(uuid, uuid, text) from public, anon, authenticated;
