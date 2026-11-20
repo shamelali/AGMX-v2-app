@@ -42,7 +42,7 @@ const PROBE_TIMEOUT_MS = 5000;
 function supabaseSettings(env) {
   const url = String(env[SUPABASE_URL_ENV] || "").trim().replace(/\/+$/, "");
   const keyName = SUPABASE_KEY_ENVS.find((name) => String(env[name] || "").trim());
-  return { url, key: keyName ? String(env[keyName]).trim() : "" };
+  return { url, key: keyName ? String(env[keyName]).trim() : "", keyName };
 }
 
 // PostgREST answers 200 for an existing table (RLS may return zero rows) and
@@ -99,19 +99,29 @@ async function llmProbe(url, key) {
 }
 
 async function databaseStatus(env) {
-  const { url, key } = supabaseSettings(env);
+  const { url, key, keyName } = supabaseSettings(env);
   if (!url || !key) {
     return { configured: false, ok: false, latencyMs: null, error: "Supabase is not configured" };
   }
-  const probe = await restProbe(url, key, "organizations");
-  if (probe.ok) {
-    return { configured: true, ok: true, latencyMs: probe.latencyMs };
+  let checkedTable = "organizations";
+  let probe = await restProbe(url, key, checkedTable);
+  let latencyMs = probe.latencyMs;
+  if (keyName !== "SUPABASE_SECRET_KEY" && (probe.status === 401 || probe.status === 403)) {
+    // Anonymous clients can read the plan catalog even when tenant tables are private.
+    checkedTable = "plans";
+    probe = await restProbe(url, key, checkedTable);
+    latencyMs += probe.latencyMs;
   }
+  const result = { configured: true, ok: probe.ok, latencyMs, credential: keyName, checkedTable };
+  if (probe.ok) return result;
   return {
-    configured: true,
-    ok: false,
-    latencyMs: probe.latencyMs,
-    error: probe.status === 404 ? "Supabase schema is not applied" : "Supabase is unreachable",
+    ...result,
+    status: probe.status,
+    error: probe.status === 404
+      ? "Supabase schema is not applied"
+      : probe.status === 401 || probe.status === 403
+        ? `PostgREST denied read access to ${checkedTable} with ${keyName}`
+        : "Supabase is unreachable",
   };
 }
 
@@ -146,7 +156,8 @@ async function knowledgeStatus(env, database) {
   if (database.ok) {
     const probe = await restProbe(url, key, "knowledge_chunks");
     schema.ready = probe.ok;
-    if (!probe.ok) schema.invalid = ["KNOWLEDGE_SCHEMA"];
+    schema.status = probe.status;
+    if (!probe.ok && probe.status !== 401 && probe.status !== 403) schema.invalid = ["KNOWLEDGE_SCHEMA"];
   }
   // `ready` used to mean "this platform holds an LLM key and the table exists",
   // which was true of a project whose functions answered 503 to every question.
