@@ -26,7 +26,7 @@
 --   0011_knowledge_embedding_halfvec2048.sql  (109 lines)
 --   0012_documents_bucket.sql  (64 lines)
 --   0013_documents_bucket_write_policies.sql  (83 lines)
---   0014_atomic_settlement.sql  (137 lines)
+--   0014_atomic_settlement.sql  (148 lines)
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (111 lines)
 --   20261119151200_restrict_ballot_writes.sql  (6 lines)
@@ -2713,7 +2713,18 @@ begin
 end;
 $$;
 
-revoke execute on function public.atomic_settlement(uuid, uuid, uuid, timestamptz) from public, anon;
+/* The Edge Function calls this with the service role after isAdminOrSecretary
+   has passed, and the RPC itself only checks the organization — it never
+   checks the caller's role. So the role check has to live in the grant, or
+   any member of a cooperative could settle their own co-op's payment by
+   calling /rest/v1/rpc/atomic_settlement directly with their own
+   organization_id, bypassing the handler's operator gate and naming whoever
+   they liked as p_actor in the audit trail. Supabase's default privileges
+   leave EXECUTE with every login role (see 0004_revoke_non_dml_privileges.sql
+   for the same posture on tables), so authenticated must be revoked too —
+   public and anon alone leave the hole open. Matches
+   20261119151200_restrict_ballot_writes.sql. */
+revoke execute on function public.atomic_settlement(uuid, uuid, uuid, timestamptz) from public, anon, authenticated;
 grant execute on function public.atomic_settlement(uuid, uuid, uuid, timestamptz) to service_role;
 
 
