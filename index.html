@@ -60,7 +60,6 @@
 
   <main id="main">
 
-<<<<<<< HEAD
     <!-- ===== 1. HERO ===== -->
     <section class="hero" aria-labelledby="hero-heading">
       <div class="container hero-grid">
@@ -71,7 +70,28 @@
           <div class="hero-actions">
             <a href="/assessment.html" class="btn btn-primary btn-lg" data-en="Start Free AGM Assessment">MULAKAN PENILAIAN AGM PERCUMA</a>
             <a href="#cara-berfungsi" class="btn btn-secondary btn-lg" data-en="See how it works">Lihat bagaimana ia berfungsi</a>
-=======
+          </div>
+          <p class="hero-microcopy" data-en="Get complexity score, package recommendation and quote in 60 seconds.">Dapatkan skor kerumitan, cadangan pakej dan sebut harga dalam 60 saat.</p>
+          <div class="hero-proof" data-en="Trusted by Malaysian co-operatives · BM/EN · Separate, isolated workspace for each co-operative">Dipercayai oleh koperasi Malaysia · BM/EN · Ruang kerja berasingan untuk setiap koperasi</div>
+        </div>
+        <div class="hero-visual">
+          <figure class="dashboard-mockup" aria-label="AGM Dashboard preview">
+            <img src="https://undraw.co/api/illustrations/dashboard_analytics.svg" 
+                 alt="" 
+                 class="dashboard-illustration"
+                 width="600" height="480"
+                 loading="eager"
+                 aria-hidden="true">
+            <figcaption class="mockup-caption" data-en="Real-time AGM dashboard with quorum, voting, minutes & audit trail">
+              Papan pemuka AGM masa nyata dengan kuorum, undian, minit & jejak audit
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 2. PROBLEM ===== -->
+
   <!-- ===== Platform: capability status, not a feature brochure ===== -->
   <section id="platform" class="availability-section" aria-labelledby="platform-heading">
     <div class="container">
@@ -140,11 +160,11 @@
   </section>
 
   <!-- ===== How it works: four stages with named deliverables ===== -->
-  <section id="how" class="how-section" aria-labelledby="how-heading">
+  <section id="how" class="how-section" aria-labelledby="how-capability-heading">
     <div class="container">
       <header class="section-header">
         <span class="section-label" data-en="How It Works">Cara Ia Berfungsi</span>
-        <h2 id="how-heading" data-en="Four stages, each with a deliverable you can hold">Empat peringkat, masing-masing dengan hasil yang boleh anda pegang</h2>
+        <h2 id="how-capability-heading" data-en="Four stages, each with a deliverable you can hold">Empat peringkat, masing-masing dengan hasil yang boleh anda pegang</h2>
         <p class="section-subtitle" data-en="A stage only counts as finished when its output exists as a record, not when a screen renders.">Satu peringkat hanya dikira selesai apabila hasilnya wujud sebagai rekod, bukan apabila sesuatu skrin dipaparkan.</p>
       </header>
       <ol class="stage-grid">
@@ -193,11 +213,11 @@
   </section>
 
   <!-- ===== Trust centre ===== -->
-  <section id="trust" class="trust-section" aria-labelledby="trust-heading">
+  <section id="trust" class="trust-section" aria-labelledby="trust-capability-heading">
     <div class="container">
       <header class="section-header">
         <span class="section-label" data-en="Security &amp; Trust">Keselamatan &amp; Kepercayaan</span>
-        <h2 id="trust-heading" data-en="Trust centre">Pusat kepercayaan</h2>
+        <h2 id="trust-capability-heading" data-en="Trust centre">Pusat kepercayaan</h2>
         <p class="section-subtitle" data-en="Each control below states its status, the evidence behind it, and how you can check it yourself. Every configuration fact on this page was read from the running project on 3 November 2026.">Setiap kawalan di bawah menyatakan statusnya, bukti di sebaliknya, dan cara anda menyemaknya sendiri. Setiap fakta konfigurasi dalam halaman ini dibaca daripada projek yang berjalan pada 3 November 2026.</p>
       </header>
 
@@ -212,7 +232,7 @@
         <article class="trust-row">
           <h3 data-en="Data separation between cooperatives">Pengasingan data antara koperasi</h3>
           <span class="status status-ready" data-en="Available">Sedia</span>
-          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables holding 56 policies. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual yang memegang 56 polisi. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
+          <p data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables holding 57 policies. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure. The money-flow Edge Function connects with a service-role key that bypasses row-level security, so the same predicate is enforced there in code, on every route.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual yang memegang 52 polisi. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan. Edge Function money-flow menyambung dengan kunci peranan-perkhidmatan yang melangkau keselamatan peringkat baris, jadi predikat yang sama dikuatkuasakan di sana dalam kod, pada setiap laluan.</p>
           <p class="trust-check" data-en="Check it yourself: ask for the money-flow tenant-isolation test. It signs in as a user with no organisation row and as a second cooperative's admin, and expects 403 on both.">Semak sendiri: minta ujian pengasingan penyewa money-flow. Ia log masuk sebagai pengguna tanpa baris organisasi dan sebagai admin koperasi kedua, dan jangkakan 403 untuk kedua-duanya.</p>
         </article>
 
@@ -338,28 +358,12 @@
               <li data-en="The larger-type reading mode is not yet reachable from the workspace shell">Mod bacaan taip lebih besar belum boleh dicapai dari shell ruang kerja</li>
               <li data-en="No assistive-technology testing has been recorded with screen readers in Bahasa Melayu">Tiada ujian teknologi bantu direkodkan dengan pembaca skrin dalam Bahasa Melayu</li>
             </ul>
->>>>>>> 04d079b4fc589dc08b2bc96c59e6d487104cd161
           </div>
-          <p class="hero-microcopy" data-en="Get complexity score, package recommendation and quote in 60 seconds.">Dapatkan skor kerumitan, cadangan pakej dan sebut harga dalam 60 saat.</p>
-          <div class="hero-proof" data-en="Trusted by Malaysian co-operatives · BM/EN · Separate, isolated workspace for each co-operative">Dipercayai oleh koperasi Malaysia · BM/EN · Ruang kerja berasingan untuk setiap koperasi</div>
-        </div>
-        <div class="hero-visual">
-          <figure class="dashboard-mockup" aria-label="AGM Dashboard preview">
-            <img src="https://undraw.co/api/illustrations/dashboard_analytics.svg" 
-                 alt="" 
-                 class="dashboard-illustration"
-                 width="600" height="480"
-                 loading="eager"
-                 aria-hidden="true">
-            <figcaption class="mockup-caption" data-en="Real-time AGM dashboard with quorum, voting, minutes & audit trail">
-              Papan pemuka AGM masa nyata dengan kuorum, undian, minit & jejak audit
-            </figcaption>
-          </figure>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- ===== 2. PROBLEM ===== -->
     <section id="masalah" class="problem-section" aria-labelledby="problem-heading">
       <div class="container">
         <header class="section-header">
@@ -542,7 +546,7 @@
           <span class="section-label" data-en="Security">Keselamatan</span>
           <h2 id="trust-heading" data-en="Built for trustworthy governance">Dibina untuk tadbir urus yang boleh dipercayai</h2>
         </header>
-        <p class="trust-summary" data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables protected by 56 policies across the bundle. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual dilindungi oleh 56 polisi dalam pakej yang sama. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan.</p>
+        <p class="trust-summary" data-en="PostgreSQL row-level security is switched on for every table the migrations create — 40 tables protected by 57 policies across the bundle. Tenant isolation is one predicate: organization_id equals the signed-in user's organisation. A table with no policy denies every client read, so the default is refusal, not exposure.">Keselamatan peringkat baris PostgreSQL didayakan pada setiap jadual yang dicipta oleh migrasi — 40 jadual dilindungi oleh 57 polisi dalam pakej yang sama. Pengasingan penyewa ialah satu predikat: organization_id sama dengan organisasi pengguna yang log masuk. Jadual tanpa polisi menolak setiap bacaan klien, jadi keadaan lalainya ialah penolakan, bukan pendedahan.</p>
         <div class="trust-grid">
           <article class="trust-item">
             <img src="https://undraw.co/api/illustrations/data_security.svg" 
