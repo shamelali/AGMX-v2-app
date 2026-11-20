@@ -2933,6 +2933,62 @@ rm -f "$PAYCOPY_OUT"
 [ "$PAYCOPY_RC" -eq 0 ] || bad "pass 29 could not complete (python exit $PAYCOPY_RC)"
 
 # ----------------------------------------------------------------
+head_ "30. No file carries an unresolved merge conflict"
+# ----------------------------------------------------------------
+# 2375b2e shipped index.html and checkout.html with their conflict markers
+# still in place, and www.agmx.my served them to customers: the landing page
+# rendered literal '<<<<<<< HEAD' text, and checkout.html's inline translation
+# map became a JavaScript syntax error that stopped checkout.js initialising.
+# Nothing in this suite looked for a marker, so a green run said nothing about
+# it. This is the check that was missing.
+#
+# Scan every tracked file, not just the HTML ones: a marker in a workflow, a
+# migration or a shell script is just as fatal, and the fix is the same.
+MARKER_OUT=$(mktemp /tmp/agmx-marker-XXXXXX.txt)
+python3 - "$MARKER_OUT" <<'PYEOF'
+import re, subprocess, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+# A conflict marker is a line that *starts* with the token, because the same
+# characters inside a string, a comment or a diff being documented are not one.
+MARKER = re.compile(r"^(<{7}|={7}|>{7})(\s|$)")
+
+tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True).stdout.split()
+found = []
+for path in tracked:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for n, line in enumerate(fh, 1):
+                if MARKER.match(line):
+                    found.append("%s:%d" % (path, n))
+    except (UnicodeDecodeError, IsADirectoryError):
+        continue  # binary or a submodule entry — no conflict marker in it
+    except OSError as err:
+        emit("BAD", "%s could not be read: %s" % (path, err))
+
+if found:
+    emit("BAD", "%d unresolved conflict marker(s) in tracked files: %s — these "
+               "are what a customer sees at www.agmx.my" % (len(found), ", ".join(found[:8])))
+else:
+    emit("OK", "none of the %d tracked files holds a conflict marker" % len(tracked))
+out.close()
+PYEOF
+MARKER_RC=$?
+while IFS=$'\t' read -r kind text; do
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 30 emitted an unrecognised result line: $kind";;
+  esac
+done < "$MARKER_OUT"
+rm -f "$MARKER_OUT"
+[ "$MARKER_RC" -eq 0 ] || bad "pass 30 could not complete (python exit $MARKER_RC)"
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then
