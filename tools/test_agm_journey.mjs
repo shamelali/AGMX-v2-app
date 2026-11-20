@@ -268,11 +268,19 @@ const voters = [];
 for (const idx of [0, 1, 2]) {
   const id = USER.member[idx];
   await seedUser(db, { id });
+  /* auto_provision_user_on_signup puts this login in a scratch org of its own
+     with member_id null, so the profile insert below would collide on the
+     primary key and the profile would keep pointing at the scratch org.
+     Remove the auto-created row first, exactly as the operator's is above:
+     /vote and /attendance resolve the session's member through the profile's
+     own organization, so a login left in the scratch org has no member row. */
+  await db.exec(`delete from public.profiles where id = '${id}'`);
   await rest.from("profiles").insert({ id, organization_id: orgId, full_name: `Ahli ${idx + 1}`, role: "member" });
   await rest.from("organization_members").insert({ organization_id: orgId, user_id: id, member_id: M[idx], role: "member" });
   voters.push(rest.registerActor({ id }));
 }
 await seedUser(db, { id: USER.resigned });
+await db.exec(`delete from public.profiles where id = '${USER.resigned}'`);
 const { data: ghostLink } = await rest.from("organization_members").insert({
   organization_id: orgId, user_id: USER.resigned, member_id: resigned.id, role: "member",
 }).select("member_id").single();
@@ -441,6 +449,11 @@ ok(tamperAudit.error && /Append-only/.test(tamperAudit.error.message), "rewritin
 /* A second cooperative, with its own secretary, must not see the first one's AGM. */
 const orgB = (await rest.from("organizations").insert({ slug: "coop-rival", name: "Koperasi Rival Bhd" }).select("id").single()).data;
 await seedUser(db, { id: USER.rival });
+/* Same auto-provisioning collision as above: without removing the scratch
+   profile the rival would stay a plain "member" of their own org and /agm/close
+   would stop at the operator gate (403) instead of reaching the tenant
+   boundary (404), which is the assertion this block is making. */
+await db.exec(`delete from public.profiles where id = '${USER.rival}'`);
 await rest.from("profiles").insert({ id: USER.rival, organization_id: orgB.id, full_name: "Lawan", role: "admin" });
 const RIVAL = rest.registerActor({ id: USER.rival });
 eq((await call("governance", `/agm/${agmId}/roster`, { as: RIVAL, method: "GET" })).status, 404, "another cooperative's secretary cannot read the roster");
