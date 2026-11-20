@@ -73,8 +73,9 @@ const rest = makeRestClient(db);
 ok(stats.statements > 150, `bundle executed ${stats.statements} statements on real Postgres`);
 ok(stats.claims.tables > 30 && stats.claims.policies > 30,
   `every claimed object exists (${stats.claims.tables} tables, ${stats.claims.functions} functions, ${stats.claims.policies} policies)`);
-ok(stats.skippedSections.join() === "0002_knowledge.sql",
-  "only the pgvector knowledge section is unavailable to PGlite");
+ok(stats.skippedSections.join().includes("0002_knowledge.sql") &&
+   stats.skippedSections.join().includes("0011_knowledge_embedding_halfvec2048.sql"),
+  "the pgvector knowledge sections are unavailable to PGlite");
 
 /* ---------- 2. load both Edge Functions as written ---------- */
 section("2. Edge Function sources");
@@ -241,6 +242,12 @@ eq((await rest.from("payments").select("id").eq("invoice_id", invoiceId).eq("sta
 /* ---------- 5. the meeting is scheduled and run ---------- */
 section("4. AGM scheduled → meeting run (governance)");
 await seedUser(db, { id: USER.operator, email: "setiausaha@koperasi.example" });
+/* auto_provision_user_on_signup runs on the auth.users insert above and
+   creates the profile as a "member" of a fresh org, and the profile's role
+   is immutable (profiles_protect_privileged_columns). Remove the
+   auto-created profile via SQL and re-insert as a secretary of the
+   assessment's org. */
+await db.exec(`delete from public.profiles where id = '${USER.operator}'`);
 await rest.from("profiles").insert({ id: USER.operator, organization_id: orgId, full_name: "Nurul Hidayah", role: "secretary" });
 const OP = rest.registerActor({ id: USER.operator });
 

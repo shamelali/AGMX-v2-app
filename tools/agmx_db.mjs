@@ -41,7 +41,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const BUNDLE = join(ROOT, "supabase", "schema_final.sql");
 
-export const UNSUPPORTED_SECTIONS = new Set(["0002_knowledge.sql"]);
+export const UNSUPPORTED_SECTIONS = new Set(["0002_knowledge.sql", "0011_knowledge_embedding_halfvec2048.sql"]);
 /* Everything pgvector touches: the extension, and the aggregate/function
    signatures that name the public.vector type. PGlite has no pgvector, and its
    catalog cannot declare a type whose typmod_in is missing, so `vector(1024)`
@@ -779,11 +779,13 @@ export function makeRestClient(db) {
 /* ---------- fixtures ---------- */
 
 export async function seedUser(db, { id, email, role = "authenticated", appRole = null }) {
+  /* auth.users.email is NOT NULL on a real catalog; several call sites seed
+     identities that hold a session for ballot purposes and pass no email. */
   await db.query(
     `insert into auth.users (id, email, role, raw_app_meta_data)
      values ($1, $2, $3, $4)
      on conflict (id) do nothing`,
-    [id, email, role, JSON.stringify(appRole ? { role: appRole } : {})],
+    [id, email ?? `${id}@koperasi.test`, role, JSON.stringify(appRole ? { role: appRole } : {})],
   );
   return id;
 }
