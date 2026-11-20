@@ -1,0 +1,24 @@
+<!doctype html><html lang="ms"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102f30">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<title>AGMX · Pek bukti</title><link rel="stylesheet" href="/meeting-tools.css"><script src="/theme.js"></script>
+<script src="/meeting-tools.js" defer></script><script src="/evidence.js" defer></script></head><body>
+<a class="tool-skip" href="#main" data-en="Skip to content">Langkau ke kandungan</a>
+<header class="tool-nav"><a class="tool-brand" href="/">AGMX</a><div><a href="/app.html#/agm" data-en="AGM hall">Dewan AGM</a><button data-tool-lang type="button">EN</button></div></header>
+<main class="tool-main" id="main"><header class="tool-heading"><p class="tool-context" data-en="Meeting records">Rekod mesyuarat</p>
+<h1 data-en="Sign and verify evidence">Tandatangan dan semak bukti</h1>
+<p data-en="Package minutes and attachments into one signed file. File contents and keys are processed on this device.">Gabungkan minit dan lampiran dalam satu fail bertandatangan. Kandungan fail dan kunci diproses pada peranti ini.</p></header>
+<div class="tool-grid">
+<section class="tool-card"><h2 data-en="Create a signed pack">Cipta pek bertandatangan</h2>
+<form id="sign-form"><label for="sign-files" data-en="Minutes and attachments · up to 8 files, 6 MiB total">Minit dan lampiran · sehingga 8 fail, jumlah 6 MiB</label><input id="sign-files" type="file" required multiple>
+<label for="private-key" data-en="Signer’s private key · P-256 PKCS#8 PEM">Kunci peribadi penandatangan · P-256 PKCS#8 PEM</label><input id="private-key" type="file" required>
+<button class="tool-primary" type="submit" data-en="Sign and download">Tandatangan dan muat turun</button><p role="status" id="sign-status"></p></form></section>
+<section class="tool-card"><h2 data-en="Verify a pack">Semak pek</h2>
+<p data-en="Use the public key you received independently from the signer. The check covers the signature and every enclosed file.">Gunakan kunci awam yang anda terima secara berasingan daripada penandatangan. Semakan meliputi tandatangan dan setiap fail di dalam pek.</p>
+<form id="verify-form"><label for="signed-pack" data-en="Signed evidence file">Fail bukti bertandatangan</label><input id="signed-pack" type="file" required accept=".json,application/json">
+<label for="public-key" data-en="Trusted public key · P-256 SPKI PEM">Kunci awam dipercayai · P-256 SPKI PEM</label><input id="public-key" type="file" required>
+<button type="submit" data-en="Verify all files">Semak semua fail</button><p role="status" id="verify-status"></p></form><div id="verified-files" class="tool-actions"></div></section>
+</div>
+<details class="tool-card key-panel"><summary data-en="Create a P-256 key pair on this device">Jana pasangan kunci P-256 pada peranti ini</summary><p data-en="Keep the private key with the signer. Give the public key to reviewers through a trusted channel. These keys identify their holder and do not certify an official title.">Simpan kunci peribadi dengan penandatangan. Beri kunci awam kepada penyemak melalui saluran dipercayai. Pasangan kunci mengenal pasti pemegangnya tanpa mengesahkan jawatan rasmi.</p>
+<div class="tool-actions"><button id="generate" type="button" data-en="Generate key pair">Jana pasangan kunci</button><button id="save-private" type="button" hidden data-en="Save private key">Simpan kunci peribadi</button><button id="save-public" type="button" hidden data-en="Save public key">Simpan kunci awam</button></div><p role="status" id="key-status"></p></details>
+</main></body></html>

@@ -90,6 +90,27 @@
     "Election": "Pilihan raya",
     "Financial": "Kewangan",
     "Minutes": "Minit",
+    "Open meeting floor": "Buka bilik langsung",
+    "Sign or verify an evidence pack": "Tandatangan atau semak pek bukti",
+    "Print minutes / Save PDF": "Cetak minit / Simpan PDF",
+    "Download draft minutes": "Muat turun draf minit",
+    "Upload and register": "Muat naik dan daftar",
+    "Choose a PDF, DOCX, TXT or Markdown file (up to 8 MiB)": "Pilih fail PDF, DOCX, TXT atau Markdown (sehingga 8 MiB)",
+    "Register an existing storage path": "Daftar laluan storan sedia ada",
+    "Download file": "Muat turun fail",
+    "This file could not be verified": "Fail ini tidak dapat disahkan",
+    "Download failed": "Muat turun gagal",
+    "AI index": "Indeks AI",
+    "Index with organisation AI": "Indeks dengan AI organisasi",
+    "Indexing…": "Sedang mengindeks…",
+    "Indexed passages": "Petikan diindeks",
+    "Indexing failed": "Pengindeksan gagal",
+    "Calendar reminder": "Peringatan kalendar",
+    "Export audit records": "Eksport rekod audit",
+    "Draft minutes": "Draf minit",
+    "No resolutions recorded": "Tiada resolusi direkodkan",
+    "No agenda items recorded": "Tiada perkara agenda direkodkan",
+    "Recorded at": "Direkodkan pada",
     "Notice": "Notis",
     "Financial statement": "Penyata kewangan",
     "Report": "Laporan",
@@ -458,9 +479,96 @@
     container.appendChild(resolutionsCard(payload.resolutions));
   }
 
+  function downloadFile(filename, mime, content) {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function minutesLines(agm, payload) {
+    const lines = [
+      t("Draft minutes"), agm.title,
+      t("Date and time") + ": " + fmtDateTime(agm.scheduled_at),
+      t("Venue") + ": " + text(agm.venue), "", t("Agenda"),
+    ];
+    for (const item of payload.agenda) lines.push(text(item.code) + " · " + item.title);
+    if (!payload.agenda.length) lines.push(t("No agenda items recorded"));
+    lines.push("", t("Resolutions"));
+    for (const item of payload.resolutions) {
+      lines.push(item.title + " · " + t(item.passed ? "Passed" : "Failed"),
+        "Ya: " + text(item.votes_ya) + " · " + t("Tidak") + ": " + text(item.votes_tidak) +
+        " · " + t("Kecuali") + ": " + text(item.votes_kecuali),
+        t("Recorded at") + ": " + fmtDateTime(item.minuted_at), "");
+    }
+    if (!payload.resolutions.length) lines.push(t("No resolutions recorded"));
+    return lines;
+  }
+
+  function printMinutes(agm, lines) {
+    document.getElementById("agmx-print-minutes")?.remove();
+    const sheet = node("article", "", [
+      node("p", "", "AGMX · " + t("Draft minutes")),
+      node("h1", "", agm.title), node("pre", "", lines.slice(2).join("\n")),
+    ]);
+    sheet.id = "agmx-print-minutes";
+    document.body.appendChild(sheet);
+    window.addEventListener("afterprint", () => sheet.remove(), {once:true});
+    window.print();
+  }
+
+  function calendarText(value) {
+    return String(value || "").replace(/\\/g, "\\\\").replace(/\r\n|\n|\r/g, "\\n")
+      .replace(/[,;]/g, match => "\\" + match);
+  }
+
+  function calendarStamp(date) {
+    return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  }
+
+  function downloadReminder(agm) {
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AGMX//AGM//EN",
+      "BEGIN:VEVENT", "UID:" + calendarText(agm.id) + "@agmx.my",
+      "DTSTAMP:" + calendarStamp(new Date()), "DTSTART:" + calendarStamp(new Date(agm.scheduled_at)),
+      "SUMMARY:" + calendarText(agm.title), "LOCATION:" + calendarText(agm.venue),
+      "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:" + calendarText(agm.title),
+      "END:VALARM", "END:VEVENT", "END:VCALENDAR"];
+    const encoder = new TextEncoder();
+    const folded = lines.map(line => {
+      let output = "", width = 0;
+      for (const character of line) {
+        const bytes = encoder.encode(character).length;
+        if (width + bytes > 75) { output += "\r\n "; width = 1; }
+        width += bytes;
+        output += character;
+      }
+      return output;
+    });
+    downloadFile("agm-" + agm.id + ".ics", "text/calendar;charset=utf-8", folded.join("\r\n") + "\r\n");
+  }
+
   function agmStatusCard(ctx, agm, payload, rerender) {
     const tone = agm.status === "live" ? "ok" : "muted";
     const controls = node("div", "agmx-gov-controls");
+    const floorLink = node("a", "btn btn-primary btn-sm", "Open meeting floor");
+    floorLink.href = "/live-meeting.html?agm=" + encodeURIComponent(agm.id);
+    const packLink = node("a", "btn btn-secondary btn-sm", "Sign or verify an evidence pack");
+    packLink.href = "/evidence.html";
+    append(controls, [floorLink, packLink]);
+    if (Array.isArray(payload.agenda) && Array.isArray(payload.resolutions)) {
+      const lines = minutesLines(agm, payload);
+      controls.appendChild(button("Download draft minutes", "btn btn-secondary btn-sm", () =>
+        downloadFile("agm-" + agm.id + "-minutes.txt", "text/plain;charset=utf-8", lines.join("\n"))));
+      controls.appendChild(button("Print minutes / Save PDF", "btn btn-secondary btn-sm", () => printMinutes(agm, lines)));
+    }
+    if (agm.scheduled_at && Number.isFinite(Date.parse(agm.scheduled_at))) {
+      controls.appendChild(button("Calendar reminder", "btn btn-secondary btn-sm",
+        () => downloadReminder(agm)));
+    }
     if (ctx.isAdmin) {
       if (agm.status === "planned") {
         controls.appendChild(button("Start AGM", "btn btn-primary btn-sm", async (e) => {
@@ -760,7 +868,13 @@
     container.appendChild(audit.error
       ? failedSection("Audit trail", "Hash-chained; each row links to the hash before it", audit.error, retry)
       : card("Audit trail", "Hash-chained; each row links to the hash before it",
-        [auditRows.length ? table(["When", "Event", "Entity", "Actor", "Hash", "Prev"], auditRows) : node("p", "agmx-empty", t("None recorded yet"))]));
+        [auditRows.length ? table(["When", "Event", "Entity", "Actor", "Hash", "Prev"], auditRows) : node("p", "agmx-empty", t("None recorded yet")),
+          auditRows.length && ctx.isAdmin ? button("Export audit records", "btn btn-secondary btn-sm", () => {
+            const entries = audit.events.map(({ occurred_at, action, entity_type, entity_id, hash, prev_hash }) =>
+              ({ occurred_at, action, entity_type, entity_id, hash, prev_hash }));
+            downloadFile("agmx-organisation-audit.json", "application/json",
+              JSON.stringify({ scope: "organisation", limit: 200, exportedAt: new Date().toISOString(), entries }, null, 2));
+          }) : null]));
   }
 
   function actionsCard(ctx, agm, result, rerender) {
@@ -795,6 +909,33 @@
     return card("Actions", "Follow-ups agreed at the meeting", blocks);
   }
 
+  async function fileHash(blob) {
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()));
+    return Array.from(hash, n => n.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function uploadDocument(file, ctx, agm, category) {
+    const mimeByExt = { pdf: "application/pdf", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      txt: "text/plain", md: "text/markdown" };
+    const ext = file.name.split(".").pop().toLowerCase();
+    const type = mimeByExt[ext];
+    if (!type || file.size > 8 * 1024 * 1024) throw Error(t("Choose a PDF, DOCX, TXT or Markdown file (up to 8 MiB)"));
+    const org = ctx.data.cooperative.id;
+    const sha = await fileHash(file);
+    const path = [org, "vault", sha + "." + ext].join("/");
+    const { supabase } = await import("./supabase-client.js");
+    const bucket = supabase.storage.from("documents");
+    const { error } = await bucket.upload(path, file, { contentType: type, upsert: false });
+    if (error) {
+      // A previous upload can have succeeded even if the response was lost.
+      // Re-use the object only after checking that its bytes match the file.
+      const stored = await bucket.download(path);
+      if (stored.error || !stored.data || await fileHash(stored.data) !== sha) throw error;
+    }
+    await ctx.api.registerDocument({ agmId: agm?.id || null, category, filename: file.name,
+      sizeBytes: file.size, storagePath: path, mime: type, sha256: sha });
+  }
+
   async function documentsCard(ctx, agm, rerender) {
     const host = node("div", "");
     let documents = [];
@@ -808,19 +949,58 @@
       unreadable = error;
     }
 
-    const rows = documents.map((d) => [
-      d.category,
-      d.filename,
-      text(d.mime),
-      d.size_bytes ? `${Math.round(Number(d.size_bytes) / 1024)} KB` : "—",
-      (d.sha256 || "").slice(0, 16) || "—",
-      fmtDateTime(d.created_at),
-    ]);
+    const canIndex = ctx.isAdmin && window.AGMX_CONFIG?.knowledgeRagEnabled === true;
+    function indexAction(doc) {
+      if (!/\.(pdf|docx|txt|md)$/i.test(doc.filename) || doc.category === "obsidian") return "—";
+      const progress = node("span", "agmx-gov-status");
+      progress.setAttribute("role", "status");
+      const action = button("Index with organisation AI", "btn btn-secondary btn-sm", async () => {
+        action.disabled = true;
+        progress.textContent = t("Indexing…");
+        try {
+          const { db } = await import("./supabase-client.js");
+          const result = await db.knowledge.ingest(doc.id);
+          progress.textContent = t("Indexed passages") + " · " + result.chunks;
+        } catch (error) {
+          let reason = "";
+          try { reason = JSON.parse(error.message).error || ""; } catch (_) {}
+          progress.textContent = t("Indexing failed") + (reason ? " · " + reason : "");
+        } finally { action.disabled = false; }
+      });
+      return node("div", "agmx-gov-controls", [action, progress]);
+    }
+    function downloadAction(doc) {
+      const org = ctx.data?.cooperative?.id;
+      if (!org || !doc.storage_path?.startsWith(org + "/")) return doc.filename;
+      const status = node("span", "agmx-gov-status");
+      status.setAttribute("role", "status");
+      const link = button("Download file", "btn btn-secondary btn-sm", async () => {
+        link.disabled = true; status.textContent = "";
+        try {
+          const { supabase } = await import("./supabase-client.js");
+          const result = await supabase.storage.from("documents").download(doc.storage_path);
+          if (result.error || !result.data) throw Error(t("Download failed"));
+          if (doc.sha256 && await fileHash(result.data) !== doc.sha256.toLowerCase()) throw Error(t("This file could not be verified"));
+          downloadFile(doc.filename, "application/octet-stream", result.data);
+        } catch (error) { status.textContent = error.message || t("Download failed"); }
+        finally { link.disabled = false; }
+      });
+      return node("div", "", [node("span", "", doc.filename), link, status]);
+    }
+    const headers = ["Category", "Filename", "MIME", "Size", "SHA-256", "Registered"];
+    if (canIndex) headers.push("AI index");
+    const rows = documents.map(doc => {
+      const cells = [doc.category, downloadAction(doc), text(doc.mime),
+        doc.size_bytes ? Math.round(Number(doc.size_bytes) / 1024) + " KB" : "—",
+        (doc.sha256 || "").slice(0, 16) || "—", fmtDateTime(doc.created_at)];
+      if (canIndex) cells.push(indexAction(doc));
+      return cells;
+    });
 
     const blocks = [unreadable
       ? node("div", "", readFailure(unreadable, rerender))
       : rows.length
-      ? table(["Category", "Filename", "MIME", "Size", "SHA-256", "Registered"], rows)
+      ? table(headers, rows)
       : node("p", "agmx-empty", t("None recorded yet"))];
 
     if (ctx.isAdmin) {
@@ -852,10 +1032,22 @@
         }), rerender);
         if (!done) submit.disabled = false;
       });
-      blocks.push(node("div", "agmx-gov-form-row", [
-        field("Category", category), field("Filename", filename), field("Storage path", path), field("SHA-256", sha),
-      ]));
-      blocks.push(node("div", "agmx-gov-controls", [submit, status]));
+      const file = input("agmx-doc-upload", "file");
+      file.accept = ".pdf,.docx,.txt,.md";
+      const uploadStatus = node("p", "agmx-gov-status");
+      uploadStatus.setAttribute("role", "status");
+      const upload = button("Upload and register", "btn btn-primary btn-sm", async () => {
+        if (!file.files.length) { uploadStatus.textContent = t("Choose a PDF, DOCX, TXT or Markdown file (up to 8 MiB)"); return; }
+        upload.disabled = true;
+        const done = await submitWrite(uploadStatus, () => uploadDocument(file.files[0], ctx, agm, category.value), rerender);
+        if (!done) upload.disabled = false;
+      });
+      blocks.push(node("div", "agmx-gov-form-row", [field("Category", category),
+        field("Choose a PDF, DOCX, TXT or Markdown file (up to 8 MiB)", file), upload, uploadStatus]));
+      const existing = node("details", "", [node("summary", "", "Register an existing storage path")]);
+      existing.appendChild(node("div", "agmx-gov-form-row", [field("Filename", filename), field("Storage path", path), field("SHA-256", sha)]));
+      existing.appendChild(node("div", "agmx-gov-controls", [submit, status]));
+      blocks.push(existing);
     }
 
     host.appendChild(card("Document vault", "Evidence is registered by hash — stored files are never rewritten", blocks));
@@ -926,6 +1118,10 @@
       "This workspace is running on simulated demo data, so the governance controls are disabled. Sign in to a live organization to run a meeting.");
     banner.setAttribute("role", "status");
     container.appendChild(banner);
+    const rehearsal = node("a", "btn btn-primary", lang === "en" ? "Open the rehearsal" : "Buka raptai");
+    rehearsal.href = "/live-meeting.html?demo=1";
+    container.appendChild(rehearsal);
+
   }
 
   async function runAction(event, ctx, work, rerender) {

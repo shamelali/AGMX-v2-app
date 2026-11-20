@@ -52,6 +52,21 @@
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--c-primary-700); color: #fff; padding: 14px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--sh-lg); opacity: 0; transform: translateY(12px); transition: all 0.25s; z-index: 50; max-width: 340px; }
     .toast.show { opacity: 1; transform: translateY(0); }
     @media (max-width: 720px) { .as-card { padding: 18px; } }
+    #lead-table-wrap {max-width:100%;overflow-x:auto}
+    .as-card .btn {max-width:100%;white-space:normal;text-align:center;overflow-wrap:anywhere}
+    .result-grid {display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px}
+    @media(max-width:680px){.result-grid{grid-template-columns:minmax(0,1fr)}}
+    .as-header {background: #193d39}
+    .as-header .ag-badge {background:#e5c982;color:#163934}
+    .as-header .wrap {flex-wrap:wrap}
+    @media (max-width:600px) {
+      .as-header {padding:10px 0}
+      .as-header .wrap {gap:8px;padding-inline:14px}
+      .as-header .as-brand {margin-right:auto}
+      .as-header .wrap > div:not(.as-brand) {min-width:0;max-width:100%}
+      .as-header .btn {min-height:44px}
+      .as-main > .wrap {padding-inline:12px}
+    }
   </style>
 </head>
 <body>
@@ -195,7 +210,7 @@
         <h2 id="result-coop"></h2>
         <p class="sub" id="result-summary"></p>
 
-        <div style="display:grid;grid-template-columns:220px 1fr;gap:24px" class="result-grid">
+        <div class="result-grid">
           <div style="text-align:center">
             <div class="score-ring" id="score-ring">
               <div><div class="score-num" id="score-num">0</div><div class="score-max">/ 100 · Kerumitan</div></div>

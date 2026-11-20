@@ -319,7 +319,16 @@
     const logout = node("button", "agmx-shell-button", appText("Log out"));
     logout.type = "button";
     logout.addEventListener("click", onLogout);
-    append(userGroup, [userCopy, avatar, theme, language, logout]);
+    const reading = node("button", "agmx-shell-button", "A+");
+    reading.type = "button";
+    reading.setAttribute("aria-label", APP_LANG === "ms" ? "Saiz teks besar" : "Large text");
+    reading.setAttribute("aria-pressed", String(document.documentElement.classList.contains("senior-mode")));
+    reading.addEventListener("click", () => {
+      const active = document.documentElement.classList.toggle("senior-mode");
+      reading.setAttribute("aria-pressed", String(active));
+      try { localStorage.setItem("seniorMode", String(active)); } catch (_) {}
+    });
+    append(userGroup, [userCopy, avatar, theme, reading, language, logout]);
     append(header, [brand, userGroup]);
     if (window.AGMX_THEME) window.AGMX_THEME.sync();
     return header;
