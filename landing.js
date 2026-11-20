@@ -324,15 +324,36 @@
     secretary: ["Sediakan rekod mesyuarat","Prepare meeting records","Cari keputusan terdahulu dalam fail anda. Jana templat notis, agenda atau minit yang boleh disunting.","Find previous decisions in your files. Generate editable notices, agendas or minutes.","Buka meja dokumen →","Open document desk →","/document-desk.html","/assets/09-vault.png","Paparan peti rekod contoh","Sample records vault"],
     chair: ["Beri giliran kepada ahli","Give members the floor","Urus giliran berucap, panggil ahli dan kongsikan sari kata. Cuba kawalan pengerusi dalam raptai dahulu.","Manage speaker requests, call members and share captions. Try the chair controls in rehearsal.","Cuba kawalan pengerusi →","Try chair controls →","/live-meeting.html?demo=1","/assets/04-hall.png","Paparan dewan AGM contoh","Sample AGM hall"],
   };
+  const config = window.AGMX_CONFIG;
+  const hasWorkspace = config && !config.demoMode && config.supabaseUrl && config.supabaseAnonKey;
+  if (hasWorkspace) {
+    const hall = document.getElementById("hero-hall");
+    hall.href = "/app.html#/agm";
+    hall.textContent = en ? "Enter the AGM hall →" : "Masuk ke dewan AGM →";
+  } else {
+    roles.member = [
+      "Cuba pengalaman ahli","Rehearse as a member",
+      "Daftar hadir, capai kuorum dan undi usul menggunakan rekod contoh dalam raptai berpandu.",
+      "Check in, reach quorum and vote on sample motions in the guided rehearsal.",
+      "Cuba sebagai ahli →","Try the member rehearsal →","/demo/guided-demo.html",
+      "/assets/05-voting.png","Paparan undian contoh","Sample ballot view"
+    ];
+  }
   const buttons = document.querySelectorAll("[data-role]");
-  buttons.forEach(b=>b.addEventListener("click",()=>{
-    const role=roles[b.dataset.role];
-    document.querySelector("#role-title").textContent=role[en?1:0];
-    document.querySelector("#role-body").textContent=role[en?3:2];
-    const link=document.querySelector("#role-cta");link.textContent=role[en?5:4];link.href=role[6];
-    const shot=document.querySelector("#role-screen");shot.src=role[7];shot.alt=role[en?9:8];
-    buttons.forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
-  }));
+  function selectRole(button) {
+    const role = roles[button.dataset.role];
+    const link = document.querySelector("#role-cta");
+    const screen = document.querySelector("#role-screen");
+    document.querySelector("#role-title").textContent = role[en ? 1 : 0];
+    document.querySelector("#role-body").textContent = role[en ? 3 : 2];
+    link.textContent = role[en ? 5 : 4];
+    link.href = role[6];
+    screen.src = role[7];
+    screen.alt = role[en ? 9 : 8];
+    buttons.forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+  }
+  buttons.forEach(button => button.addEventListener("click", () => selectRole(button)));
+  selectRole(document.querySelector('[data-role="member"]'));
   const menu=document.querySelector("#mobile-menu"), links=document.querySelector("#main-links");
   function closeMenu(){menu.setAttribute("aria-expanded","false");links.classList.remove("is-open");}
   menu.addEventListener("click",()=>{const open=menu.getAttribute("aria-expanded")==="false";menu.setAttribute("aria-expanded",String(open));links.classList.toggle("is-open",open);});
