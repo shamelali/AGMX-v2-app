@@ -36,8 +36,8 @@ export default async function handler(req, res) {
   // gateway option when this is not "all", so an operator can still narrow a
   // deployment with NEXT_PUBLIC_PAYMENTS_MODE — but asking for "all" without
   // keys is refused, because that is a bill no server can create.
-  const gatewayReady = !!(process.env.BILLPLZ_API_KEY && process.env.BILLPLZ_COLLECTION_ID)
-    || !!process.env.HITPAY_API_KEY
+  const gatewayReady = !!(process.env.BILLPLZ_API_KEY && process.env.BILLPLZ_COLLECTION_ID && process.env.BILLPLZ_X_SIGNATURE)
+    || !!(process.env.HITPAY_API_KEY && process.env.HITPAY_SALT)
   const requestedMode = String(process.env.NEXT_PUBLIC_PAYMENTS_MODE || '').toLowerCase()
   const paymentsMode = requestedMode === 'all' || !requestedMode
     ? (gatewayReady ? 'all' : 'bank_transfer')

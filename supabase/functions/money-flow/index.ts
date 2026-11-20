@@ -695,15 +695,13 @@ async function handlePaymentIntent(req: Request) {
   // the function's own request — APP_URL is the web app, which has no /functions/v1
   // route and answers 405, leaving a paid invoice stuck as unpaid.
   const self = new URL(req.url)
-  const callbackUrl = input.callbackUrl ||
-    `${self.origin}${self.pathname.replace(/payment\/intent$/, "payment/confirm")}`
+  const callbackUrl = `${self.origin}${self.pathname.replace(/payment\/intent$/, "payment/confirm")}`
   /* Prospects must land back on checkout with their ?ref&t context so the
      token-gated resume can fetch the settled deal. */
   const prospectCtx = ctx.isProspect
     ? `&ref=${encodeURIComponent(ctx.assessment.reference)}&t=${encodeURIComponent(ctx.assessment.token)}`
     : ""
-  const returnUrl = input.returnUrl ||
-    `${APP_URL}/checkout.html?invoice=${invoice.number}&status=success${prospectCtx}`
+  const returnUrl = `${APP_URL}/checkout.html?invoice=${invoice.number}&status=success${prospectCtx}`
 
   let paymentUrl = ""
   let gatewayRef = ""
@@ -771,47 +769,15 @@ async function handlePaymentManualConfirm(req: Request) {
   const { paymentId } = await req.json()
   if (!paymentId) return errorResponse("Missing paymentId")
 
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("*")
-    .eq("id", paymentId)
-    .single()
-  if (!payment) return errorResponse("Payment not found", 404)
-  if (payment.organization_id !== ctx.profile.organization_id) {
-    return errorResponse("Forbidden", 403)
-  }
-  if (payment.status === "succeeded") return successResponse({ payment })
-
-  const paidAt = new Date().toISOString()
-  await supabase.from("payments").update({ status: "succeeded", paid_at: paidAt }).eq("id", paymentId)
-  await supabase.from("invoices").update({ status: "paid", paid_at: paidAt }).eq("id", payment.invoice_id)
-
-  const { data: invoice } = await supabase
-    .from("invoices")
-    .select("quote_id")
-    .eq("id", payment.invoice_id)
-    .single()
-  if (invoice?.quote_id) {
-    const { data: quote } = await supabase
-      .from("quotes")
-      .select("assessment_id")
-      .eq("id", invoice.quote_id)
-      .single()
-    if (quote?.assessment_id) {
-      await supabase.from("agm_assessments").update({ status: "paid" }).eq("id", quote.assessment_id)
-    }
-  }
-
-  await auditLog(payment.organization_id, ctx.user.id, "payment.succeeded", "payment", paymentId, {
-    invoiceId: payment.invoice_id,
-    method: payment.method,
-    reference: payment.reference,
-    amount: payment.amount,
-    confirmedBy: "operator",
+  const { data: result } = await supabase.rpc("atomic_settlement", {
+    p_payment_id: paymentId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
   })
+  if (result.code === "FORBIDDEN") return errorResponse(result.error, 403)
+  if (result.error) return errorResponse(result.error, 400)
 
-  const { data: updated } = await supabase.from("payments").select("*").eq("id", paymentId).single()
-  return successResponse({ payment: updated })
+  return successResponse({ payment: result })
 }
 
 /* ---- POST /lead/stage ---- */
