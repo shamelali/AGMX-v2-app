@@ -73,8 +73,28 @@ const rest = makeRestClient(db);
 ok(stats.statements > 150, `bundle executed ${stats.statements} statements on real Postgres`);
 ok(stats.claims.tables > 30 && stats.claims.policies > 30,
   `every claimed object exists (${stats.claims.tables} tables, ${stats.claims.functions} functions, ${stats.claims.policies} policies)`);
-ok(stats.skippedSections.join() === "0002_knowledge.sql",
-  "only the pgvector knowledge section is unavailable to PGlite");
+ok(stats.skippedSections.join() === "0002_knowledge.sql,0011_knowledge_embedding_halfvec2048.sql",
+  "only the pgvector knowledge sections are unavailable to PGlite");
+
+/* 20261119151200_restrict_ballot_writes.sql: ballots must pass through the
+   governance Edge Function, which resolves the voter from the session before
+   invoking cast_vote with the service role. A client that can insert into
+   public.votes or call cast_vote directly can mint a ballot with a voter_id
+   it chose, so both are revoked from every non-service role. */
+const { rows: ballotPermissions } = await db.query(`
+  select rolname,
+         has_any_column_privilege(rolname, 'public.votes', 'INSERT') as can_insert,
+         has_function_privilege(rolname, 'public.cast_vote(uuid, uuid, text)', 'EXECUTE') as can_cast
+    from pg_roles
+   where rolname in ('anon', 'authenticated', 'service_role')
+   order by rolname
+`);
+eq(ballotPermissions.length, 3, "all ballot roles are present");
+for (const { rolname, can_insert, can_cast } of ballotPermissions) {
+  const isServiceRole = rolname === "service_role";
+  eq(can_insert, isServiceRole, `${rolname} ballot INSERT permission`);
+  eq(can_cast, isServiceRole, `${rolname} cast_vote EXECUTE permission`);
+}
 
 /* ---------- 2. load both Edge Functions as written ---------- */
 section("2. Edge Function sources");
@@ -241,6 +261,10 @@ eq((await rest.from("payments").select("id").eq("invoice_id", invoiceId).eq("sta
 /* ---------- 5. the meeting is scheduled and run ---------- */
 section("4. AGM scheduled → meeting run (governance)");
 await seedUser(db, { id: USER.operator, email: "setiausaha@koperasi.example" });
+/* seedUser suppresses auto_provision_user_on_signup (see tools/agmx_db.mjs), so
+   this fixture owns the profiles row outright — production's signup trigger is
+   exercised by its own migration test, not here, and letting it run would put
+   the operator in a scratch org before this insert reached orgId. */
 await rest.from("profiles").insert({ id: USER.operator, organization_id: orgId, full_name: "Nurul Hidayah", role: "secretary" });
 const OP = rest.registerActor({ id: USER.operator });
 
@@ -261,6 +285,9 @@ const voters = [];
 for (const idx of [0, 1, 2]) {
   const id = USER.member[idx];
   await seedUser(db, { id });
+  /* /vote and /attendance resolve the session's member through the profile's
+     own organization, so the login and its member link must both point at the
+     assessment's org. */
   await rest.from("profiles").insert({ id, organization_id: orgId, full_name: `Ahli ${idx + 1}`, role: "member" });
   await rest.from("organization_members").insert({ organization_id: orgId, user_id: id, member_id: M[idx], role: "member" });
   voters.push(rest.registerActor({ id }));
@@ -434,6 +461,9 @@ ok(tamperAudit.error && /Append-only/.test(tamperAudit.error.message), "rewritin
 /* A second cooperative, with its own secretary, must not see the first one's AGM. */
 const orgB = (await rest.from("organizations").insert({ slug: "coop-rival", name: "Koperasi Rival Bhd" }).select("id").single()).data;
 await seedUser(db, { id: USER.rival });
+/* The rival must be an operator (admin) of their own cooperative, or /agm/close
+   stops at the operator gate (403) instead of reaching the tenant boundary
+   (404) — which is the assertion this block is making. */
 await rest.from("profiles").insert({ id: USER.rival, organization_id: orgB.id, full_name: "Lawan", role: "admin" });
 const RIVAL = rest.registerActor({ id: USER.rival });
 eq((await call("governance", `/agm/${agmId}/roster`, { as: RIVAL, method: "GET" })).status, 404, "another cooperative's secretary cannot read the roster");

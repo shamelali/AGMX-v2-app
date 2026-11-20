@@ -27,6 +27,7 @@
     "https://esm.sh/@supabase/supabase-js@2.118.0/denonext/supabase-js.mjs": "483959ac25f11373904382fdbd28f44fcc659eb3a542a4e7982b6c4c6f9bc97c",
     "https://esm.sh/iceberg-js@0.8.1/denonext/iceberg-js.mjs": "d839d81a2e3966500ca2cdd0c1cb458e9608bacfc91f7bb67a69b2e878dcdb4f",
     "https://esm.sh/iceberg-js@0.8.1?target=denonext": "58c849d7fe2bf4eca4a84eb501e83c161a7d8c34ca1bec15a962b3bec3062633",
+    "https://esm.sh/standardwebhooks@1.0.0": "b8cafcb7e9a890c14c0eb74cb093f36333000122e2276cc204818f6a680c8ba9",
     "https://esm.sh/tslib@2.8.1/denonext/tslib.mjs": "c38da5dd6da6281964435002ce204cd586634fe3bdfb24a0ee116f48cf3292e9"
   },
   "workspace": {
@@ -34,7 +35,11 @@
       "dependencies": [
         "npm:@electric-sql/pglite@~0.5.9",
         "npm:@neondatabase/serverless@^1.2.0",
-        "npm:pdfjs-dist@^6.4.299"
+        "npm:clean-css@^5.3.3",
+        "npm:google-auth-library@^11.3.4",
+        "npm:pdfjs-dist@^6.4.299",
+        "npm:sharp@~0.35.5",
+        "npm:terser@^5.51.2"
       ]
     }
   }
