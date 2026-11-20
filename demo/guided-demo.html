@@ -184,6 +184,12 @@
     .stage-foot{flex-wrap:wrap}
     .stage-foot .hint{flex:1 1 100%;margin-bottom:4px}
   }
+  @media(max-width:600px){
+    .topbar-in{height:auto;min-height:54px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;padding:6px 12px}
+    .tenant{grid-column:1/-1;grid-row:2;justify-self:start}
+    .top-right{grid-column:2;grid-row:1;gap:5px}.top-right .btn{min-height:44px;padding-inline:8px}
+    .shell,.stage{min-width:0}.stage-foot{flex-wrap:wrap}.stage-foot .btn{min-height:44px}
+  }
 </style>
 </head>
 <body>
@@ -341,6 +347,10 @@
             <span id="doc-audit">—</span> <span class="tag-live">LIVE</span>
           </div>
         </div>
+        <div class="tool-actions" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn btn-ghost" id="sample-minutes" data-en="Download sample minutes">Muat turun minit contoh</button>
+          <a class="btn btn-ghost" href="/evidence.html" data-en="Sign the sample pack">Tandatangan pek contoh</a>
+        </div>
       </div>
 
       <!-- 6 · audit -->
@@ -356,24 +366,6 @@
           <div id="audit-rows"></div>
         </div>
 
-        <div class="tiers" style="margin-top:22px">
-          <div class="tier now">
-            <div class="tn">01</div>
-            <b data-en="Guided demo">Demo berpandu</b>
-            <span data-en="What you are in now. No account, 2–3 minutes.">Apa yang anda lalui sekarang. Tiada akaun, 2–3 minit.</span>
-          </div>
-          <div class="tier b2">
-            <div class="tn">02</div>
-            <b data-en="Sandbox">Sandbox</b>
-            <span data-en="Preloaded tenant with roles, 7-day access.">Tenan prabeban dengan peranan, akses 7 hari.</span>
-          </div>
-          <div class="tier b3">
-            <div class="tn">03</div>
-            <b data-en="Pilot">Pilot</b>
-            <span data-en="Your own AGM, 30 days, scoped and paid.">AGM anda sendiri, 30 hari, berskop dan berbayar.</span>
-          </div>
-        </div>
-
         <div class="end">
           <h3 data-en="This is the end of the guided tour.">Ini penghujung lawatan berpandu.</h3>
           <p data-en="Find out what your own AGM would need — member count, quorum, resolutions and timeline — and get a package recommendation in about 60 seconds.">
@@ -381,7 +373,7 @@
           </p>
           <div class="end-cta">
             <a class="btn btn-primary" href="/assessment.html" data-en="Get your free AGM assessment">Dapatkan penilaian AGM percuma</a>
-            <a class="btn btn-ghost" href="/assessment.html#sandbox" data-en="Request sandbox access">Mohon akses sandbox</a>
+            <a class="btn btn-ghost" href="/live-meeting.html?demo=1" data-en="Try the chair controls">Cuba kawalan pengerusi</a>
           </div>
         </div>
       </div>
@@ -410,14 +402,13 @@
     document.documentElement.lang = lang==='en'?'en':'ms';
     document.getElementById('btn-ms').setAttribute('aria-pressed', String(lang!=='en'));
     document.getElementById('btn-en').setAttribute('aria-pressed', String(lang==='en'));
-    try{ localStorage.setItem('agmx-demo-lang', lang); }catch(e){}
+    try{ localStorage.setItem('agmx-demo-lang', lang); localStorage.setItem('agmx-lang', lang); }catch(e){}
     // dynamically-rendered regions (step heading, rail, lists) are not covered by
     // the [data-en] sweep above, so refresh them explicitly on every switch
     if (typeof refreshAll === 'function') refreshAll();
   }
   document.getElementById('btn-ms').addEventListener('click',function(){setLang('ms');});
   document.getElementById('btn-en').addEventListener('click',function(){setLang('en');});
-  try{ if(localStorage.getItem('agmx-demo-lang')==='en') setLang('en'); }catch(e){}
 
   /* ── state ── */
   // 12 sample members stand in for a 120-member register. Quorum is 8 of the 10
@@ -493,6 +484,18 @@
     document.getElementById('v-res').innerHTML = passed + '<small>/3</small>';
   }
 
+  document.getElementById("sample-minutes").addEventListener("click", function () {
+    var heading = document.documentElement.lang === "en" ? "REHEARSAL · SAMPLE MINUTES" : "RAPTAI · MINIT CONTOH";
+    var record = document.querySelector('[data-pane="4"] .doc').innerText;
+    var url = URL.createObjectURL(new Blob([heading + "\n\n" + record], {type:"text/plain;charset=utf-8"}));
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "agmx-sample-minutes.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
   /* ── minutes ── */
   function renderMinutes(){
     var n=checkedIn();
@@ -693,6 +696,10 @@
 
   /* re-render language-dependent panes on switch */
   /* ── boot ── */
+  try {
+    var preference = new URLSearchParams(location.search).get('lang') || localStorage.getItem('agmx-lang') || localStorage.getItem('agmx-demo-lang');
+    if (preference === 'en') setLang('en');
+  } catch (_) {}
   log(document.documentElement.lang==='en'?'DEMO_START':'DEMO_MULA',
       document.documentElement.lang==='en'?'sample tenant · Koperasi Contoh Berhad':'tenan contoh · Koperasi Contoh Berhad');
   go(0);

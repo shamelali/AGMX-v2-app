@@ -255,3 +255,105 @@
   /* First paint of the scroll-dependent chrome. */
   updateScrollState();
 })();
+
+/* A visitor can rehearse the quorum decision without sending a ballot. */
+(function () {
+  const slider = document.querySelector("#hall-attendance");
+  if (!slider) return;
+  const map = document.querySelector(".seat-map");
+  const state = document.querySelector("#hall-state");
+  const ballot = document.querySelector("#hall-ballot");
+  const choices = document.querySelector("#hall-choices");
+  const result = document.querySelector("#hall-result");
+  const reset = document.querySelector("#hall-reset");
+  const en = document.documentElement.lang === "en";
+  const seats = [];
+  for (const [row, count] of [8, 12, 17, 23].entries()) {
+    const radius = 18 + row * 10;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.PI * (0.06 + 0.88 * i / (count - 1));
+      const seat = document.createElement("i");
+      seat.style.left = (50 + radius * Math.cos(angle)) + "%";
+      seat.style.top = (100 - 1.94 * radius * Math.sin(angle)) + "%";
+      map.appendChild(seat);
+      seats.push(seat);
+    }
+  }
+  function renderAttendance() {
+    const count = Number(slider.value);
+    document.querySelector("#hall-count").textContent = count;
+    seats.forEach((seat, i) => seat.classList.toggle("occupied", i < count));
+    ballot.disabled = count < 30;
+    state.textContent = count >= 30
+      ? (en ? "Quorum reached" : "Kuorum tercapai")
+      : (en ? (30 - count) + " more needed" : "Perlu " + (30 - count) + " lagi");
+  }
+  slider.addEventListener("input", renderAttendance);
+  ballot.addEventListener("click", () => {
+    if (Number(slider.value) < 30) return;
+    slider.disabled = true;
+    ballot.hidden = true;
+    choices.hidden = false;
+    reset.hidden = false;
+    choices.querySelector("button").focus();
+  });
+  choices.addEventListener("click", event => {
+    const choice = event.target.closest("button");
+    if (!choice || choices.hidden) return;
+    result.textContent = (en ? "Your sample vote: " : "Undi contoh anda: ") + choice.textContent;
+    choices.hidden = true;
+    reset.focus();
+  });
+  reset.addEventListener("click", () => {
+    slider.disabled = false;
+    slider.value = "36";
+    choices.hidden = reset.hidden = true;
+    ballot.hidden = false;
+    result.textContent = "";
+    renderAttendance();
+    slider.focus();
+  });
+  renderAttendance();
+})();
+
+(() => {
+  "use strict";
+  const en = document.documentElement.lang === "en";
+  const roles = {
+    member: ["Daftar hadir dan undi usul","Check in and cast your ballot","Buka dewan AGM untuk mendaftar kehadiran, menyemak usul yang sedang dibahas dan mengundi jika layak.","Open the AGM hall to check in, review the motion on the floor and vote if eligible.","Buka dewan ahli →","Open member hall →","/app.html#/agm","/assets/05-voting.png","Paparan undian contoh","Sample ballot view"],
+    secretary: ["Sediakan rekod mesyuarat","Prepare meeting records","Cari keputusan terdahulu dalam fail anda. Jana templat notis, agenda atau minit yang boleh disunting.","Find previous decisions in your files. Generate editable notices, agendas or minutes.","Buka meja dokumen →","Open document desk →","/document-desk.html","/assets/09-vault.png","Paparan peti rekod contoh","Sample records vault"],
+    chair: ["Beri giliran kepada ahli","Give members the floor","Urus giliran berucap, panggil ahli dan kongsikan sari kata. Cuba kawalan pengerusi dalam raptai dahulu.","Manage speaker requests, call members and share captions. Try the chair controls in rehearsal.","Cuba kawalan pengerusi →","Try chair controls →","/live-meeting.html?demo=1","/assets/04-hall.png","Paparan dewan AGM contoh","Sample AGM hall"],
+  };
+  const buttons = document.querySelectorAll("[data-role]");
+  buttons.forEach(b=>b.addEventListener("click",()=>{
+    const role=roles[b.dataset.role];
+    document.querySelector("#role-title").textContent=role[en?1:0];
+    document.querySelector("#role-body").textContent=role[en?3:2];
+    const link=document.querySelector("#role-cta");link.textContent=role[en?5:4];link.href=role[6];
+    const shot=document.querySelector("#role-screen");shot.src=role[7];shot.alt=role[en?9:8];
+    buttons.forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  }));
+  const menu=document.querySelector("#mobile-menu"), links=document.querySelector("#main-links");
+  function closeMenu(){menu.setAttribute("aria-expanded","false");links.classList.remove("is-open");}
+  menu.addEventListener("click",()=>{const open=menu.getAttribute("aria-expanded")==="false";menu.setAttribute("aria-expanded",String(open));links.classList.toggle("is-open",open);});
+  links.addEventListener("click",closeMenu);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape" && links.classList.contains("is-open")){closeMenu();menu.focus();}});
+  document.addEventListener("click",e=>{if(!menu.contains(e.target)&&!links.contains(e.target))closeMenu();});
+  const catalog=window.AGMX_PRICE_LIST, grid=document.querySelector("#pricing-grid");
+  const switches=document.querySelectorAll("[data-price-mode]");
+  function showPrices(mode){
+    const subs=mode==="subscription";
+    const plans=subs?catalog.subscriptions():catalog.services();
+    grid.replaceChildren(...plans.map(plan=>{
+      const card=document.createElement("article");card.className="rate-card";
+      const title=document.createElement("h3");title.textContent=plan.name;
+      const cost=document.createElement("strong");cost.textContent=catalog.rm(subs?plan.annual:plan.oneoff);
+      const unit=document.createElement("small");unit.textContent=subs?(en?"per year":"setahun"):(en?"per AGM":"setiap AGM");
+      const band=document.createElement("p");band.textContent=(en?"Up to ":"Sehingga ")+plan.memberCap.toLocaleString("en-MY")+(en?" members":" ahli");
+      const link=document.createElement("a");link.href="/assessment.html";link.textContent=en?"Assess fit →":"Semak kesesuaian →";
+      card.append(title,cost,unit,band,link);return card;
+    }));
+    switches.forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.priceMode===mode)));
+  }
+  if(catalog&&grid){switches.forEach(b=>b.onclick=()=>showPrices(b.dataset.priceMode));showPrices("service");}
+})();

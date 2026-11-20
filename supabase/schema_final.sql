@@ -14,7 +14,7 @@
 --
 -- Sources:
 --   0001_schema.sql  (845 lines)
---   0002_knowledge.sql  (154 lines)
+--   0002_knowledge.sql  (161 lines)
 --   0003_plans_seed.sql  (17 lines)
 --   0004_revoke_non_dml_privileges.sql  (7 lines)
 --   0005_pin_function_search_path.sql  (43 lines)
@@ -23,12 +23,14 @@
 --   0008_governance_bugfixes.sql  (157 lines)
 --   0009_audit_all_stages.sql  (25 lines)
 --   0010_white_label_branding.sql  (25 lines)
---   0011_knowledge_embedding_halfvec2048.sql  (109 lines)
+--   0011_knowledge_embedding_halfvec2048.sql  (106 lines)
 --   0012_documents_bucket.sql  (64 lines)
 --   0013_documents_bucket_write_policies.sql  (83 lines)
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (111 lines)
 --   20261119151200_restrict_ballot_writes.sql  (6 lines)
+--   20261120020000_agm_live_floor.sql  (107 lines)
+--   20261120021000_publish_document_index.sql  (69 lines)
 -- ============================================================
 
 
@@ -935,9 +937,16 @@ create table if not exists public.knowledge_chunks (
 
 create index if not exists idx_knowledge_chunks_org on public.knowledge_chunks(organization_id);
 create index if not exists idx_knowledge_chunks_doc on public.knowledge_chunks(document_id);
-create index if not exists idx_knowledge_chunks_embedding 
-  on public.knowledge_chunks using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
+-- Replaying the bundle after 0011 must keep its halfvec index. PostgreSQL
+-- checks operator compatibility even when CREATE INDEX IF NOT EXISTS skips.
+do $$
+begin
+  if exists (select 1 from pg_attribute where attrelid='public.knowledge_chunks'::regclass
+    and attname='embedding' and atttypid=to_regtype('vector') and not attisdropped) then
+    create index if not exists idx_knowledge_chunks_embedding
+      on public.knowledge_chunks using ivfflat (embedding vector_cosine_ops) with (lists=100);
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- KNOWLEDGE ASSERTIONS
@@ -2334,23 +2343,20 @@ comment on column public.organizations.primary_color is 'Co-op primary brand col
 do $$
 begin
   if exists (
-    select 1 from pg_namespace where nspname = 'extensions'
-  ) and exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'knowledge_chunks'
-      and column_name = 'embedding'
+    select 1 from pg_attribute
+    where attrelid = to_regclass('public.knowledge_chunks') and attname = 'embedding'
+      and atttypid = to_regtype('vector') and not attisdropped
   ) then
-    execute 'alter table public.knowledge_chunks '
-         || 'alter column embedding type halfvec(2048) '
-         || 'using embedding::halfvec(2048)';
+    -- PostgreSQL otherwise tries to rebuild the old float-vector index using
+    -- its incompatible operator class before the conversion can finish.
+    drop index if exists public.idx_knowledge_chunks_embedding;
+    alter table public.knowledge_chunks alter column embedding type halfvec(2048)
+      using (case when embedding is null or vector_dims(embedding) = 2048 then embedding
+        else embedding || array_fill(0::real, array[2048-vector_dims(embedding)])::vector
+      end)::halfvec(2048);
   end if;
 end $$;
 
--- ------------------------------------------------------------
--- The index: ivfflat over float4 is replaced by HNSW over
--- half-precision cosine distance
--- ------------------------------------------------------------
-drop index if exists public.idx_knowledge_chunks_embedding;
 create index if not exists idx_knowledge_chunks_embedding
   on public.knowledge_chunks using hnsw (embedding halfvec_cosine_ops);
 
@@ -2754,3 +2760,189 @@ drop policy if exists votes_insert on public.votes;
 create policy votes_insert on public.votes as restrictive for insert with check (false);
 revoke insert on table public.votes from public, anon, authenticated;
 revoke execute on function public.cast_vote(uuid, uuid, text) from public, anon, authenticated;
+
+
+-- ============================================================
+-- 20261120020000_agm_live_floor.sql
+-- ============================================================
+-- Member and chair controls for the hybrid meeting room. The two functions
+-- resolve the tenant and the actor from Auth on every request.
+create table if not exists public.agm_live_rooms (
+  agm_id uuid primary key references public.agms(id) on delete cascade,
+  join_url text,
+  caption text,
+  caption_at timestamptz
+);
+create table if not exists public.agm_speakers (
+  id uuid primary key default gen_random_uuid(),
+  agm_id uuid not null references public.agms(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  display_name text not null,
+  state text not null default 'waiting' check (state in ('waiting', 'called', 'finished')),
+  requested_at timestamptz not null default now()
+);
+create unique index if not exists agm_speakers_one_request on public.agm_speakers(agm_id,user_id)
+  where state in ('waiting','called');
+create unique index if not exists agm_speakers_one_floor on public.agm_speakers(agm_id)
+  where state = 'called';
+create index if not exists agm_speakers_queue on public.agm_speakers(agm_id,requested_at,id)
+  where state = 'waiting';
+
+alter table public.agm_live_rooms enable row level security;
+alter table public.agm_speakers enable row level security;
+revoke all on public.agm_live_rooms, public.agm_speakers from public, anon, authenticated;
+
+create or replace function public.agm_floor_state(p_agm uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  meeting public.agms;
+  profile public.profiles;
+  room public.agm_live_rooms;
+begin
+  select * into profile from public.profiles where id = auth.uid();
+  select * into meeting from public.agms where id = p_agm and organization_id = profile.organization_id;
+  if not found then raise exception 'Meeting unavailable' using errcode = '42501'; end if;
+  select * into room from public.agm_live_rooms where agm_id = p_agm;
+  return jsonb_build_object('title',meeting.title, 'status',meeting.status,
+    'operator',lower(profile.role) in ('admin','administrator','secretary'),
+    'checkedIn',exists(select 1 from public.attendance a join public.organization_members m
+        on m.member_id = a.member_id and m.organization_id = meeting.organization_id
+        where m.user_id = profile.id and a.agm_id = p_agm),
+    'link',room.join_url, 'caption',room.caption, 'captionAt',room.caption_at,
+    'speakers',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'name',s.display_name,
+      'state',s.state,'mine',s.user_id = profile.id) order by s.requested_at,s.id)
+      from public.agm_speakers s where s.agm_id = p_agm and s.state in ('waiting','called')), '[]'::jsonb));
+end;
+$$;
+
+create or replace function public.update_agm_floor(p_agm uuid, p_action text, p_value text default null, p_speaker uuid default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  meeting public.agms;
+  profile public.profiles;
+  waiting_id uuid;
+begin
+  select * into profile from public.profiles where id = auth.uid();
+  -- One writer at a time per assembly, including concurrent chair devices.
+  select * into meeting from public.agms where id = p_agm and organization_id = profile.organization_id for update;
+  if not found then raise exception 'Meeting unavailable' using errcode = '42501'; end if;
+  if meeting.status <> 'live' and not (p_action = 'link' and meeting.status = 'planned') then
+    raise exception 'The meeting is not live';
+  end if;
+  if p_action = 'join' then
+    if not exists (select 1 from public.attendance a join public.organization_members m
+      on m.member_id = a.member_id and m.organization_id = meeting.organization_id
+      where m.user_id = profile.id and a.agm_id = p_agm) then
+      raise exception 'Check in before requesting the floor' using errcode = '42501';
+    end if;
+    insert into public.agm_speakers(agm_id,user_id,display_name)
+      values (p_agm,profile.id,coalesce(nullif(trim(profile.full_name),''),'Ahli')) on conflict do nothing;
+  elsif p_action = 'withdraw' then
+    update public.agm_speakers set state = 'finished'
+      where agm_id = p_agm and id = p_speaker and user_id = profile.id and state = 'waiting';
+  else
+    if lower(profile.role) not in ('admin','administrator','secretary') or profile.role is null then
+      raise exception 'Operator access required' using errcode = '42501';
+    end if;
+    case p_action
+      when 'call' then
+        select id into waiting_id from public.agm_speakers where agm_id = p_agm and state = 'waiting'
+          order by requested_at,id limit 1;
+        if waiting_id is null or waiting_id is distinct from p_speaker or exists (
+          select 1 from public.agm_speakers where agm_id = p_agm and state = 'called'
+        ) then raise exception 'The floor has changed. Refresh the room'; end if;
+        update public.agm_speakers set state = 'called' where id = waiting_id;
+      when 'finish' then
+        update public.agm_speakers set state = 'finished' where agm_id = p_agm and id = p_speaker and state = 'called';
+      when 'caption' then
+        if p_value is null or char_length(p_value) > 500 then raise exception 'Caption must be at most 500 characters'; end if;
+        insert into public.agm_live_rooms(agm_id,caption,caption_at) values(p_agm, nullif(trim(p_value),''), now())
+          on conflict (agm_id) do update set caption = excluded.caption, caption_at = excluded.caption_at;
+      when 'link' then
+        if p_value is null or length(p_value) > 2048 or (p_value <> '' and p_value !~*
+          '^https://(meet\.google\.com|([a-z0-9-]+\.)?zoom\.us|teams\.microsoft\.com|teams\.live\.com)/[^[:space:][:cntrl:]\\]*$' and p_value !~ '^https://www[.]youtube[.]com/watch[?]v=[A-Za-z0-9_-]{11}$')
+          then raise exception 'Use a Meet, Zoom, Teams or YouTube Live link'; end if;
+        insert into public.agm_live_rooms(agm_id,join_url) values (p_agm,nullif(p_value,''))
+          on conflict (agm_id) do update set join_url = excluded.join_url;
+      else raise exception 'Unknown floor action';
+    end case;
+  end if;
+  return public.agm_floor_state(p_agm);
+end;
+$$;
+revoke all on function public.agm_floor_state(uuid), public.update_agm_floor(uuid,text,text,uuid) from public, anon;
+grant execute on function public.agm_floor_state(uuid), public.update_agm_floor(uuid,text,text,uuid) to authenticated;
+
+
+-- ============================================================
+-- 20261120021000_publish_document_index.sql
+-- ============================================================
+-- Publish one complete index for a registered document. Readers retain the old
+-- passages if parsing, embedding or any part of the replacement fails.
+create or replace function public.publish_document_index(p_document uuid, p_job uuid, p_chunks jsonb)
+returns void language plpgsql security invoker set search_path = '' as $$
+declare
+  tenant uuid;
+  filename text;
+  started timestamptz;
+  piece jsonb;
+  chunk_id uuid;
+  count_chunks integer := 0;
+begin
+  select d.organization_id, d.filename into tenant, filename from public.documents d where id = p_document for update;
+  select j.created_at into started from public.knowledge_jobs j
+    where j.id = p_job and j.document_id = p_document and j.organization_id = tenant and j.status = 'processing';
+  if not found then raise exception 'Index job is not active'; end if;
+  if jsonb_typeof(p_chunks) is distinct from 'array' or jsonb_array_length(p_chunks) not between 1 and 200 then
+    raise exception 'A document must contain 1 to 200 passages';
+  end if;
+  if exists (select 1 from public.knowledge_jobs j where j.document_id = p_document
+    and j.status = 'completed' and (j.created_at, j.id) > (started, p_job)) then
+    raise exception 'A newer index is already published';
+  end if;
+
+  delete from public.knowledge_chunks where document_id = p_document and organization_id = tenant;
+  for piece in select value from jsonb_array_elements(p_chunks) loop
+    insert into public.knowledge_chunks(organization_id,document_id,job_id,chunk_index,title,content,page,token_count,embedding,metadata)
+    values (tenant,p_document,p_job,count_chunks,filename,piece->>'text',(piece->>'page')::integer,
+      ceil(char_length(piece->>'text') / 4.0)::integer,
+      (jsonb_populate_record(null::public.knowledge_chunks,jsonb_build_object('embedding',piece->'embedding'))).embedding,
+      jsonb_build_object('model',piece->>'model'))
+    returning id into chunk_id;
+    insert into public.knowledge_assertions(organization_id,document_id,chunk_id,subject,predicate,object,quote,confidence)
+      select tenant,p_document,chunk_id,a.subject,a.predicate,a.object,a.quote,a.confidence
+      from jsonb_to_recordset(piece->'assertions') as a(subject text,predicate text,object text,quote text,confidence numeric);
+    count_chunks := count_chunks + 1;
+  end loop;
+  update public.knowledge_jobs set status='completed', total_chunks=count_chunks,
+    processed_chunks=count_chunks, completed_at=now(), updated_at=now() where id=p_job;
+end;
+$$;
+revoke all on function public.publish_document_index(uuid,uuid,jsonb) from public, anon, authenticated;
+grant execute on function public.publish_document_index(uuid,uuid,jsonb) to service_role;
+
+-- A retry after an interrupted Storage upload can register the same immutable
+-- file again. Serialise these registrations without rewriting older records.
+create or replace function public.register_document(
+  p_org uuid, p_agm_id uuid, p_category text, p_filename text, p_mime text,
+  p_size_bytes bigint, p_storage_path text, p_sha256 text
+)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  registered uuid;
+begin
+  if p_sha256 is not null and p_storage_path like p_org::text || '/vault/%' then
+    perform pg_advisory_xact_lock(hashtextextended(p_storage_path, 0));
+    select id into registered from public.documents
+      where organization_id=p_org and storage_path=p_storage_path and agm_id is not distinct from p_agm_id
+        and category=p_category and filename=p_filename and sha256=p_sha256 order by created_at,id limit 1;
+    if found then return jsonb_build_object('id', registered); end if;
+  end if;
+  insert into public.documents(organization_id,agm_id,category,filename,mime,size_bytes,storage_path,sha256)
+    values(p_org,p_agm_id,p_category,p_filename,p_mime,p_size_bytes,p_storage_path,p_sha256)
+    returning id into registered;
+  return jsonb_build_object('id', registered);
+end;
+$$;
+revoke all on function public.register_document(uuid,uuid,text,text,text,bigint,text,text) from public,anon,authenticated;
+grant execute on function public.register_document(uuid,uuid,text,text,text,bigint,text,text) to service_role;

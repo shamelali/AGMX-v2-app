@@ -89,6 +89,10 @@ test("failed embed leaves no orphan document or stuck job, and a retry succeeds"
     const jobs = await (await fetch(`${stub.base}/rest/v1/knowledge_jobs?select=id,status`)).json();
     assert(jobs.every((j) => j.status === "completed"), "all jobs should be completed");
 
+    const indexed = await (await fetch(stub.base + "/rest/v1/knowledge_chunks?select=embedding")).json();
+    assert(indexed.length && indexed.every(r => r.embedding.length === 2048 && r.embedding.slice(1024).every(n => n === 0)),
+      "NVIDIA vectors must fill the 2048-dimensional storage column without changing the native coordinates");
+
     // Second pass is a no-op (hash unchanged).
     out = runSync(stub.base, vault);
     assert(out.stdout.includes("0 added, 2 unchanged"), `re-run should skip: ${out.stdout}`);

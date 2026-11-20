@@ -26,23 +26,20 @@
 do $$
 begin
   if exists (
-    select 1 from pg_namespace where nspname = 'extensions'
-  ) and exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'knowledge_chunks'
-      and column_name = 'embedding'
+    select 1 from pg_attribute
+    where attrelid = to_regclass('public.knowledge_chunks') and attname = 'embedding'
+      and atttypid = to_regtype('vector') and not attisdropped
   ) then
-    execute 'alter table public.knowledge_chunks '
-         || 'alter column embedding type halfvec(2048) '
-         || 'using embedding::halfvec(2048)';
+    -- PostgreSQL otherwise tries to rebuild the old float-vector index using
+    -- its incompatible operator class before the conversion can finish.
+    drop index if exists public.idx_knowledge_chunks_embedding;
+    alter table public.knowledge_chunks alter column embedding type halfvec(2048)
+      using (case when embedding is null or vector_dims(embedding) = 2048 then embedding
+        else embedding || array_fill(0::real, array[2048-vector_dims(embedding)])::vector
+      end)::halfvec(2048);
   end if;
 end $$;
 
--- ------------------------------------------------------------
--- The index: ivfflat over float4 is replaced by HNSW over
--- half-precision cosine distance
--- ------------------------------------------------------------
-drop index if exists public.idx_knowledge_chunks_embedding;
 create index if not exists idx_knowledge_chunks_embedding
   on public.knowledge_chunks using hnsw (embedding halfvec_cosine_ops);
 

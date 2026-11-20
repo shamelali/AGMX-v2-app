@@ -1,1 +1,272 @@
-window.AGMX_LIVE_MEETING=function(){"use strict";const e=["ya","tidak","kecuali"],t={liveMeeting:{BM:"Mesyuarat Langsung",EN:"Live Meeting"},live:{BM:"Langsung",EN:"Live"},planned:{BM:"Dijadwalkan",EN:"Scheduled"},closed:{BM:"Ditutup",EN:"Closed"},quorum:{BM:"Kuorum",EN:"Quorum"},present:{BM:"Hadir",EN:"Present"},required:{BM:"Diperlukan",EN:"Required"},attendance:{BM:"Kehadiran",EN:"Attendance"},motions:{BM:"Usul",EN:"Motions"},speakerQueue:{BM:"Antara Penceramah",EN:"Speaker Queue"},joinQueue:{BM:"Sertai Antara",EN:"Join Queue"},leaveQueue:{BM:"Keluar Antara",EN:"Leave Queue"},nextSpeaker:{BM:"Penceramah Seterusnya",EN:"Next Speaker"},callSpeaker:{BM:"Panggil Penceramah",EN:"Call Speaker"},startVoting:{BM:"Mula Pengundian",EN:"Start Voting"},closeVoting:{BM:"Tutup Pengundian",EN:"Close Voting"},tally:{BM:"Pengiraan",EN:"Tally"},ya:{BM:"Ya",EN:"Yes"},tidak:{BM:"Tidak",EN:"No"},kecuali:{BM:"Kecuali",EN:"Abstain"},casting:{BM:"Sedang mengundi...",EN:"Casting vote..."},voted:{BM:"Undi direkodkan",EN:"Vote recorded"},quorumBlocked:{BM:"Kuorum tidak tercapai — pengundian dihalang",EN:"Quorum not met — voting blocked"},speakerAdded:{BM:"Ditambah ke antara penceramah",EN:"Added to speaker queue"},speakerRemoved:{BM:"Dipadam dari antara penceramah",EN:"Removed from speaker queue"},speakerCalled:{BM:"Penceramah dipanggil",EN:"Speaker called"},signature:{BM:"Tandatangan",EN:"Signature"},signMinutes:{BM:"Tandatangani Minit",EN:"Sign Minutes"},signDocument:{BM:"Tandatangani Dokumen",EN:"Sign Document"},signed:{BM:"Ditandatangani",EN:"Signed"},unsigned:{BM:"Belum ditandatangani",EN:"Unsigned"},verifySignature:{BM:"Verifikasi Tandatangan",EN:"Verify Signature"},hashChain:{BM:"Rantaian Hash",EN:"Hash Chain"},verify:{BM:"Verifikasi",EN:"Verify"},invalid:{BM:"Sah tidak",EN:"Invalid"},valid:{BM:"Sah",EN:"Valid"},auditTrail:{BM:"Rantaian Audit",EN:"Audit Trail"},minutePack:{BM:"Pakej Minit",EN:"Minute Pack"},minutes:{BM:"Minit",EN:"Minutes"},generateMinutes:{BM:"Jana Minit",EN:"Generate Minutes"},auditEvent:{BM:"Peristiwa Audit",EN:"Audit Event"},actor:{BM:"Pelaku",EN:"Actor"},action:{BM:"Tindakan",EN:"Action"},entity:{BM:"Entiti",EN:"Entity"},timestamp:{BM:"Masa",EN:"Timestamp"},noAuditEvents:{BM:"Tiada peristiwa audit",EN:"No audit events"},minutesGenerated:{BM:"Minit telah dijana",EN:"Minutes generated"},minutesNotGenerated:{BM:"Minit belum dijana",EN:"Minutes not generated"},encryption:{BM:"Penyulitan",EN:"Encryption"},keyManagement:{BM:"Pengurusan Kunci",EN:"Key Management"},encrypt:{BM:"Sulit",EN:"Encrypt"},decrypt:{BM:"Buka sulit",EN:"Decrypt"},encrypted:{BM:"Tersulit",EN:"Encrypted"},unencrypted:{BM:"Belum tersulit",EN:"Unencrypted"},encryptionKey:{BM:"Kunci penyulitan",EN:"Encryption key"},generateKey:{BM:"Jana kunci",EN:"Generate key"},rotateKey:{BM:"Putar kunci",EN:"Rotate key"},keyStatus:{BM:"Status kunci",EN:"Key status"},keysRotated:{BM:"Kunci telah diputar",EN:"Keys rotated"},documentEncrypted:{BM:"Dokumen telah disulitkan",EN:"Document encrypted"},documentDecrypted:{BM:"Dokumen telah dibuka sulitnya",EN:"Document decrypted"},encryptionOff:{BM:"Penyulitan tidak diaktifkan",EN:"Encryption not enabled"},pgcrypto:{BM:"pgcrypto",EN:"pgcrypto"},dataLocation:{BM:"Lokasi Data",EN:"Data Location"},retention:{BM:"Pengekalan",EN:"Retention"},deletion:{BM:"Pemadaman",EN:"Deletion"},export:{BM:"Eksport",EN:"Export"},dataLocationValue:{BM:"Singapura",EN:"Singapore"},retentionValue:{BM:"7 tahun",EN:"7 years"},exportMinutes:{BM:"Eksport Minit",EN:"Export Minutes"},exportAudit:{BM:"Eksport Rantaian Audit",EN:"Export Audit Trail"},exportMembers:{BM:"Eksport Daftar Ahli",EN:"Export Member List"},deleteMinutes:{BM:"Padam Minit",EN:"Delete Minutes"},deleteAudit:{BM:"Padam Rantaian Audit",EN:"Delete Audit Trail"},deleteConfirm:{BM:"Anda pasti? Tindakan ini tidak boleh dibatalkan.",EN:"Are you sure? This cannot be undone."},deleted:{BM:"Telah dipadam",EN:"Deleted"},exported:{BM:"Telah dieksport",EN:"Exported"},security:{BM:"Keselamatan",EN:"Security"},securityTest:{BM:"Ujian Keselamatan",EN:"Security Test"},securityPassed:{BM:"Lulus ujian keselamatan",EN:"Security test passed"},securityFailed:{BM:"Gagal ujian keselamatan",EN:"Security test failed"},runSecurityTest:{BM:"Jalankan ujian keselamatan",EN:"Run security test"},vulnScan:{BM:"Pemindahan kerentanan",EN:"Vulnerability scan"},sslCheck:{BM:"Semakan SSL/TLS",EN:"SSL/TLS check"},cspCheck:{BM:"Semakan CSP",EN:"CSP check"},headersCheck:{BM:"Semakan header keselamatan",EN:"Security headers check"},warranty:{BM:"Jaminan",EN:"Warranty"},warrantyTitle:{BM:"Jaminan Kebebasan dan Keselamatan",EN:"Freedom and Security Warranty"},warrantyUptime:{BM:"Jaminan keteraan 99.9%",EN:"99.9% uptime warranty"},warrantyDataSovereignty:{BM:"Kedaulatan data di Singapura",EN:"Data sovereignty in Singapore"},warrantyNoVendorLock:{BM:"Tiada vendor lock-in",EN:"No vendor lock-in"},warrantyOpenSource:{BM:"Kod terbuka boleh ditinjau",EN:"Open source code for review"},warrantyDataPortability:{BM:"Data boleh dieksport bila-bila masa",EN:"Data exportable at any time"},warrantyExpired:{BM:"Jaminan tamat tempoh",EN:"Warranty expired"},warrantyActive:{BM:"Jaminan aktif",EN:"Warranty active"},runWarrantyCheck:{BM:"Semak jaminan",EN:"Check warranty"}},n=(()=>{try{const e=new URLSearchParams(window.location.search).get("lang");return"en"===e?"en":"ms"===e?"ms":"en"===window.localStorage.getItem("agmx-lang")?"en":"ms"}catch(e){return"ms"}})();function a(e){const a=t[e];return a&&(a[n]||a.BM)||e}function i(e,t,n){const a=document.createElement(e);return t&&(a.className=t),Array.isArray(n)?n.forEach(e=>e&&a.appendChild(e)):n&&"number"==typeof n.nodeType?a.appendChild(n):null!=n&&(a.textContent=String(n)),a}function r(e,t,n){const a=i("div","agmx-live-notice"+("error"===n?" is-error":""),t);return a.setAttribute("role","error"===n?"alert":"status"),e&&e.prepend(a),setTimeout(()=>a.remove(),5e3),a}let o=null,d=null,c=[],s=null,u={ya:0,tidak:0,kecuali:0},l=null,m=!1,y=null,p={ssl:"unchecked",csp:"unchecked",headers:"unchecked",vuln:"unchecked",lastTest:null},E={uptime:"99.9%",dataSovereignty:"Singapore",noVendorLock:!0,openSource:!0,dataPortability:!0,active:!0,lastCheck:null};function g(){if(!o)return;const{subscribeToVotes:e,subscribeToQuorum:t,subscribeToAttendance:n}=window.AGMX_API||{};o.votesCh&&window.AGMX_API?.unsubscribe&&window.AGMX_API.unsubscribe(o.votesCh),o.quorumCh&&window.AGMX_API?.unsubscribe&&window.AGMX_API.unsubscribe(o.quorumCh),o.attendanceCh&&window.AGMX_API?.unsubscribe&&window.AGMX_API.unsubscribe(o.attendanceCh),o=null}function k(e){if(!e||!e.new)return;const t=e.new;"ya"===t.choice?u.ya++:"tidak"===t.choice?u.tidak++:"kecuali"===t.choice&&u.kecuali++,v();const n=document.getElementById("live-vote-notice");n&&r(n,`${t.voter_name||"A member"} voted ${t.choice}`,"ok")}function B(e){if(!e||!e.new)return;const t=e.new,n=document.getElementById("live-quorum-pct"),i=document.getElementById("live-quorum-satisfied");n&&(n.textContent=t.pct?`${t.pct}%`:"—"),i&&(i.textContent=t.satisfied?a("present"):"—"),i&&(i.className="agmx-status-pill"+(t.satisfied?" is-ok":" is-warn"))}function M(e){if(!e||!e.new)return;const t=e.new,n=document.getElementById("live-attendance-list");if(n){const e=i("div","agmx-live-attendee",`${t.member_no||""} · ${t.member_name||"Member"} · ${t.method||"digital"}`);n.prepend(e)}const a=document.getElementById("live-attendance-count");if(a){const e=parseInt(a.textContent,10)||0;a.textContent=e+1}}function v(){["ya","tidak","kecuali"].forEach(e=>{const t=document.getElementById(`live-tally-${e}`);t&&(t.textContent=u[e])});const e=u.ya+u.tidak+u.kecuali,t=document.getElementById("live-tally-total");t&&(t.textContent=e)}function N(){const e=document.getElementById("live-speaker-queue");e&&(e.innerHTML="",0!==c.length?c.forEach((t,n)=>{const r=s&&t.id===s.id,o=i("div","agmx-live-speaker"+(r?" is-current":""));o.appendChild(i("span","agmx-live-speaker-num",n+1)),o.appendChild(i("span","agmx-live-speaker-name",t.name)),r&&o.appendChild(i("span","agmx-status-pill is-ok",a("live"))),e.appendChild(o)}):e.appendChild(i("p","agmx-live-empty",a("speakerQueue")+" — "+a("None recorded yet"))))}return{init(t,n){d=n,u={ya:0,tidak:0,kecuali:0},c=[],s=null,t.api&&t.api.subscribeToVotes&&function(e,t){o&&g();const n=t.api.subscribeToVotes?t.api.subscribeToVotes(e,k):null,a=t.api.subscribeToQuorum?t.api.subscribeToQuorum(e,B):null,i=t.api.subscribeToAttendance?t.api.subscribeToAttendance(e,M):null;o={votesCh:n,quorumCh:a,attendanceCh:i}}(n.id,t);const i=document.getElementById("live-join-queue");i&&(i.onclick=async()=>{try{await t.api.registerDocument({agmId:d.id,category:"speaker_queue",filename:`speaker-${Date.now()}.json`,mime:"application/json",sizeBytes:0,storagePath:`speaker_queue/${d.id}/${Date.now()}`,sha256:null}),c.push({id:Date.now(),name:t.currentUser?.name||"Member",joinedAt:(new Date).toISOString()}),N(),r(document.getElementById("live-queue-notice"),a("speakerAdded"),"ok")}catch(e){r(document.getElementById("live-queue-notice"),e.message,"error")}});const h=document.getElementById("live-call-speaker");h&&(h.onclick=async()=>{const e=c.shift();e?(s=e,N(),r(document.getElementById("live-queue-notice"),`${a("speakerCalled")}: ${e.name}`,"ok")):r(document.getElementById("live-queue-notice"),a("None recorded yet"),"muted")}),e.forEach(e=>{const n=document.getElementById(`live-vote-${e}`);n&&(n.onclick=async()=>{n.disabled=!0,n.textContent=a("casting");try{await t.api.vote(d.id,e),u[e]++,v(),n.textContent=a("voted"),n.classList.add("is-voted"),r(document.getElementById("live-vote-notice"),a("voted"),"ok")}catch(t){n.disabled=!1,n.textContent="ya"===e?"Ya":"tidak"===e?"Tidak":"Kecuali",r(document.getElementById("live-vote-notice"),t.message,"error")}})});const w=document.getElementById("live-start-voting");w&&(w.onclick=async()=>{try{await t.api.registerDocument({agmId:d.id,category:"voting_window",filename:`voting-${Date.now()}.json`,mime:"application/json",sizeBytes:0,storagePath:`voting_window/${d.id}/${Date.now()}`,sha256:null}),r(document.getElementById("live-vote-notice"),"Voting window opened","ok")}catch(e){r(document.getElementById("live-vote-notice"),e.message,"error")}});const S=document.getElementById("live-encrypt-minutes");S&&(S.onclick=async()=>{try{await t.api.registerDocument({agmId:d.id,category:"minutes",filename:`minutes-${d.id}-${Date.now()}.pdf`,mime:"application/pdf",sizeBytes:0,storagePath:`minutes_encrypted/${d.id}/${Date.now()}`,sha256:null}),m=!0,l=`minutes-${d.id}-${Date.now()}`,renderEncryptionStatus(),r(document.getElementById("live-encryption-notice"),a("documentEncrypted"),"ok")}catch(e){r(document.getElementById("live-encryption-notice"),e.message,"error")}});const I=document.getElementById("live-gen-key");I&&(I.onclick=async()=>{try{y=`key-${Date.now()}`,m=!0,renderEncryptionStatus(),r(document.getElementById("live-encryption-notice"),a("keysRotated"),"ok")}catch(e){r(document.getElementById("live-encryption-notice"),e.message,"error")}});const b=document.getElementById("live-rotate-key");b&&(b.onclick=async()=>{try{y=`key-${Date.now()}`,renderEncryptionStatus(),r(document.getElementById("live-encryption-notice"),a("keysRotated"),"ok")}catch(e){r(document.getElementById("live-encryption-notice"),e.message,"error")}}),renderEncryptionStatus();const C=document.getElementById("live-security-test");C&&(C.onclick=async()=>{try{const e=await fetch("/api/config"),t=e.headers;p.ssl=e.ok?"passed":"failed",p.csp=t.get("content-security-policy")?"passed":"failed",p.headers=t.get("strict-transport-security")?"passed":"failed",p.lastTest=(new Date).toISOString(),renderSecurityStatus(),r(document.getElementById("live-security-notice"),a("securityPassed"),"ok")}catch(e){p.vuln="failed",r(document.getElementById("live-security-notice"),e.message,"error")}});const f=document.getElementById("live-warranty-check");f&&(f.onclick=async()=>{E.lastCheck=(new Date).toISOString(),renderWarrantyStatus(),r(document.getElementById("live-warranty-notice"),a("warrantyActive"),"ok")}),renderEncryptionStatus(),renderSecurityStatus(),renderWarrantyStatus()},renderEncryptionStatus(){const e=document.getElementById("live-encryption-status"),t=document.getElementById("live-encryption-key"),n=document.getElementById("live-encrypt-minutes");e&&(e.textContent=a(m?"encrypted":"unencrypted"),e.className="agmx-status-pill"+(m?" is-ok":" is-warn")),t&&(t.textContent=y||"—"),n&&(n.disabled=m)},renderSecurityStatus(){const e=document.getElementById("live-security-ssl"),t=document.getElementById("live-security-csp"),n=document.getElementById("live-security-headers"),i=document.getElementById("live-security-vuln"),r=document.getElementById("live-security-last-test");e&&(e.textContent="passed"===p.ssl?a("valid"):a("invalid")),t&&(t.textContent="passed"===p.csp?a("valid"):a("invalid")),n&&(n.textContent="passed"===p.headers?a("valid"):a("invalid")),i&&(i.textContent="passed"===p.vuln?a("valid"):a("invalid")),r&&(r.textContent=p.lastTest||"—")},renderWarrantyStatus(){const e=document.getElementById("live-warranty-uptime"),t=document.getElementById("live-warranty-data-sov"),n=document.getElementById("live-warranty-no-lock"),i=document.getElementById("live-warranty-open-src"),r=document.getElementById("live-warranty-data-port"),o=document.getElementById("live-warranty-status"),d=document.getElementById("live-warranty-last-check");e&&(e.textContent=E.uptime),t&&(t.textContent=E.dataSovereignty),n&&(n.textContent=E.noVendorLock?a("valid"):a("invalid")),i&&(i.textContent=E.openSource?a("valid"):a("invalid")),r&&(r.textContent=E.dataPortability?a("valid"):a("invalid")),o&&(o.textContent=E.active?a("warrantyActive"):a("warrantyExpired")),o&&(o.className="agmx-status-pill"+(E.active?" is-ok":" is-warn")),d&&(d.textContent=E.lastCheck||"—")},destroy(){g(),d=null,c=[],s=null,u={ya:0,tidak:0,kecuali:0}},getState:()=>({tally:u,speakerQueue:c,currentSpeaker:s,channel:!!o})}}();
+/* The rehearsal stays in memory. The member room reads from the signed-in tenant. */
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const { text } = window.AGMX_TOOLS;
+  const params = new URLSearchParams(location.search);
+  const demo = params.get("demo") === "1";
+  let room,
+    client,
+    agmId,
+    busy = false,
+    pendingRead = false,
+    sequence = 0;
+  let entryMessage, feedback;
+  const message = (ms, en) => [ms, en];
+  function broadcastId(url) {
+    let id;
+    if (url.hostname === "youtu.be") id = url.pathname.slice(1);
+    if (["www.youtube.com", "youtube.com"].includes(url.hostname)) {
+      if (url.pathname === "/watch") id = url.searchParams.get("v");
+      else if (url.pathname.startsWith("/live/")) id = url.pathname.slice(6);
+    }
+    return /^[a-zA-Z0-9_-]{11}$/.test(id || "") ? id : "";
+  }
+  let streamId = "";
+  function safeVideo(value) {
+    try {
+      const u = new URL(value);
+      if (u.protocol !== "https:" || u.username || u.password || u.port)
+        return "";
+      const id = broadcastId(u);
+      if (id) return "https://www.youtube.com/watch?v=" + id;
+      return /^(meet\.google\.com|([a-z0-9-]+\.)?zoom\.us|teams\.microsoft\.com|teams\.live\.com)$/i.test(
+        u.hostname,
+      )
+        ? u.href
+        : "";
+    } catch (_) {
+      return "";
+    }
+  }
+  function paint() {
+    $("source").textContent = demo
+      ? text("Raptai · data contoh", "Rehearsal · sample data")
+      : text("Ruang kerja ahli", "Member workspace");
+    $("entry").hidden = !!room;
+    $("room").hidden = !room;
+    const video = safeVideo(room?.link);
+    const nextStream = video ? broadcastId(new URL(video)) : "";
+    if (nextStream !== streamId) {
+      streamId = nextStream;
+      $("stream-player").replaceChildren();
+    }
+    $("play-stream").hidden =
+      !streamId || $("stream-player").childElementCount > 0;
+    if (!room) {
+      $("meeting-title").textContent = "";
+      $("entry-message").textContent = text(
+        ...(entryMessage || message("Membuka bilik…", "Opening the room…")),
+      );
+      return;
+    }
+    $("meeting-title").textContent = room.title;
+    const live = room.status === "live";
+    const active = room.speakers.find((s) => s.state === "called");
+    const waiting = room.speakers.filter((s) => s.state === "waiting");
+    const mine = room.speakers.find((s) => s.mine);
+    $("current-speaker").textContent =
+      active?.name || text("Giliran terbuka", "Floor open");
+    $("caption").textContent =
+      room.caption || text("Menunggu sari kata.", "Waiting for a caption.");
+    $("video").hidden = !video;
+    $("video").textContent = nextStream
+      ? text("Buka siaran di YouTube", "Open broadcast on YouTube")
+      : text("Sertai mesyuarat video", "Join the video meeting");
+    if (video) $("video").href = video;
+    else $("video").removeAttribute("href");
+    $("speakers").replaceChildren(
+      ...waiting.map((s) => {
+        const li = document.createElement("li");
+        li.textContent = s.name;
+        return li;
+      }),
+    );
+    $("empty-queue").hidden = waiting.length > 0;
+    $("attend-note").hidden = room.checkedIn || !live;
+    $("join").hidden = !!mine;
+    $("join").disabled = busy || !room.checkedIn || !live;
+    $("withdraw").hidden = mine?.state !== "waiting";
+    $("withdraw").disabled = busy || !live;
+    $("chair").hidden = !room.operator;
+    $("call").disabled = busy || !live || !!active || !waiting.length;
+    $("finish").disabled = busy || !live || !active;
+    $("caption-form").querySelector("button").disabled = busy || !live;
+    $("link-form").querySelector("button").disabled =
+      busy || !["planned", "live"].includes(room.status);
+    $("room-status").textContent = feedback ? text(...feedback) : "";
+    if (demo) $("ballot-link").href = "/demo/guided-demo.html";
+  }
+  function unavailable(ms, en) {
+    room = null;
+    entryMessage = message(ms, en);
+    paint();
+  }
+  async function refresh() {
+    if (demo || busy || pendingRead || !client || !agmId) return;
+    const ticket = sequence;
+    pendingRead = true;
+    try {
+      const { data, error } = await client.rpc("agm_floor_state", {
+        p_agm: agmId,
+      });
+      if (ticket !== sequence) return;
+      if (error) throw error;
+      if (!room || JSON.stringify(room) !== JSON.stringify(data)) {
+        room = data;
+        paint();
+      }
+    } catch (_) {
+      if (ticket === sequence)
+        unavailable(
+          "Bilik tidak dapat dibaca. Semak sesi atau cuba semula.",
+          "Could not read the room. Check your session or retry.",
+        );
+    } finally {
+      pendingRead = false;
+    }
+  }
+  function rehearse(action, value, id) {
+    if (action === "join")
+      room.speakers.push({
+        id: "self",
+        mine: true,
+        state: "waiting",
+        name: text("Anda (contoh)", "You (sample)"),
+      });
+    if (action === "withdraw" || action === "finish")
+      room.speakers = room.speakers.filter((s) => s.id !== id);
+    if (action === "call")
+      room.speakers.find((s) => s.id === id).state = "called";
+    if (action === "caption") room.caption = value.trim();
+    if (action === "link") room.link = value;
+  }
+  async function change(action, value = null, id = null) {
+    if (busy || !room) return;
+    busy = true;
+    sequence++;
+    feedback = null;
+    paint();
+    try {
+      if (demo) rehearse(action, value, id);
+      else {
+        const { data, error } = await client.rpc("update_agm_floor", {
+          p_agm: agmId,
+          p_action: action,
+          p_value: value,
+          p_speaker: id,
+        });
+        if (error) throw error;
+        room = data;
+      }
+      feedback = message("Bilik dikemas kini.", "Room updated.");
+    } catch (_) {
+      feedback = message(
+        "Perubahan gagal. Semak giliran dan cuba lagi.",
+        "Could not save. Check the queue and retry.",
+      );
+    } finally {
+      busy = false;
+      paint();
+    }
+    if (!demo) await refresh();
+  }
+  $("play-stream").onclick = () => {
+    if (!streamId) return;
+    const player = document.createElement("iframe");
+    player.title = text("Siaran mesyuarat", "Meeting broadcast");
+    player.src = "https://www.youtube-nocookie.com/embed/" + streamId;
+    player.allowFullscreen = true;
+    player.referrerPolicy = "strict-origin-when-cross-origin";
+    $("stream-player").replaceChildren(player);
+    $("play-stream").hidden = true;
+  };
+  $("join").onclick = () => change("join");
+  $("withdraw").onclick = () =>
+    change("withdraw", null, room.speakers.find((s) => s.mine)?.id);
+  $("call").onclick = () =>
+    change("call", null, room.speakers.find((s) => s.state === "waiting")?.id);
+  $("finish").onclick = () =>
+    change("finish", null, room.speakers.find((s) => s.state === "called")?.id);
+  $("caption-form").onsubmit = (e) => {
+    e.preventDefault();
+    change("caption", $("caption-input").value);
+  };
+  $("link-form").onsubmit = (e) => {
+    e.preventDefault();
+    const raw = $("link-input").value.trim();
+    const valid = safeVideo(raw);
+    if (raw && !valid) {
+      feedback = message(
+        "Gunakan pautan Meet, Zoom, Teams atau YouTube Live.",
+        "Use a Meet, Zoom, Teams or YouTube Live link.",
+      );
+      paint();
+      return;
+    }
+    change("link", valid);
+  };
+  async function start() {
+    if (demo) {
+      room = {
+        title: "Koperasi Contoh · AGM",
+        status: "live",
+        operator: true,
+        checkedIn: true,
+        speakers: [],
+        link: "",
+        caption: "",
+      };
+      paint();
+      return;
+    }
+    try {
+      // Only a real room needs the config and SDK. Rehearsals work offline.
+      if (!window.AGMX_CONFIG)
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "/config.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      const { supabase, AGMX_API, configProblem } = await import(
+        "./supabase-client.js"
+      );
+      if (configProblem) throw Error("config");
+      if (!(await AGMX_API.isAuthenticated()))
+        return unavailable(
+          "Log masuk untuk memasuki bilik koperasi.",
+          "Sign in to enter your cooperative’s room.",
+        );
+      agmId =
+        params.get("agm") || (await AGMX_API.governance.current()).agm?.id;
+      if (!agmId)
+        return unavailable(
+          "Cipta AGM di dewan terlebih dahulu.",
+          "Create an AGM in the hall first.",
+        );
+      client = supabase;
+      await refresh();
+    } catch (_) {
+      unavailable(
+        "Sambungan ruang kerja gagal. Cuba semula atau buka raptai.",
+        "Workspace connection failed. Retry or open the rehearsal.",
+      );
+    }
+  }
+  $("retry").onclick = start;
+  window.addEventListener("agmx-language", paint);
+  if (!demo) {
+    const timer = setInterval(() => {
+      if (!document.hidden) refresh();
+    }, 5000);
+    window.addEventListener("pagehide", () => clearInterval(timer), {
+      once: true,
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refresh();
+    });
+  }
+  start();
+})();

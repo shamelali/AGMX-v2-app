@@ -21,7 +21,7 @@ import { getEmbedding, chatCompletion, llmReadiness } from "../_shared/llm.ts"
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || ""
 const SUPABASE_SECRET_KEY =
   Deno.env.get("SUPABASE_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || ""
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || ""
 
 function makeAdminClient() {
   return createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
@@ -209,7 +209,7 @@ serve(async (req) => {
   try {
     const { question }: QueryRequest = await req.json()
 
-    if (!question || question.length < 3 || question.length > 2000) {
+    if (typeof question !== "string" || question.trim().length < 3 || question.length > 2000) {
       return json(400, { error: "Question must be 3-2000 characters" })
     }
 
@@ -222,7 +222,7 @@ serve(async (req) => {
     }
 
     // Generate embedding
-    const embedding = await getEmbedding(question)
+    const embedding = await getEmbedding(question, "query")
 
     // Search knowledge base
     const results = await searchKnowledge(token, embedding)
