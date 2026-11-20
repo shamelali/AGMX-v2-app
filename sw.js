@@ -161,7 +161,7 @@
 // toggle fix, status page verified.
 // Bumped to v12: index.html hero-proof text updated (removed "Data hosted in Singapore"),
 // DutaGovern branding applied across page, Undraw illustrations added.
-const CACHE = "agmx-www-agmx-my-v12";
+const CACHE = "agmx-www-agmx-my-v13";
 const PRECACHE = [
   "/",
   "/index.html",

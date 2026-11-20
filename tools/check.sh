@@ -1083,7 +1083,21 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
 process.env.BILLPLZ_API_KEY = "k";
 process.env.BILLPLZ_COLLECTION_ID = "c";
 cfg = await read();
-if (cfg.paymentsMode !== "all") fail(`paymentsMode was ${cfg.paymentsMode} with Billplz keys present`);
+// A gateway is "ready" only when its callback can be verified. Billplz signs
+// notifications with X_SIGNATURE; without it a forged callback could mark an
+// invoice paid, so the checkout must not offer the rail. This is the audit's
+// payment-readiness finding, enforced here.
+if (cfg.paymentsMode !== "bank_transfer") fail(`paymentsMode was ${cfg.paymentsMode} with Billplz keys but no X_SIGNATURE — checkout would offer a rail whose callback cannot be verified`);
+process.env.BILLPLZ_X_SIGNATURE = "s";
+cfg = await read();
+if (cfg.paymentsMode !== "all") fail(`paymentsMode was ${cfg.paymentsMode} with complete Billplz credentials`);
+reset();
+process.env.HITPAY_API_KEY = "k";
+cfg = await read();
+if (cfg.paymentsMode !== "bank_transfer") fail(`paymentsMode was ${cfg.paymentsMode} with a HitPay key but no HITPAY_SALT — checkout would offer a rail whose callback cannot be verified`);
+process.env.HITPAY_SALT = "s";
+cfg = await read();
+if (cfg.paymentsMode !== "all") fail(`paymentsMode was ${cfg.paymentsMode} with complete HitPay credentials`);
 process.env.NEXT_PUBLIC_PAYMENTS_MODE = "bank_transfer";
 cfg = await read();
 if (cfg.paymentsMode !== "bank_transfer") fail(`an explicit NEXT_PUBLIC_PAYMENTS_MODE=bank_transfer was overridden by ${cfg.paymentsMode}`);

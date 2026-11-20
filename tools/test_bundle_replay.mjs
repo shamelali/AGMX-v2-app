@@ -39,8 +39,9 @@ function check(cond, label) {
 const { db, stats: first } = await bootDatabase();
 check(first.statements > 150,
   `first paste ran only ${first.statements} statements — the bundle was not applied in full`);
-check(first.skippedSections.join() === "0002_knowledge.sql",
-  `skipped sections were ${first.skippedSections.join()}, expected only the pgvector knowledge section`);
+check(first.skippedSections.join().includes("0002_knowledge.sql") &&
+      first.skippedSections.join().includes("0011_knowledge_embedding_halfvec2048.sql"),
+  `skipped sections were ${first.skippedSections.join()}, expected the pgvector knowledge sections`);
 
 const rest = makeRestClient(db);
 
