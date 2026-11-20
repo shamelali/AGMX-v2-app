@@ -1,3 +1,6 @@
+// Bumped to v13: index.html's verifiable RLS policy count now follows the
+// generated migration bundle.
+//
 // Bumped to v25: theme.js owns theme state (dark mode, senior mode, high
 // contrast) and every page loads it in <head>; [data-agmx-theme-toggle]
 // buttons switch dark mode, and styles.css keys its dark rules on html.dark
