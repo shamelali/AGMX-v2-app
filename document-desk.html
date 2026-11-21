@@ -1,0 +1,20 @@
+<!doctype html><html lang="ms"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102f30">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<title>AGMX · Meja dokumen</title><link rel="stylesheet" href="/meeting-tools.css"><script src="/theme.js"></script><script src="/meeting-tools.js" defer></script><script src="/document-desk.js" defer></script>
+</head><body><a class="tool-skip" href="#main" data-en="Skip to content">Langkau ke kandungan</a>
+<header class="tool-nav"><a class="tool-brand" href="/">AGMX</a><div><a href="/knowledge.html" data-en="Organisation AI">AI organisasi</a><button data-tool-lang type="button">EN</button></div></header>
+<main class="tool-main" id="main"><header class="tool-heading"><p class="tool-context" data-en="Secretary’s workspace">Ruang setiausaha</p><h1 data-en="Document desk">Meja dokumen</h1>
+<p data-en="Find the line you need in meeting records or prepare a first draft. Files you open here stay on this device.">Cari baris yang anda perlukan dalam rekod mesyuarat atau sediakan draf pertama. Fail yang dibuka di sini kekal pada peranti ini.</p></header>
+<div class="tool-grid">
+<section class="tool-card"><h2 data-en="Search meeting records">Cari dalam rekod mesyuarat</h2><label for="docs" data-en="Choose up to 8 text or Markdown files · 2 MiB total">Pilih sehingga 8 fail teks atau Markdown · jumlah 2 MiB</label><input id="docs" type="file" multiple accept=".txt,.md,text/plain,text/markdown">
+<button id="sample-docs" type="button" data-en="Try sample records">Cuba rekod contoh</button>
+<form id="search-form"><label for="search" data-en="Words to find">Perkataan untuk dicari</label><input id="search" type="search" maxlength="180" required><button class="tool-primary" type="submit" data-en="Find passages">Cari petikan</button></form>
+<p id="doc-status" role="status"></p><ol id="passages" class="passages"></ol></section>
+<section class="tool-card"><h2 data-en="Prepare a template">Sediakan templat</h2><form id="template-form">
+<label for="document-type" data-en="Document">Dokumen</label><select id="document-type"><option value="notice" data-en="Meeting notice">Notis mesyuarat</option><option value="agenda" data-en="Agenda">Agenda</option><option value="minutes" data-en="Minutes for review">Minit untuk semakan</option></select>
+<label for="meeting-name" data-en="Meeting title">Tajuk mesyuarat</label><input id="meeting-name" required maxlength="180">
+<label for="meeting-date" data-en="Meeting date">Tarikh mesyuarat</label><input id="meeting-date" required type="date">
+<label for="meeting-venue" data-en="Venue or meeting link">Tempat atau pautan mesyuarat</label><input id="meeting-venue" required maxlength="400">
+<button class="tool-primary" type="submit" data-en="Download editable draft">Muat turun draf boleh sunting</button><p id="template-status" role="status"></p></form></section>
+</div></main></body></html>

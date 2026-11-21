@@ -12,6 +12,8 @@
  * For self-hosted NIM: set NVIDIA_NIM_BASE_URL to your NIM endpoint
  */
 
+import { embeddingRequest, storageVector } from "./embeddings.mjs"
+
 export type LLMProvider = "openai" | "nvidia"
 
 export interface LLMConfig {
@@ -78,23 +80,15 @@ function getLLMConfig(): LLMConfig {
     baseUrl: "https://api.openai.com/v1",
     embeddingModel: Deno.env.get("OPENAI_EMBEDDING_MODEL") || "text-embedding-3-large",
     chatModel: Deno.env.get("OPENAI_CHAT_MODEL") || "gpt-4o-mini",
-    embeddingDimensions: 3072,
   }
 }
 
-export async function getEmbedding(text: string, config = getLLMConfig()): Promise<number[]> {
+export async function getEmbedding(text: string, purpose: "query" | "passage", config = getLLMConfig()): Promise<number[]> {
   if (!config.apiKey) {
     throw new Error(`no key for provider "${config.provider}" — set ${KEY_ENVS[config.provider].join(" or ")}`)
   }
 
-  const body: Record<string, any> = {
-    model: config.embeddingModel,
-    input: text,
-  }
-
-  if (config.provider === "openai" && config.embeddingDimensions) {
-    body.dimensions = config.embeddingDimensions
-  }
+  const body = embeddingRequest(config.provider, config.embeddingModel, text, purpose)
 
   const resp = await fetch(`${config.baseUrl}/embeddings`, {
     method: "POST",
@@ -111,12 +105,7 @@ export async function getEmbedding(text: string, config = getLLMConfig()): Promi
   }
 
   const data = await resp.json()
-  const embedding = data.data[0].embedding
-
-  if (config.provider === "openai" && config.embeddingDimensions && config.embeddingDimensions > 1024) {
-    return embedding.slice(0, 1024)
-  }
-  return embedding
+  return storageVector(data.data?.[0]?.embedding, config.embeddingDimensions ?? body.dimensions)
 }
 
 export interface ChatMessage {

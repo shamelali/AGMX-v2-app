@@ -611,3 +611,183 @@ html.dark .footer {
     display: none;
   }
 }
+
+/* The assembly map follows the visitor's attendance input. */
+.assembly {
+  color: #f1f7ee;
+  background: radial-gradient(ellipse at 78% 30%,#224d48 0%,transparent 48%),#0c2427;
+  border-bottom: 6px solid #d2ac64;
+}
+.assembly-layout {max-width: 1280px; margin: auto; padding: clamp(48px,7vw,112px) clamp(20px,5vw,76px); display:grid; grid-template-columns:1.04fr 1fr; gap:clamp(35px,6vw,90px); align-items:center}
+.assembly-kicker,.lab-top {font:600 .77rem/1.5 ui-monospace,monospace; letter-spacing:.12em; text-transform:uppercase}
+.assembly-kicker {color:#d5bd86;display:inline-block;border-top:2px solid #d5bd86;padding-top:14px}
+.assembly-intro h1 {color:inherit;letter-spacing:-.063em;font-size:clamp(3.35rem,6.9vw,6.8rem);line-height:1.01;margin:27px 0 22px;font-weight:750}
+.assembly-intro h1 em {display:block;color:#e5c982;font:italic 1.04em/.98 Georgia,serif;letter-spacing:-.055em}
+.assembly-intro p {max-width:43ch;color:#cadbd3;font-size:1.12rem;line-height:1.65}
+.assembly-actions,.lab-controls {display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:26px}
+.assembly-primary,.assembly-link,.lab-controls a {font-weight:700;text-decoration:none}
+.assembly-primary,.hall-lab button {border:0;border-radius:8px;background:#e5c982;color:#172c29;padding:13px 18px;font-weight:750;cursor:pointer}
+.assembly-link,.lab-controls a {color:#f4f3e6;border-bottom:1px solid #91a6a0}
+.hall-lab {background:linear-gradient(155deg,#17383c,#10292c);border:1px solid #50716d;border-radius:22px;padding:clamp(20px,3vw,38px);box-shadow:0 24px 58px #03141570}
+.lab-top {display:flex;justify-content:space-between;gap:10px;color:#b6d2ca;font-size:.66rem}
+.lab-led:before {content:"";display:inline-block;width:8px;height:8px;background:#80e1b6;border-radius:50%;margin-right:8px}
+.hall-lab h2 {font-size:clamp(1.35rem,2.7vw,2rem);color:#f4f2df;margin:16px 0 10px;letter-spacing:-.035em}
+.seat-map {position:relative;aspect-ratio:2.2; width:100%;max-width:430px;margin:auto}
+.seat-map i {position:absolute;width:3%;aspect-ratio:1;border-radius:55% 55% 28% 28%;background:#385153;transform:translate(-50%,-50%)}
+.seat-map .occupied {background:#e6cd8b;box-shadow:0 0 6px #d4be7630}
+.hall-bench {width:25%;height:5px;margin:3px auto 18px;background:#698984;border-radius:5px}
+.lab-count {border-top:1px solid #45615e;display:flex;align-items:baseline;justify-content:space-between;padding:13px 0 5px;color:#afc5c0}
+.lab-count strong {font-size:2.15rem;font-variant-numeric:tabular-nums;color:#fcf7de}
+#hall-state {color:#a8eacb;font-weight:700;font-size:.9rem}
+.hall-lab label,.hall-lab legend {font-size:.85rem;color:#e2eae5}
+.hall-lab input[type=range] {width:100%;display:block;accent-color:#e5c982;height:24px;cursor:pointer}
+.hall-lab fieldset {border:0;padding:0;margin:15px 0}
+.hall-lab fieldset button {margin:6px 3px 0 0;padding:8px 12px}
+.hall-lab button:disabled {opacity:.55;cursor:not-allowed}
+.hall-lab [hidden],#hall-result:empty {display:none}
+.hall-lab button:focus-visible,.assembly a:focus-visible {outline:3px solid #fff;outline-offset:4px}
+.hall-screen {width:100%;height:auto;display:block;border-radius:12px}
+@media(max-width:800px){.assembly-layout{grid-template-columns:1fr}.assembly-intro h1{max-width:12ch}.hall-lab{max-width:580px;width:100%;box-sizing:border-box}.assembly-actions{gap:15px}}
+@media(max-width:600px){body>.nav-top{padding-inline:12px;flex-wrap:wrap;gap:8px}body>.nav-top .nav-actions{gap:5px;flex-wrap:wrap}body>.nav-top .nav-actions .btn-secondary{display:none}.lab-controls{gap:12px}}
+
+/* Shared materials for the assembly and its public tools. */
+body {
+  --studio-paper: #f7f5ee;
+  --studio-card: #fffefa;
+  --studio-ink: #163532;
+  --studio-muted: #47605a;
+  --studio-edge: #c7d2c7;
+  --studio-link: #195b50;
+}
+html.dark body {
+  --studio-paper: #122b2b;
+  --studio-card: #193735;
+  --studio-ink: #f2efe0;
+  --studio-muted: #c1d3c7;
+  --studio-edge: #44615c;
+  --studio-link: #acdcca;
+}
+html.lp-js body > .nav-top,
+html.lp-js body > .nav-top.lp-nav-stuck {
+  background: var(--studio-card);
+  border-bottom: 1px solid var(--studio-edge);
+  padding: 10px max(20px, calc((100% - 1250px) / 2 + 20px));
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 15px;
+}
+.nav-brand {display: inline-flex; align-items: center; gap: 9px; flex: none; text-decoration: none}
+.nav-brand .logo-text {color: var(--studio-ink); font-size: 1.32rem; letter-spacing: -.055em; font-weight: 800}
+.assembly-mark {
+  display: inline-grid; place-items: center; width: 34px; height: 36px; flex: none;
+  background: #244a43; border-radius: 13px 13px 4px 4px;
+  color: #f1d391; font: italic 700 1.65rem/1 Georgia, serif;
+}
+.nav-top .nav-link {color: var(--studio-muted); text-decoration: none; padding-block: 12px}
+.nav-top .nav-link:hover, .nav-top .nav-link:focus-visible {color: var(--studio-ink); text-decoration: underline}
+.nav-top .nav-link::after {background: #a98440}
+.nav-top .nav-actions {display: flex; align-items: center; gap: 6px; flex-wrap: nowrap}
+.nav-top .btn, #mobile-menu {min-height: 44px; border-radius: 7px; font-size: .85rem; line-height: 1.2; box-shadow: none}
+.nav-top .btn-ghost, #mobile-menu {background: transparent; color: var(--studio-link); border: 1px solid transparent}
+.nav-top .btn-secondary {color: var(--studio-link); background: var(--studio-card); border-color: var(--studio-edge)}
+.nav-top .btn-primary, .cta-final-actions .btn-primary {background: #23584e; color: #fff; border-color: #23584e}
+#mobile-menu {display: none; padding: 8px 10px; cursor: pointer; font-family: inherit; font-weight: 700}
+.assembly {
+  background: linear-gradient(100deg, rgba(8,30,29,.9), rgba(14,36,32,.75) 43%, rgba(16,36,32,.4)),
+    url('/images/webp/hall-wide.webp') center 46% / cover, #102f30;
+}
+.hall-lab {background: linear-gradient(135deg, rgba(22,56,55,.97), rgba(15,39,41,.98))}
+.assembly-actions a, .lab-controls a {display: inline-flex; align-items: center; min-height: 44px}
+.hall-lab input[type=range] {height: 38px}
+.hall-lab fieldset button {min-height: 44px}
+.studio-wrap, #harga > .container, #faq > .container {
+  width: min(100%, 1240px); box-sizing: border-box; margin: auto;
+  padding: clamp(44px,6vw,82px) clamp(18px,4.7vw,64px);
+}
+.studio-tools, .studio-trust, #harga, #faq {background: var(--studio-paper); color: var(--studio-ink)}
+.studio-roles {background: var(--studio-card); color: var(--studio-ink)}
+.studio-section-title {display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 0 0 24px}
+.studio-section-title h2, #harga h2, #faq h2 {
+  margin: 0; color: var(--studio-ink); font: 500 clamp(2rem,4.25vw,3.8rem)/1.08 Georgia,serif; letter-spacing: -.05em;
+}
+.studio-section-title a, .role-detail a, .rate-card a {color: var(--studio-link); font-weight: 700; text-underline-offset: .23em}
+.studio-cards {display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px}
+.studio-module {
+  display: flex; flex-direction: column; min-width: 0; text-decoration: none; color: var(--studio-ink);
+  background: var(--studio-card); border: 1px solid var(--studio-edge); border-radius: 16px;
+  padding: clamp(17px,2.2vw,28px); transition: border-color .2s, transform .2s;
+}
+.studio-module:hover, .studio-module:focus-visible {color: var(--studio-ink); transform: translateY(-3px); border-color: var(--studio-link)}
+.studio-module h3, .role-detail h3 {color: inherit; font-size: clamp(1.25rem,2.1vw,1.75rem); line-height: 1.22; margin: 20px 0 8px; letter-spacing: -.045em}
+.studio-module p, .role-detail p {color: var(--studio-muted); margin: 0 0 20px; line-height: 1.55}
+.module-action {margin-top: auto; color: var(--studio-link); font-weight: 700}
+.module-art {position: relative; overflow: hidden; height: 100px; border-radius: 8px; isolation: isolate}
+.floor-art {display:flex; align-items:end; justify-content:center; gap:4%; padding:14px 18%; background:#244945}
+.floor-art i {width:5%; height:38%; background:#dbc281; border-radius:4px}
+.floor-art i:nth-child(2n) {height:62%}.floor-art i:nth-child(3n) {height:85%}
+.desk-art {display:grid;place-items:center;background:#dddfcf}
+.desk-art i {position:absolute;width:32%;height:82%;background:repeating-linear-gradient(#fff9e6 0 13px,#bcbca3 13px 14px);border:1px solid #9b9f8a;top:26%;border-radius:3px;transform:translateX(-25%) rotate(-13deg)}
+.desk-art i:nth-child(2){transform:translateX(21%) rotate(15deg)}
+.desk-art i:last-child{transform:rotate(2deg);top:19%}
+.proof-art {display:grid;place-items:center;background:#264744}
+.proof-art i {width:63px;height:63px;border:4px double #e8cd90;border-radius:50%;display:grid;place-items:center}
+.proof-art i::after{content:"";width:23px;height:12px;transform:translateY(-2px) rotate(-45deg);border:solid #e8cd90;border-width:0 0 3px 3px}
+.role-options {display:flex;gap:5px;flex-wrap:wrap;margin:0 0 18px}
+.role-options button {font:inherit;font-weight:700;padding:8px 16px;min-height:44px;border:1px solid var(--studio-edge);border-radius:24px;color:var(--studio-link);background:var(--studio-card);cursor:pointer}
+.role-options [aria-pressed=true] {color:#fff;background:#28584c;border-color:#28584c}
+.role-detail {display:grid;grid-template-columns:1fr 1.2fr;gap:28px;align-items:center;margin:0;padding:clamp(18px,3vw,40px);background:var(--studio-paper);border:1px solid var(--studio-edge);border-radius:16px}
+.role-detail h3 {margin-top:0}.role-detail img {width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--studio-edge)}
+.studio-trust details {padding:12px 0;border-top:1px solid var(--studio-edge)}
+.studio-trust details:last-child {border-bottom:1px solid var(--studio-edge)}
+.studio-trust summary {display:list-item;cursor:pointer;padding:9px 4px;min-height:44px;font-weight:750;color:var(--studio-ink)}
+.studio-trust details p {max-width:80ch;color:var(--studio-muted);margin:5px 4px 16px}
+#harga,#faq {padding:0}
+#harga {background:var(--studio-card)}
+.rate-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:12px}
+.rate-card {border:1px solid var(--studio-edge);padding:clamp(16px,2vw,24px);border-radius:13px;background:var(--studio-paper)}
+.rate-card h3 {margin:0 0 16px;color:var(--studio-ink);font-size:1rem}
+.rate-card strong {display:block;font:500 clamp(1.9rem,3.2vw,2.8rem)/1.05 Georgia,serif;letter-spacing:-.055em}
+.rate-card small,.rate-card p {color:var(--studio-muted)}
+.rate-card p {padding-top:14px;border-top:1px solid var(--studio-edge);margin:14px 0 10px}
+#faq .section-header {margin:0 0 22px;text-align:left}#faq .faq-list {margin:0;max-width:100%}
+#faq .faq-item {color:var(--studio-ink);background:var(--studio-card);border:1px solid var(--studio-edge)}
+#faq .faq-item summary {color:var(--studio-ink)}#faq .faq-item p{color:var(--studio-muted)}
+#demo.cta-final-section {padding:clamp(40px,6vw,72px) 18px;background:#193d39}
+#demo .cta-final-card {background:transparent;border:0;box-shadow:none;padding:0}
+#demo .cta-final-card h2 {color:#f9f6e5}
+#demo .cta-final-sub {color:#cdded2}
+#demo .btn-primary {background:#e5c982;color:#1c3932;border-color:#e5c982}
+#demo .btn-secondary {color:#f5f3e6;background:transparent;border:1px solid #9fb9a8}
+footer.footer {background:#112e2b;color:#e8ecde}
+.studio-wrap :focus-visible,#harga :focus-visible,#mobile-menu:focus-visible {outline:3px solid #ab792e;outline-offset:3px}
+.studio-tools,.studio-roles,.studio-trust,#harga {scroll-margin-top:68px}
+@media(max-width:1080px){
+  #mobile-menu {display:block}
+  .nav-top #main-links {display:none}
+  .nav-top #main-links.is-open {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));position:absolute;top:100%;inset-inline:0;padding:12px clamp(18px,5vw,60px);gap:3px 16px;border-bottom:1px solid var(--studio-edge);background:var(--studio-card);box-shadow:0 12px 20px #0c292520}
+}
+@media(max-width:800px){
+  .assembly {background-image:linear-gradient(150deg,rgba(9,30,28,.8),rgba(11,34,32,.7) 45%,#132e2d 85%),url('/images/webp/hall-small.webp');background-position:center,center top;background-size:cover,auto max(550px,70vw);background-repeat:no-repeat}
+  .assembly-layout {gap:28px;padding:36px clamp(18px,5vw,50px)}
+  .hall-lab {max-width:none}.seat-map {max-width:380px}
+  .studio-cards {grid-template-columns:1fr}
+  .studio-module {display:grid;grid-template-columns:clamp(94px,22vw,145px) 1fr;gap:3px 16px;align-items:start}
+  .studio-module .module-art {grid-row:1/4;align-self:stretch;height:auto;min-height:104px}
+  .studio-module h3,.studio-module p {margin:0 0 4px}.studio-module .module-action {margin:4px 0 0}
+  .role-detail {grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  html.lp-js body > .nav-top,html.lp-js body > .nav-top.lp-nav-stuck {padding:6px 10px;gap:4px}
+  body > .nav-top .nav-actions {gap:2px;flex-wrap:nowrap}
+  .nav-brand {gap:5px}.nav-brand .logo-text{font-size:1.1rem}.assembly-mark{width:27px;height:30px;font-size:1.3rem}
+  .nav-top .nav-actions a.btn {display:none}
+  .assembly-intro h1 {font-size:clamp(3.1rem,13vw,4.8rem);margin:18px 0 12px}
+  .assembly-intro p {font-size:1rem}.assembly-actions,.lab-controls{margin-top:15px;gap:8px 14px}
+  .studio-wrap,#harga>.container,#faq>.container{padding:40px 18px}
+  .studio-section-title {margin-bottom:18px}
+}
+@media(max-width:380px){.studio-module{grid-template-columns:68px 1fr;gap:3px 10px}.proof-art i{width:45px;height:45px}.role-options button{padding-inline:12px}}
+@media(prefers-reduced-motion:reduce){.studio-module{transition:none}.studio-module:hover{transform:none}}

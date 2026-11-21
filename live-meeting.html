@@ -1,268 +1,40 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ms">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Mesyuarat Langsung — AGMX Live Meeting Module">
-  <meta name="theme-color" content="#2563EB">
-  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
-  <title>Mesyuarat Langsung • AGMX</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102f30"><title>AGMX · Bilik langsung</title>
+  <link rel="stylesheet" href="/meeting-tools.css"><script src="/theme.js"></script>
+  <script src="/meeting-tools.js" defer></script>
+  <script src="/live-meeting.js" defer></script>
 </head>
 <body>
-  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
-  <main class="page" style="max-width:1200px;margin:2rem auto;padding:0 1rem;">
-    <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem;">
-      <div>
-        <h1 style="margin:0 0 0.5rem 0;">Mesyuarat Langsung</h1>
-        <p style="color:#666;font-size:0.875rem;margin:0;">Quorum, speaker queue, live voting dan kawalan pengerusi</p>
-      </div>
-      <div style="display:flex;gap:0.5rem;">
-        <button id="live-start-voting" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Mula Pengundian</button>
-        <button onclick="location.reload()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Muat Semula</button>
-      </div>
-    </header>
-
-    <!-- Quorum Card -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Kuorum</h2>
-      <div style="display:flex;gap:1rem;align-items:flex-start;">
-        <div style="flex:1;">
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Telah Hadir / Jumlah</div>
-          <div style="font-size:2rem;font-weight:700;color:#1e293b;" id="live-quorum-pct">—</div>
-          <div style="font-size:0.875rem;color:#64748b;" id="live-quorum-satisfied">—</div>
-        </div>
-        <div style="width:200px;height:8px;background:#e2e8f0;border-radius:4px;margin-top:2rem;">
-          <div id="live-quorum-bar" style="width:0%;height:100%;background:#16a34a;border-radius:4px;"></div>
-        </div>
-      </div>
-    </section>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
-      <!-- Attendance -->
-      <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;background:#fff;">
-        <h2 style="margin-top:0;font-size:1rem;color:#374151;">Kehadiran</h2>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Ahli yang hadir</div>
-          <div style="font-size:1rem;font-weight:700;color:#1e293b;" id="live-attendance-count">0</div>
-        </div>
-        <button id="live-checkin" style="padding:0.5rem 1rem;border:1px solid #2563EB;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Daftarkan kehadiran saya</button>
-        <div id="live-attendance-list" style="margin-top:1rem;max-height:200px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:6px;padding:0.75rem;background:#f8fafc;">
-          <div style="font-size:0.875rem;color:#64748b;">Belum ada ahli hadir.</div>
-        </div>
-      </section>
-
-      <!-- Speaker Queue -->
-      <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;background:#fff;">
-        <h2 style="margin-top:0;font-size:1rem;color:#374151;">Antara Penceramah</h2>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Antara semasa</div>
-          <div id="live-current-speaker" style="font-size:1rem;font-weight:700;color:#1e293b;">—</div>
-        </div>
-        <button id="live-join-queue" style="padding:0.5rem 1rem;border:1px solid #2563EB;border-radius:6px;background:#fff;color:#2563EB;font-size:0.875rem;cursor:pointer;">Sertai Antara</button>
-        <button id="live-call-speaker" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#dc2626;color:#fff;font-size:0.875rem;cursor:pointer;">Panggil Seterusnya</button>
-        <div id="live-speaker-queue" style="margin-top:1rem;max-height:200px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:6px;padding:0.75rem;background:#f8fafc;">
-          <div style="font-size:0.875rem;color:#64748b;">Antara kosong.</div>
-        </div>
-        <div id="live-queue-notice" style="margin-top:0.5rem;font-size:0.875rem;"></div>
-      </section>
+  <a class="tool-skip" href="#main" data-en="Skip to content">Langkau ke kandungan</a>
+  <header class="tool-nav"><a class="tool-brand" href="/">AGMX</a><div><a href="/app.html#/agm" data-en="AGM hall">Dewan AGM</a><button data-tool-lang type="button">EN</button></div></header>
+  <main class="tool-main" id="main">
+    <header class="tool-heading"><p class="tool-context" id="source" data-en="Member workspace">Ruang kerja ahli</p><h1 data-en="The meeting floor">Bilik langsung</h1><p id="meeting-title" role="status" data-en="Opening the room…">Membuka bilik…</p></header>
+    <div id="entry" class="tool-card" hidden>
+      <p id="entry-message"></p><div class="tool-actions"><a class="tool-primary" href="/app.html#/agm" data-en="Open the AGM hall">Buka dewan AGM</a><a href="?demo=1" data-en="Try the rehearsal">Cuba raptai</a><button type="button" id="retry" data-en="Retry">Cuba semula</button></div>
     </div>
-
-    <!-- Live Voting -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-top:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Pengundian Langsung</h2>
-      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
-        <button id="live-vote-ya" style="padding:0.75rem 1.5rem;border:none;border-radius:8px;background:#16a34a;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;">Ya</button>
-        <button id="live-vote-tidak" style="padding:0.75rem 1.5rem;border:none;border-radius:8px;background:#dc2626;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;">Tidak</button>
-        <button id="live-vote-kecuali" style="padding:0.75rem 1.5rem;border:none;border-radius:8px;background:#f59e0b;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;">Kecuali</button>
+    <div id="room" hidden>
+      <div class="tool-grid">
+        <section class="tool-card stage-card"><h2 data-en="On the floor">Sedang berucap</h2><p class="floor-name" id="current-speaker"></p>
+          <h3 data-en="Live caption from the chair">Sari kata langsung daripada pengerusi</h3><p class="caption-line" id="caption" role="status"></p>
+          <button id="play-stream" type="button" class="tool-primary" hidden data-en="Watch the YouTube broadcast here">Tonton siaran YouTube di sini</button>
+          <div id="stream-player"></div>
+          <a id="video" class="tool-primary" hidden target="_blank" rel="noopener noreferrer" data-en="Join the video meeting ↗">Sertai mesyuarat video ↗</a>
+        </section>
+        <section class="tool-card"><h2 data-en="Speaker queue">Giliran berucap</h2><ol id="speakers"></ol><p id="empty-queue" data-en="The queue is empty.">Belum ada ahli dalam giliran.</p>
+          <p id="attend-note" hidden data-en="Check in through the AGM hall to request the floor.">Daftar hadir di dewan AGM untuk menyertai giliran.</p>
+          <div class="tool-actions"><button class="tool-primary" type="button" id="join" data-en="Request the floor">Mohon berucap</button><button type="button" id="withdraw" hidden data-en="Leave queue">Tarik diri</button></div>
+        </section>
+        <section class="tool-card" id="chair" hidden><h2 data-en="Chair controls">Kawalan pengerusi</h2>
+          <div class="tool-actions"><button id="call" type="button" data-en="Call next speaker">Panggil ahli berikut</button><button id="finish" type="button" data-en="End speaker’s turn">Tamatkan giliran</button></div>
+          <form id="caption-form"><label for="caption-input" data-en="Caption to share with the room">Sari kata untuk dikongsi dengan dewan</label><textarea id="caption-input" maxlength="500" rows="2"></textarea><button type="submit" data-en="Publish caption">Paparkan sari kata</button></form>
+          <form id="link-form"><label for="link-input" data-en="Meet, Zoom, Teams or YouTube Live link">Pautan Meet, Zoom, Teams atau YouTube Live</label><input id="link-input" type="url" maxlength="2048" placeholder="https://"><button type="submit" data-en="Save video link">Simpan pautan video</button></form>
+        </section>
+        <section class="tool-card"><h2 data-en="Meeting records">Rekod mesyuarat</h2><p data-en="Attendance, eligible ballots and minuted resolutions are recorded in the AGM hall.">Kehadiran, undi ahli yang layak dan resolusi direkodkan di dewan AGM.</p><a id="ballot-link" href="/app.html#/agm" data-en="Open the hall →">Buka dewan →</a></section>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;background:#f8fafc;border-radius:8px;padding:1rem;">
-        <div style="text-align:center;">
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Ya</div>
-          <div style="font-size:1.5rem;font-weight:700;color:#16a34a;" id="live-tally-ya">0</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Tidak</div>
-          <div style="font-size:1.5rem;font-weight:700;color:#dc2626;" id="live-tally-tidak">0</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Kecuali</div>
-          <div style="font-size:1.5rem;font-weight:700;color:#f59e0b;" id="live-tally-kecuali">0</div>
-        </div>
-      </div>
-      <div id="live-vote-notice" style="margin-top:1rem;font-size:0.875rem;"></div>
-    </section>
-
-    <!-- Live Notices -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-top:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Notis Langsung</h2>
-      <div id="live-notices" style="max-height:300px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:6px;padding:0.75rem;background:#f8fafc;">
-        <div style="font-size:0.875rem;color:#64748b;">Belum ada notis.</div>
-      </div>
-    </section>
-
-    <!-- Encryption & Key Management -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-top:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Penyulitan &amp; Pengurusan Kunci</h2>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-        <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Status Penyulitan</div>
-        <div style="font-size:1rem;font-weight:700;color:#1e293b;" id="live-encryption-status">Belum tersulit</div>
-      </div>
-      <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;">
-        <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Kunci</div>
-        <div style="font-size:0.875rem;color:#374151;word-break:break-all;" id="live-encryption-key">—</div>
-      </div>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <button id="live-gen-key" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Jana Kunci</button>
-        <button id="live-rotate-key" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#64748b;color:#fff;font-size:0.875rem;cursor:pointer;">Putar Kunci</button>
-        <button id="live-encrypt-minutes" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#16a34a;color:#fff;font-size:0.875rem;cursor:pointer;">Sulitkan Minit</button>
-      </div>
-      <div id="live-encryption-notice" style="margin-top:0.5rem;font-size:0.875rem;"></div>
-    </section>
-
-    <!-- Security Testing -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-top:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Ujian Keselamatan</h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">SSL/TLS</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-security-ssl">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">CSP</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-security-csp">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Security Headers</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-security-headers">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Vulnerability Scan</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-security-vuln">—</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-        <button id="live-security-test" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#dc2626;color:#fff;font-size:0.875rem;cursor:pointer;">Jalankan Ujian Keselamatan</button>
-      </div>
-      <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Last Test</div>
-      <div style="font-size:0.875rem;color:#374151;" id="live-security-last-test">—</div>
-      <div id="live-security-notice" style="margin-top:0.5rem;font-size:0.875rem;"></div>
-    </section>
-
-    <!-- Warranty -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-top:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Jaminan Kebebasan dan Keselamatan</h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Uptime</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-warranty-uptime">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Data Sovereignty</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-warranty-data-sov">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">No Vendor Lock-in</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-warranty-no-lock">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Open Source</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-warranty-open-src">—</div>
-        </div>
-        <div>
-          <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Data Portability</div>
-          <div style="font-size:0.875rem;color:#374151;" id="live-warranty-data-port">—</div>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;">
-        <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Status</div>
-        <div style="font-size:0.875rem;font-weight:700;" id="live-warranty-status">—</div>
-      </div>
-      <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-        <button id="live-warranty-check" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#64748b;color:#fff;font-size:0.875rem;cursor:pointer;">Semak Jaminan</button>
-      </div>
-      <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Last Check</div>
-      <div style="font-size:0.875rem;color:#374151;" id="live-warranty-last-check">—</div>
-      <div id="live-warranty-notice" style="margin-top:0.5rem;font-size:0.875rem;"></div>
-    </section>
-
-    <!-- Audit Trail -->
-    <section style="border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;margin-top:1.5rem;background:#fff;">
-      <h2 style="margin-top:0;font-size:1rem;color:#374151;">Rantaian Audit</h2>
-      <div id="live-audit-trail" style="max-height:300px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:6px;padding:0.75rem;background:#f8fafc;">
-        <div style="font-size:0.875rem;color:#64748b;">Tiada peristiwa audit.</div>
-      </div>
-      <div style="margin-top:0.5rem;">
-        <button id="live-generate-minutes" style="padding:0.5rem 1rem;border:none;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Jana Minit</button>
-        <div id="live-minutes-status" style="margin-top:0.5rem;font-size:0.875rem;color:#64748b;">Minit belum dijana</div>
-      </div>
-    </section>
+      <p class="tool-status" id="room-status" role="status"></p>
+    </div>
   </main>
-  <script type="module">
-    import { AGMX_API } from './supabase-client.js';
-    import AGMX_LIVE_MEETING from './live-meeting.js';
-
-    // Chair-only controls. The governance function rejects these for anyone who
-    // is not admin or secretary (403 "Operator access required"), so this list
-    // mirrors that rule to disable the buttons instead of letting a member press
-    // them and collect an error. It is presentation only; the server decides.
-    const OPERATOR_CONTROLS = [
-      'live-start-voting',
-      'live-call-speaker',
-      'live-encrypt-minutes',
-      'live-gen-key',
-      'live-rotate-key',
-    ];
-
-    let isOperator = false;
-
-    const ctx = {
-      api: AGMX_API,
-      isAuthenticated: () => AGMX_API.isAuthenticated(),
-      // Was hardcoded to true, which asserted an authority the caller may not
-      // have and would have gated real controls the day anything read it.
-      isAdmin: () => isOperator,
-      currentUser: null,
-    };
-
-    function applyRole() {
-      for (const id of OPERATOR_CONTROLS) {
-        const control = document.getElementById(id);
-        if (control && !isOperator) {
-          control.disabled = true;
-          control.title = 'Hanya pengerusi atau setiausaha boleh menggunakan kawalan ini.';
-        }
-      }
-    }
-
-    async function init() {
-      if (!AGMX_API || !(await AGMX_API.isAuthenticated())) {
-        document.getElementById('live-quorum-pct').textContent = 'Sila log masuk';
-        return;
-      }
-
-      const profile = await AGMX_API.profile.getCurrent();
-      const agm = await AGMX_API.governance.current();
-
-      const role = String(profile?.data?.role || '').toLowerCase();
-      isOperator = role === 'admin' || role === 'secretary' || role.includes('administrator');
-      // A member is their own name or nothing — never a stand-in chair.
-      ctx.currentUser = profile?.data
-        ? { name: profile.data.full_name || '', id: profile.data.id }
-        : null;
-
-      if (agm && agm.agm) {
-        currentAgm = agm.agm;
-        document.getElementById('live-quorum-pct').textContent = agm.agm.quorum_pct ? agm.agm.quorum_pct + '%' : '—';
-      }
-
-      AGMX_LIVE_MEETING.init(ctx, currentAgm || { id: 'live-agm', title: 'Live AGM' });
-      applyRole();
-    }
-
-    let currentAgm = null;
-    init();
-  </script>
-</body>
-</html>
+</body></html>

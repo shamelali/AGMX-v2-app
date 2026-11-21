@@ -39,8 +39,7 @@ function check(cond, label) {
 const { db, stats: first } = await bootDatabase();
 check(first.statements > 150,
   `first paste ran only ${first.statements} statements — the bundle was not applied in full`);
-check(first.skippedSections.join() === "0002_knowledge.sql,0011_knowledge_embedding_halfvec2048.sql",
-  `skipped sections were ${first.skippedSections.join()}, expected only the pgvector knowledge sections`);
+check(first.skippedSections.length === 0, "every migration section, including pgvector, was applied");
 
 const rest = makeRestClient(db);
 
@@ -120,7 +119,7 @@ check(second.statements === first.statements,
   `the second paste applied ${second.statements} statements against ${first.statements} on the first — a rerun must repeat the file, not trim it`);
 check(second.skippedSections.join() === first.skippedSections.join()
   && second.skippedStatements.length === first.skippedStatements.length,
-  "the second paste skipped a different set of pgvector statements than the first");
+  "the second paste skipped a different set of optional statements than the first");
 
 const after = await fingerprint();
 const drift = Object.keys(before).filter((k) => before[k] !== after[k]);

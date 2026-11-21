@@ -90,24 +90,25 @@ async function handleAgmCurrent(ctx: any) {
   if (error) return err(error.message, 500)
   if (!agm) return ok({ agm: null, agenda: [], motions: [], resolutions: [] })
 
-  const { data: agenda } = await supabase
+  const { data: agenda, error: agendaError } = await supabase
     .from("agenda_items")
     .select("*")
     .eq("agm_id", agm.id)
     .order("sort_order")
 
-  const { data: motions } = await supabase
+  const { data: motions, error: motionsError } = await supabase
     .from("motions")
     .select("*, proposer:members!motions_proposer_id_fkey(id, name, member_no), seconder:members!motions_seconder_id_fkey(id, name, member_no)")
     .eq("agm_id", agm.id)
     .order("created_at")
 
-  const { data: resolutions } = await supabase
+  const { data: resolutions, error: resolutionsError } = await supabase
     .from("resolutions")
     .select("*")
     .eq("agm_id", agm.id)
     .order("minuted_at", { ascending: false })
 
+  if (agendaError || motionsError || resolutionsError) return err("Meeting records could not be read", 500)
   return ok({ agm, agenda: agenda || [], motions: motions || [], resolutions: resolutions || [] })
 }
 
@@ -185,12 +186,13 @@ async function handleAuditList(agmId: string, ctx: any) {
   const agm = await loadAgmOrg(agmId, ctx)
   if (!agm) return err("AGM not found", 404)
 
-  const { data: events } = await supabase
+  const { data: events, error } = await supabase
     .from("audit_events")
     .select("*")
     .eq("organization_id", agm.organization_id)
     .order("occurred_at", { ascending: false })
     .limit(200)
+  if (error) return err("Audit records could not be read", 500)
   return ok({ events: events || [] })
 }
 
@@ -221,12 +223,13 @@ async function handleComplianceList(agmId: string, ctx: any) {
 }
 
 async function handleDocuments(ctx: any) {
-  const { data: documents } = await supabase
+  const { data: documents, error } = await supabase
     .from("documents")
     .select("*")
     .eq("organization_id", ctx.profile.organization_id)
     .order("created_at", { ascending: false })
     .limit(200)
+  if (error) return err("Could not read the organisation’s document register", 500)
   return ok({ documents: documents || [] })
 }
 

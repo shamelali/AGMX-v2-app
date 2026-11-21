@@ -21,13 +21,9 @@
  *   SUPABASE_SECRET_KEY   service-role key (writes bypass RLS by design)
  *
  * Embeddings come from the same providers the Edge Functions use:
- *   LLM_PROVIDER=nvidia  → NVIDIA_NIM_API_KEY or NGC_API_KEY (1024 dims)
- *   LLM_PROVIDER=openai  → OPENAI_API_KEY (requested at 1024 dims)
- *
- * The embedding is 1024 wide because public.knowledge_chunks declares
- * vector(1024). _shared/llm.ts asks OpenAI for 3072, so an OpenAI-backed ingest
- * through the Edge Function would fail this column; requesting 1024 here keeps
- * the vector the schema actually has.
+ *   LLM_PROVIDER=nvidia  → NVIDIA_NIM_API_KEY or NGC_API_KEY
+ *   LLM_PROVIDER=openai  → OPENAI_API_KEY
+ * Stored vectors follow the same halfvec(2048) contract as the query service.
  *
  * Notes are deduplicated by SHA-256, so re-running only re-embeds what changed.
  * Nothing is deleted unless --prune is passed, and --prune only removes rows
@@ -38,10 +34,12 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
+import { embeddingRequest, storageVector } from "../supabase/functions/_shared/embeddings.mjs";
+
 const CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
 const MAX_CHUNKS_PER_NOTE = 400;
-const EMBEDDING_DIMS = 1024;
+
 const CONCURRENCY = 3;
 
 const args = process.argv.slice(2);
@@ -93,7 +91,7 @@ function llm() {
 const LLM = llm();
 
 async function embed(text) {
-  const body = { model: LLM.model, input: text, dimensions: EMBEDDING_DIMS };
+  const body = embeddingRequest(LLM.provider, LLM.model, text, "passage");
   const response = await fetch(`${LLM.baseUrl}/embeddings`, {
     method: "POST",
     headers: { Authorization: `Bearer ${LLM.key}`, "Content-Type": "application/json" },
@@ -101,12 +99,8 @@ async function embed(text) {
   });
   if (!response.ok) throw new Error(`${LLM.provider} embedding failed (${response.status}): ${await response.text()}`);
   const payload = await response.json();
-  const vector = payload?.data?.[0]?.embedding;
-  if (!Array.isArray(vector)) throw new Error("embedding response carried no vector");
-  if (vector.length !== EMBEDDING_DIMS) {
-    throw new Error(`embedding is ${vector.length}-dimensional, but knowledge_chunks declares vector(${EMBEDDING_DIMS})`);
-  }
-  return vector;
+  const expected = LLM.provider === "nvidia" ? Number(process.env.NVIDIA_NIM_EMBEDDING_DIMS || 1024) : body.dimensions;
+  return storageVector(payload?.data?.[0]?.embedding, expected);
 }
 
 function rest(path, init = {}) {
