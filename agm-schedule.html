@@ -38,7 +38,7 @@
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
             <div>
-              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Tarikh dan Masa <span style="color:#dc2626;">*</span></label>
+              <label style="display:block;font-size:0.875rem;font-weight:600;color:#4b5563;margin-bottom:0.25rem;">Tarikh dan Masa (MYT) <span style="color:#dc2626;">*</span></label>
               <input type="datetime-local" id="scheduledAt" required style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;">
             </div>
             <div>
@@ -90,6 +90,7 @@
       <p id="createMsg" style="margin-top:1rem;font-size:0.875rem;color:#64748b;"></p>
     </form>
   </main>
+  <script src="/config.js"></script>
   <script type="module">
     import { AGMX_API } from './supabase-client.js';
 
@@ -125,7 +126,7 @@
       msg.textContent = '';
 
       try {
-        if (!AGMX_API || !AGMX_API.isAuthenticated()) {
+        if (!AGMX_API || !(await AGMX_API.isAuthenticated())) {
           msg.textContent = 'Sila log masuk terlebih dahulu.';
           msg.style.color = '#dc2626';
           return;
@@ -134,12 +135,12 @@
         const agm = {
           title: document.getElementById('title').value.trim(),
           edition: parseInt(document.getElementById('edition').value, 10),
-          fiscal_year: document.getElementById('fiscalYear').value.trim() || null,
-          scheduled_at: document.getElementById('scheduledAt').value,
+          fiscalYear: document.getElementById('fiscalYear').value.trim() || null,
+          scheduledAt: new Date(document.getElementById('scheduledAt').value + '+08:00').toISOString(),
           venue: document.getElementById('venue').value.trim() || null,
           mode: document.getElementById('mode').value,
-          quorum_pct: parseFloat(document.getElementById('quorumPct').value),
-          notice_days: parseInt(document.getElementById('noticeDays').value, 10)
+          quorumPct: parseFloat(document.getElementById('quorumPct').value),
+          noticeDays: parseInt(document.getElementById('noticeDays').value, 10)
         };
 
         const result = await AGMX_API.governance.createAgm(agm);

@@ -199,8 +199,9 @@
       </div>
     </section>
   </main>
+  <script src="/config.js"></script>
   <script type="module">
-    import { AGMX_API } from './supabase-client.js';
+    import { AGMX_API, profile as profiles } from './supabase-client.js';
     import AGMX_LIVE_MEETING from './live-meeting.js';
 
     // Chair-only controls. The governance function rejects these for anyone who
@@ -229,9 +230,9 @@
     function applyRole() {
       for (const id of OPERATOR_CONTROLS) {
         const control = document.getElementById(id);
-        if (control && !isOperator) {
-          control.disabled = true;
-          control.title = 'Hanya pengerusi atau setiausaha boleh menggunakan kawalan ini.';
+        if (control) {
+          control.disabled = !isOperator;
+          control.title = isOperator ? '' : 'Hanya pengerusi atau setiausaha boleh menggunakan kawalan ini.';
         }
       }
     }
@@ -242,7 +243,7 @@
         return;
       }
 
-      const profile = await AGMX_API.profile.getCurrent();
+      const profile = await profiles.getCurrent();
       const agm = await AGMX_API.governance.current();
 
       const role = String(profile?.data?.role || '').toLowerCase();
@@ -257,12 +258,21 @@
         document.getElementById('live-quorum-pct').textContent = agm.agm.quorum_pct ? agm.agm.quorum_pct + '%' : '—';
       }
 
-      AGMX_LIVE_MEETING.init(ctx, currentAgm || { id: 'live-agm', title: 'Live AGM' });
+      if (!currentAgm) {
+        document.getElementById('live-quorum-pct').textContent = 'Tiada AGM semasa';
+        isOperator = false;
+        applyRole();
+        return;
+      }
+      AGMX_LIVE_MEETING.init(ctx, currentAgm);
       applyRole();
     }
 
     let currentAgm = null;
-    init();
+    applyRole();
+    init().catch(() => {
+      document.getElementById('live-quorum-pct').textContent = 'Gagal memuatkan AGM';
+    });
   </script>
 </body>
 </html>

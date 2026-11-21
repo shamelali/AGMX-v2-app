@@ -26,7 +26,7 @@
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Nama Mitra</div><div style="font-weight:600;color:#1e293b;" id="partnerName">-</div></div>
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">E-mel</div><div style="font-weight:600;color:#1e293b;" id="partnerEmail">-</div></div>
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Status</div><div style="font-weight:600;color:#16a34a;" id="partnerStatus">Aktif</div></div>
-          <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Komisen</div><div style="font-weight:600;color:#1e293b;" id="partnerCommission">0%</div></div>
+          <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Komisen</div><div style="font-weight:600;color:#1e293b;" id="partnerCommission">—</div></div>
         </div>
       </div>
     </section>
@@ -49,8 +49,9 @@
       </div>
     </section>
   </main>
+  <script src="/config.js"></script>
   <script type="module">
-    import { AGMX_API } from './supabase-client.js';
+    import { AGMX_API, profile as profiles, db } from './supabase-client.js';
 
     const partnerName = document.getElementById('partnerName');
     const partnerEmail = document.getElementById('partnerEmail');
@@ -72,14 +73,18 @@
           return;
         }
 
-        const profile = await AGMX_API.profile.getCurrent();
-        const orgId = profile?.organization?.id;
+        const { data: profile, error: profileError } = await profiles.getCurrent();
+        if (profileError) throw profileError;
 
         const [partners, partnerLinks] = await Promise.all([
-          AGMX_API.distribution.getPartners(),
-          AGMX_API.distribution.getPartnerLinks(),
+          db.distribution.getPartners(),
+          db.distribution.getPartnerLinks(),
         ]);
+        const partnersById = new Map(partners.map((partner) => [partner.id, partner]));
 
+        if (partners.length === 1) {
+          document.getElementById('partnerCommission').textContent = `${Number(partners[0].commission_pct).toFixed(1)}%`;
+        }
         partnerLoading.style.display = 'none';
 
         if (profile) {
@@ -98,10 +103,10 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;font-weight:500;color:#374151;">${escapeHtml(link.reference_code || link.id || '-')}</td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(link.cooperative_name || '-')}</td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;background:#dcfce7;color:#166534">${escapeHtml(link.status || 'active')}</span></td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;">${Number(link.commission_pct || 0).toFixed(1)}%</td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${link.created_at ? new Date(link.created_at).toLocaleDateString('ms-MY') : '—'}</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(link.organization_id || '-')}</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;background:#dcfce7;color:#166534">${escapeHtml(partnersById.get(link.partner_id)?.status || '—')}</span></td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;">${Number(link.commission_earned).toLocaleString('ms-MY', { style: 'currency', currency: 'MYR' })}</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${link.referred_at ? new Date(link.referred_at).toLocaleDateString('ms-MY') : '—'}</td>
           `;
           tableBody.appendChild(tr);
         }
