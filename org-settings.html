@@ -217,8 +217,9 @@
       Kembali ke <a href="white-label-portal.html" style="color:#2563EB;text-decoration:none;">Portal Tersuai</a>
     </p>
   </main>
+  <script src="/config.js"></script>
   <script type="module">
-    import { AGMX_API } from './supabase-client.js';
+    import { AGMX_API, profile as profiles, supabase } from './supabase-client.js';
 
     const preview = document.getElementById('wlPreview');
     const previewLogo = document.getElementById('wlPreviewLogo');
@@ -286,7 +287,8 @@
           return;
         }
 
-        const profile = await AGMX_API.profile.getCurrent();
+        const { data: profile, error: profileError } = await profiles.getCurrent();
+        if (profileError) throw profileError;
         if (!profile || !profile.organization) {
           document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Tiada Organisasi</h2><p>Akaun anda belum dikaitkan dengan organisasi manapun.</p></div>';
           return;
@@ -356,50 +358,22 @@
           const ext = file.name.split('.').pop().toLowerCase();
           const storagePath = `${currentOrg.id}/logo.${ext}`;
 
-          const uploadResp = await fetch(
-            `https://jchfalaibabmszewemat.supabase.co/storage/v1/object/coop-logos/${storagePath}`,
-            {
-              method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
-                'apikey': "", // ← PASTE YOUR ANON KEY FROM SUPABASE DASHBOARD HERE (Settings → API)
-                'Content-Type': file.type,
-                'x-upsert': 'true'
-              },
-              body: file
-            }
-          );
-
-          if (!uploadResp.ok) {
-            const err = await uploadResp.text().catch(() => '');
-            throw new Error('Gagal muat naik logo: ' + err);
-          }
-
-          logoUrl = `https://jchfalaibabmszewemat.supabase.co/storage/v1/object/public/coop-logos/${storagePath}`;
+          const bucket = supabase.storage.from('coop-logos');
+          const { error } = await bucket.upload(storagePath, file, {
+            upsert: true,
+            contentType: file.type,
+          });
+          if (error) throw new Error('Gagal muat naik logo: ' + error.message);
+          logoUrl = bucket.getPublicUrl(storagePath).data.publicUrl;
         }
 
-        // Update organization record
-        const updateResp = await fetch(
-          `https://jchfalaibabmszewemat.supabase.co/rest/v1/organizations?id=eq.${currentOrg.id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
-              'apikey': "", // ← PASTE YOUR ANON KEY FROM SUPABASE DASHBOARD HERE (Settings → API)
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            },
-            body: JSON.stringify({
-              logo_url: logoUrl,
-              primary_color: colorInput.value
-            })
-          }
-        );
-
-        if (!updateResp.ok) {
-          const err = await updateResp.text().catch(() => '');
-          throw new Error('Gagal simpan tetapan: ' + err);
-        }
+        const { data: updated, error: updateError } = await supabase
+          .from('organizations')
+          .update({ logo_url: logoUrl, primary_color: colorInput.value })
+          .eq('id', currentOrg.id)
+          .select('id, logo_url, primary_color')
+          .single();
+        if (updateError) throw new Error('Gagal simpan tetapan: ' + updateError.message);
 
         hasChanges = false;
         saveBtn.disabled = true;
@@ -407,8 +381,7 @@
         showStatus('Tetapan organisasi telah disimpan.', 'success');
 
         // Refresh preview
-        const updated = await updateResp.json();
-        currentOrg = { ...currentOrg, logo_url: logoUrl, primary_color: colorInput.value };
+        currentOrg = { ...currentOrg, ...updated };
         updatePreview();
 
       } catch (e) {

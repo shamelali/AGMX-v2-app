@@ -42,7 +42,7 @@
         <div style="font-size:2rem;margin-bottom:0.5rem;">📄</div>
         <div style="font-weight:600;color:#374151;">Tiada Langganan Aktif</div>
         <p style="color:#64748b;font-size:0.875rem;margin-top:0.5rem;">Belum ada langganan DutaGovern. Sila buat sebut harga AGM terlebih dahulu.</p>
-        <a href="/checkout.html" style="color:#2563EB;text-decoration:none;font-weight:500;">Buat sebut harga &rarr;</a>
+        <a href="/assessment.html" style="color:#2563EB;text-decoration:none;font-weight:500;">Buat sebut harga &rarr;</a>
       </div>
     </section>
 
@@ -52,9 +52,9 @@
         <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
           <thead>
             <tr style="background:#f8fafc;">
-              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Nombor Invois</th>
+              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Rujukan invois</th>
               <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Diterbitkan</th>
-              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Tamat Tempoh</th>
+              <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Akhir tempoh bil</th>
               <th style="padding:0.75rem;text-align:right;border-bottom:1px solid #e5e7eb;color:#64748b;">Jumlah</th>
               <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Status</th>
             </tr>
@@ -64,107 +64,103 @@
       </div>
     </section>
   </main>
+  <script src="/config.js"></script>
   <script type="module">
-    import { AGMX_COMMERCE } from './api.js';
+    import { AGMX_API, auth, profile, supabase } from './supabase-client.js';
 
-    const API = AGMX_COMMERCE;
-    const subCard = document.getElementById('subCard');
-    const noSub = document.getElementById('noSubscription');
-    const subLoading = document.getElementById('subLoading');
-    const riSection = document.getElementById('riSection');
-    const riTableBody = document.getElementById('riTableBody');
+    const loading = document.getElementById('subLoading');
+    const cancel = document.getElementById('btnCancel');
+    const generate = document.getElementById('btnGenInv');
+    const date = (value) => value ? new Date(value).toLocaleDateString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }) : '—';
+    const money = new Intl.NumberFormat('ms-MY', { style: 'currency', currency: 'MYR' });
+
+    async function mutate(path, input) {
+      const { session, error } = await auth.getSession();
+      if (error || !session) throw new Error('Sila log masuk semula.');
+      const { supabaseUrl, supabaseAnonKey } = AGMX_API.config;
+      const response = await fetch(`${supabaseUrl}/functions/v1/money-flow/${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(input),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Tindakan tidak dapat diselesaikan.');
+    }
+
+    function bindAction(button, action) {
+      button.onclick = async () => {
+        cancel.disabled = generate.disabled = true;
+        try {
+          await action();
+          location.reload();
+        } catch (error) {
+          alert(error.message);
+          cancel.disabled = generate.disabled = false;
+        }
+      };
+    }
 
     async function load() {
-      try {
-        if (!API || !API.isAuthenticated) {
-          subLoading.textContent = 'Sila log masuk terlebih dahulu.';
-          return;
-        }
-
-        const isAuth = await API.isAuthenticated();
-        if (!isAuth) {
-          subLoading.textContent = 'Sesi tidak sah. Sila log masuk.';
-          return;
-        }
-
-        /* Get the lead to find subscription reference */
-        const lead = await API.getAssessment();
-        if (!lead) {
-          subLoading.textContent = 'Tiada penilaian jumpa.';
-          return;
-        }
-
-        const subId = lead.subscriptionId;
-        subLoading.style.display = 'none';
-
-        if (!subId) {
-          noSub.style.display = 'block';
-          return;
-        }
-
-        /* Load subscription details */
-        const sub = await API.getSubscription(subId);
-        if (!sub) {
-          subLoading.textContent = 'Gagal memuatkan butiran langganan.';
-          return;
-        }
-
-        subCard.style.display = 'block';
-        riSection.style.display = 'block';
-
-        document.getElementById('subPlan').textContent = sub.planName || sub.planKey;
-        document.getElementById('subStatus').textContent = sub.status;
-        document.getElementById('subCycle').textContent = sub.billingCycle;
-        document.getElementById('subStart').textContent = sub.currentPeriodStart ? new Date(sub.currentPeriodStart).toLocaleDateString('ms-MY') : '—';
-        document.getElementById('subEnd').textContent = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString('ms-MY') : '—';
-        document.getElementById('subAutoRenew').textContent = sub.autoRenew ? 'Ya' : 'Tidak';
-
-        /* Cancel button */
-        document.getElementById('btnCancel').onclick = async () => {
-          if (!confirm('Batalkan langganan ini? Akses kekal sehingga tamat tempoh bil semasa.')) return;
-          try {
-            await API.cancelSubscription(sub.id);
-            alert('Langganan dibatalkan.');
-            location.reload();
-          } catch (e) {
-            alert('Ralat: ' + e.message);
-          }
-        };
-
-        /* Generate recurring invoice */
-        document.getElementById('btnGenInv').onclick = async () => {
-          try {
-            const inv = await API.generateRecurringInvoice(sub.id);
-            alert('Bil ' + inv.number + ' diterbitkan.');
-            location.reload();
-          } catch (e) {
-            alert('Ralat: ' + e.message);
-          }
-        };
-
-        /* Render recurring invoices */
-        const rows = (sub.recurringInvoices || []).map((ri) => {
-          const statusClass = ri.status === 'paid' ? 'success' : ri.status === 'pending' ? 'warning' : 'text';
-          return `<tr>
-            <td>${escapeHtml(ri.number || '—')}</td>
-            <td class="num">${ri.issuedAt ? new Date(ri.issuedAt).toLocaleDateString('ms-MY') : '—'}</td>
-            <td class="num">${ri.dueAt ? new Date(ri.dueAt).toLocaleDateString('ms-MY') : '—'}</td>
-            <td class="num" style="text-align:right">RM ${Number(ri.amount || 0).toLocaleString('ms-MY', {minimumFractionDigits:2})}</td>
-            <td><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;background:var(--c-${statusClass}-100);color:var(--c-${statusClass}-700)">${ri.status}</span></td>
-          </tr>`;
-        }).join('');
-        riTableBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:var(--c-text-3);padding:20px">Tiada bil bertolak ansur lagi.</td></tr>`;
-
-      } catch (e) {
-        subLoading.textContent = 'Ralat memuatkan: ' + (e.message || e);
+      const { data: currentProfile, error: profileError } = await profile.getCurrent();
+      if (profileError || !currentProfile?.organization_id) throw new Error('Profil organisasi tidak tersedia. Sila log masuk.');
+      const { data: sub, error } = await supabase.from('subscriptions')
+        .select('id,status,billing_cycle,current_period_start,current_period_end,auto_renew,plan:plans(name)')
+        .eq('organization_id', currentProfile.organization_id)
+        .in('status', ['trialing', 'active', 'past_due'])
+        .maybeSingle();
+      if (error) throw error;
+      if (!sub) {
+        loading.hidden = true;
+        document.getElementById('noSubscription').style.display = 'block';
+        return;
       }
+
+      const { data: rows, error: rowsError } = await supabase.from('recurring_invoices')
+        .select('id,status,total,period_end,scheduled_for,generated_at,invoice_id')
+        .eq('subscription_id', sub.id)
+        .order('scheduled_for', { ascending: false });
+      if (rowsError) throw rowsError;
+
+      const fields = {
+        subPlan: sub.plan?.name, subStatus: sub.status, subCycle: sub.billing_cycle,
+        subStart: date(sub.current_period_start), subEnd: date(sub.current_period_end),
+        subAutoRenew: sub.auto_renew ? 'Ya' : 'Tidak',
+      };
+      for (const [id, value] of Object.entries(fields)) document.getElementById(id).textContent = value || '—';
+
+      const invoiceDue = rows.find((row) => row.status === 'scheduled' && new Date(row.scheduled_for) <= new Date());
+      const operator = /^(admin|secretary)$/.test(currentProfile.role);
+      cancel.hidden = !operator || !sub.auto_renew;
+      generate.hidden = !operator || !invoiceDue;
+      bindAction(cancel, () => mutate('subscription/cancel', { subscriptionId: sub.id }));
+      cancel.addEventListener('click', (event) => {
+        if (!confirm('Batalkan pembaharuan langganan ini?')) event.stopImmediatePropagation();
+      }, { capture: true });
+      if (invoiceDue) bindAction(generate, () => mutate('subscription/recurring-invoice/generate', { recurringInvoiceId: invoiceDue.id }));
+
+      document.getElementById('ri-table-body').innerHTML = rows.map((row) => `<tr>
+        <td>${escapeHtml(row.invoice_id || '—')}</td>
+        <td>${date(row.generated_at)}</td>
+        <td>${date(row.period_end)}</td>
+        <td>${money.format(row.total)}</td>
+        <td>${escapeHtml(row.status)}</td>
+      </tr>`).join('') || '<tr><td colspan="5">Tiada invois berulang.</td></tr>';
+      loading.hidden = true;
+      document.getElementById('subCard').style.display = 'block';
+      document.getElementById('ri-section').style.display = 'block';
     }
 
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
     }
 
-    load();
+    load().catch((error) => {
+      loading.textContent = 'Gagal memuatkan langganan: ' + error.message;
+    });
   </script>
 </body>
 </html>

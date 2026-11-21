@@ -45,7 +45,7 @@
     <div style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
       <div style="padding:1rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-weight:600;color:#374151;">Daftar Ahli</span>
-        <input type="text" id="memberSearch" placeholder="Cari nama atau ID ahli..." style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;min-width:220px;">
+        <input type="text" id="memberSearch" disabled placeholder="Cari nama atau ID ahli..." style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;min-width:220px;">
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
         <thead>
@@ -64,8 +64,9 @@
     </div>
     <p id="emptyMsg" style="color:#666;margin-top:1rem;display:none;">Tiada ahli yang dapati.</p>
   </main>
+  <script src="/config.js"></script>
   <script type="module">
-    import { AGMX_API } from './supabase-client.js';
+    import { AGMX_API, profile as profiles } from './supabase-client.js';
 
     const tableBody = document.getElementById('memberTableBody');
     const searchInput = document.getElementById('memberSearch');
@@ -80,13 +81,22 @@
     let members = [];
 
     async function load() {
-      if (!AGMX_API || !AGMX_API.isAuthenticated()) return;
-      const profile = await AGMX_API.profile.getCurrent();
-      const orgId = profile?.organization?.id;
-      if (!orgId) return;
+      try {
+        if (!(await AGMX_API.isAuthenticated())) throw new Error('Sila log masuk terlebih dahulu.');
+        const { data: profile, error: profileError } = await profiles.getCurrent();
+        if (profileError) throw profileError;
+        const orgId = profile?.organization?.id;
+        if (!orgId) throw new Error('Tiada organisasi ditemui.');
 
-      members = await AGMX_API.profile.getMembers(orgId) || [];
-      render();
+        const { data, error } = await profiles.getMembers(orgId);
+        if (error) throw error;
+        members = data || [];
+        searchInput.disabled = false;
+        render();
+      } catch (error) {
+        emptyMsg.textContent = error.message || 'Gagal memuatkan ahli.';
+        emptyMsg.style.display = 'block';
+      }
     }
 
     function render() {
