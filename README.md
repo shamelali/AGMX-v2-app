@@ -157,15 +157,20 @@ first, so never point them at production.
 
 ## Agent connectors
 
-`.mcp.json` is tracked and deliberately holds no credentials:
+The repository defines its MCP servers in `.mcp.json`. Codex reads the Supabase
+connection from `.codex/config.toml` when the checkout is trusted.
 
 | Server | What it is | Still needed |
 |---|---|---|
 | `playwright` | `npx @playwright/mcp@latest` driving local chromium — the only way to actually render `app.html` and the AGM Hall, which the 23 static passes cannot do | nothing; works offline |
 | `vercel` | `https://mcp.vercel.com` — deployment status, env vars, logs for `agmx-v2-app` | one-time OAuth consent in the CLI |
+| `github` | GitHub repository operations | `GITHUB_PERSONAL_ACCESS_TOKEN` in the local environment |
+| `supabase` | Hosted Supabase MCP scoped to AGMX (`jchfalaibabmszewemat`) | OAuth with the Supabase organization that owns AGMX |
 
-Supabase (project `jchfalaibabmszewemat`) is connected from the developer's own
-CLI config, not this file, so the access token never enters the repository.
+In a trusted AGMX checkout, run `codex mcp get supabase` to inspect the project
+URL and `codex mcp login supabase` to authorize your account. To verify access,
+ask Codex to list the applied migrations for this project.
+
 Checklist for anything else that needs a key — `SUPABASE_SECRET_KEY`, Billplz,
 HitPay — is in `VERCEL_ENV.md`.
 
