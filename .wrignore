@@ -48,6 +48,8 @@ patches/
 
 # Local tooling, repo metadata and machine-specific agent state
 .qoder/
+/.codex/
+/.mcp.json
 .wrignore
 deploy.sh
 worktree
