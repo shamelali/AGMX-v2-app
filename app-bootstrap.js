@@ -12,6 +12,24 @@
   const hook = (window.AGMX_BOOTSTRAP = window.AGMX_BOOTSTRAP || {});
 
   const APP_I18N = {
+    "Open AGM Hall": "Buka Dewan AGM",
+    "AGM schedule": "Jadual AGM",
+    "View members": "Lihat ahli",
+    "No current AGM": "Tiada AGM semasa",
+    "Check the schedule for upcoming meetings.": "Semak jadual untuk mesyuarat akan datang.",
+    "Attendance": "Kehadiran",
+    "Date and time": "Tarikh dan masa",
+    "Venue": "Tempat",
+    "Registration": "Pendaftaran",
+    "State / zone": "Negeri / zon",
+    "Role": "Peranan",
+    "Plan": "Pelan",
+    "Quorum requirement": "Syarat kuorum",
+    "Planned": "Dirancang",
+    "Live": "Sedang berlangsung",
+    "Closed": "Ditutup",
+    "Minuted": "Diminitkan",
+    "Meeting status unavailable": "Status mesyuarat tidak tersedia",
     "Loading AGMX": "Memuatkan AGMX",
     "Restoring your authenticated workspace…": "Memulihkan ruang kerja anda…",
     "AGMX login unavailable": "Log masuk AGMX tidak tersedia",
@@ -411,62 +429,103 @@
     return heading;
   }
 
-  function renderDashboard(content) {
-    const data = session.data;
-    const cooperative = data.cooperative || {};
-    const agm = data.agm || {};
-    const source = session.source;
-    const heading = node("div", "agmx-page-heading");
-    const title = node("div", "");
-    append(title, [
-      node("h1", "", "Dashboard"),
-      node("p", "", valueOf(cooperative.name, "Your cooperative workspace")),
-    ]);
-    heading.append(node("div", "", title), sourceBadge(source));
+  function dashboardLink(route, label, className = "") {
+    const link = node("a", `agmx-dashboard-link ${className}`.trim(), label);
+    link.href = routeHref(route);
+    return link;
+  }
 
-    const metrics = node("section", "agmx-metrics");
-    const quorum = numberOf(agm.quorumPct, numberOf(cooperative.quorumPct));
-    append(metrics, [
-      metric("Members", formatNumber(cooperative.members || (data.members || []).length), "Registered in this organization"),
-      metric("Quorum", `${quorum.toFixed(1)}%`, `${formatNumber(agm.quorumPresent)} present`),
-      metric("Current AGM", valueOf(agm.status, "Not available"), valueOf(agm.title, "No current AGM")),
-      metric("Plan", valueOf(cooperative.plan, "—"), "Organization subscription"),
-    ]);
-
-    const grid = node("div", "agmx-grid-two");
-    const agmCard = node("section", "agmx-card");
-    append(agmCard, [
-      cardHeading("Current AGM", "Read-only status from the authenticated workspace"),
-      node("dl", "agmx-detail-list", [
-        detailRow("Meeting", valueOf(agm.title)),
-        detailRow("Date and time", [valueOf(agm.date), valueOf(agm.time)].filter(Boolean).join(" · ") || "—"),
-        detailRow("Venue", valueOf(agm.venue)),
-        detailRow("Quorum", `${formatNumber(agm.quorumPresent)} / ${formatNumber(agm.totalMembers || cooperative.members)}`),
-      ]),
-    ]);
-    const orgCard = node("section", "agmx-card");
-    append(orgCard, [
-      cardHeading("Organization", "Authenticated tenant context"),
-      node("dl", "agmx-detail-list", [
-        detailRow("Organization", valueOf(cooperative.name)),
-        detailRow("Registration", valueOf(cooperative.registrationNo)),
-        detailRow("State / zone", [cooperative.state, cooperative.zone].filter(Boolean).join(" · ") || "—"),
-        detailRow("Role", valueOf((data.currentUser || {}).role, "Member")),
-      ]),
-    ]);
-    append(grid, [agmCard, orgCard]);
-
-    append(content, [heading]);
-    if (source === "demo") {
-      const banner = node("div", "agmx-demo-banner");
-      append(banner, [
-        node("strong", "", "Demo mode: "),
-        node("span", "", "these cooperative, AGM, and member values are simulated and are not live records."),
-      ]);
-      banner.setAttribute("role", "status");
-      content.appendChild(banner);
+  function dashboardMeetingDate(agm) {
+    const date = agm.date || "";
+    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+      const scheduled = new Date(date);
+      if (!Number.isNaN(scheduled.getTime())) {
+        return new Intl.DateTimeFormat(APP_LANG === "ms" ? "ms-MY" : "en-MY", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "Asia/Kuala_Lumpur",
+        }).format(scheduled);
+      }
     }
-    append(content, [metrics, grid]);
+    return [date, agm.time].filter(Boolean).join(" · ");
+  }
+
+  function renderDashboard(content) {
+    const { data, source } = session;
+    const cooperative = data.cooperative || {};
+    const agm = data.agm;
+    const dashboard = node("div", "agmx-dashboard");
+    const heading = node("header", "agmx-dashboard-heading", [
+      node("div", "", [
+        node("h1", "", "Dashboard"),
+        node("p", "", valueOf(cooperative.name, "Your cooperative workspace")),
+      ]),
+      sourceBadge(source),
+    ]);
+    const summary = node("div", "agmx-dashboard-summary");
+    const meeting = node("section", "agmx-dashboard-meeting");
+    const statuses = { planned: "Planned", live: "Live", closed: "Closed", minuted: "Minuted" };
+    const status = String(agm?.status || "").toLowerCase();
+
+    append(meeting, [
+      node("div", "agmx-dashboard-meeting-top", [
+        node("p", "agmx-dashboard-label", "Current AGM"),
+        agm && node("span", "agmx-dashboard-status", valueOf(statuses[status] || agm.status, "Meeting status unavailable")),
+      ]),
+      node("h2", "", valueOf(agm?.title, "No current AGM")),
+      agm
+        ? node("dl", "agmx-dashboard-meeting-details", [
+          detailRow("Date and time", dashboardMeetingDate(agm)),
+          detailRow("Venue", agm.venue),
+        ])
+        : node("p", "agmx-dashboard-meeting-empty", "Check the schedule for upcoming meetings."),
+      node("div", "agmx-dashboard-actions", [
+        agm && dashboardLink("agm", "Open AGM Hall", "is-primary"),
+        dashboardLink("agmSchedule", "AGM schedule"),
+      ]),
+    ]);
+
+    const attendance = node("section", "agmx-card agmx-dashboard-attendance");
+    const present = numberOf(agm?.quorumPresent);
+    const total = numberOf(agm?.totalMembers, numberOf(cooperative.members));
+    const hasAttendance = Boolean(agm && total > 0 && agm.quorumPresent != null);
+    const progress = hasAttendance ? node("progress", "agmx-dashboard-progress") : null;
+    if (progress) {
+      progress.max = total;
+      progress.value = present;
+      progress.setAttribute("aria-label", appText("Attendance"));
+    }
+    // Live data uses quorumPct for the requirement. Demo data uses it for actual attendance.
+    const requirement = source === "demo" ? cooperative.quorumPct : agm?.quorumPct;
+    append(attendance, [
+      node("h2", "", "Attendance"),
+      node("p", "agmx-dashboard-attendance-value", hasAttendance ? `${formatNumber(present)} / ${formatNumber(total)}` : "—"),
+      progress,
+      node("dl", "agmx-detail-list", [
+        detailRow("Quorum requirement", agm && requirement != null && requirement !== "" ? `${numberOf(requirement)}%` : "—"),
+      ]),
+    ]);
+    append(summary, [meeting, attendance]);
+
+    const members = metric("Members", formatNumber(cooperative.members ?? (data.members || []).length), "Registered in this organization");
+    members.classList.add("agmx-dashboard-members");
+    members.appendChild(dashboardLink("members", "View members"));
+    const organization = node("section", "agmx-card agmx-dashboard-organization", [
+      node("h2", "", "Organization"),
+      node("dl", "agmx-detail-list", [
+        detailRow("Registration", cooperative.registrationNo),
+        detailRow("State / zone", [cooperative.state, cooperative.zone].filter(Boolean).join(" · ")),
+        detailRow("Plan", cooperative.plan),
+        detailRow("Role", valueOf(data.currentUser?.role, "Member")),
+      ]),
+    ]);
+
+    append(dashboard, [
+      heading,
+      summary,
+      node("div", "agmx-dashboard-details", [members, organization]),
+    ]);
+    content.appendChild(dashboard);
   }
 
   function metric(label, value, detail) {
