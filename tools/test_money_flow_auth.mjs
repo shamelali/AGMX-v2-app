@@ -144,7 +144,30 @@ function makeClient(tables) {
     writes,
     tables,
     from: (table) => query(table),
-    rpc: async (name) => (name === "check_rate_limit" ? { data: true, error: null } : { data: null, error: null }),
+    rpc: async (name, args) => {
+      if (name === "check_rate_limit") return { data: true, error: null };
+      if (name === "atomic_settlement") {
+        const id = args?.p_payment_id;
+        const org = args?.p_operator_org;
+        const row = (tables.payments || []).find((p) => p.id === id);
+        if (!row) return { data: { error: "Payment not found" }, error: null };
+        /* The RPC's tenant boundary: the payment's own organisation must
+           match the operator's. Emulating it here is what lets the suite
+           prove the boundary still holds now that settlement runs in
+           Postgres rather than in the Edge Function. */
+        if (row.organization_id !== org) return { data: { error: "Forbidden", code: "FORBIDDEN" }, error: null };
+        if (row.status === "succeeded") {
+          return { data: { already_settled: true, payment_id: row.id, status: row.status }, error: null };
+        }
+        row.status = "succeeded";
+        row.paid_at = new Date().toISOString();
+        const inv = (tables.invoices || []).find((i) => i.id === row.invoice_id);
+        if (inv) { inv.status = "paid"; inv.paid_at = row.paid_at; }
+        writes.push({ table: "payments", op: "rpc:atomic_settlement", row });
+        return { data: { settled: true, payment_id: row.id, status: "succeeded" }, error: null };
+      }
+      return { data: null, error: null };
+    },
     auth: {
       getUser: async (token) => {
         if (!token || !token.startsWith("jwt-")) return { data: { user: null }, error: { message: "invalid token" } };
@@ -270,6 +293,16 @@ console.log("\n-- the owning cooperative still gets its own data");
   eq((await call("/lead/c1", { method: "GET", as: JWT_A })).status, 200, "GET /lead/c1 (unclaimed lead) still served");
   eq((await call("/quote", { as: JWT_A, body: { assessmentId: "a1", planCode: "professional_agm" } })).status, 201, "POST /quote on own assessment served");
   eq((await call("/quote", { as: JWT_A, body: { assessmentId: "c1", planCode: "professional_agm" } })).status, 201, "POST /quote on an unclaimed lead served");
+  /* Settlement is a tenant boundary too: the owning cooperative may settle
+     its own payment, a repeated confirmation is idempotent rather than an
+     error, and the payment and invoice move together. */
+  const settle = await call("/payment/manual-confirm", { as: JWT_A, body: { paymentId: "pa" } });
+  eq(settle.status, 200, "POST /payment/manual-confirm on own payment settles");
+  eq(client.tables.payments.find((p) => p.id === "pa").status, "succeeded", "own payment marked succeeded");
+  eq(client.tables.invoices.find((i) => i.id === "ia").status, "paid", "own invoice marked paid");
+  const settleAgain = await call("/payment/manual-confirm", { as: JWT_A, body: { paymentId: "pa" } });
+  eq(settleAgain.status, 200, "a repeated confirmation is idempotent, not an error");
+  eq(client.writes.filter((w) => w.op === "rpc:atomic_settlement").length, 1, "the repeat did not write a second settlement");
 }
 
 /* ---------- 4. prospects keep their own flow ---------- */
