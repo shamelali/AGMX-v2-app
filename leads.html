@@ -6,7 +6,6 @@
   <meta name="robots" content="noindex">
   <meta name="description" content="Lead Inbox AGMX — operasi jualan: penilaian, sebut harga, invois dan pembayaran AGM koperasi.">
   <title>Lead Inbox · AGMX Operasi</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/styles.css">
   <script src="/theme.js"></script>
   <style>
@@ -57,11 +56,16 @@
     .toast.show { opacity: 1; transform: translateY(0); }
     @media (max-width: 720px) { .as-card { padding: 16px; } .toolbar { justify-content: flex-start; } }
   </style>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png">
+  <link rel="apple-touch-icon" href="/images/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/brand.css">
 </head>
 <body>
   <header class="as-header">
     <div class="wrap">
-      <div class="as-brand"><span class="ag-badge">AG</span> Lead Inbox · Operasi AGMX</div>
+      <div class="as-brand"><img class="agmx-logo agmx-logo--header" src="/images/brand/agmx-logo.webp" alt="AGMX"> Lead Inbox · Operasi</div>
         <button type="button" id="lang-toggle" class="btn btn-ghost" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff;min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
       <div class="header-actions">
         <button class="backend-chip" id="backend-chip" title="Tukar backend">
@@ -130,7 +134,7 @@
 
 <script>
 (function () {
-  var MAP = {"Lead Inbox · Operasi AGMX": "Lead Inbox · AGMX Operations", "+ Penilaian Baharu": "+ New Assessment", "Penilaian Diterima": "Assessments Received", "Nilai Pipeline": "Pipeline Value", "sebut harga + anggaran belum diproses": "quotes + estimates pending", "Hasil Dikutip": "Revenue Collected", "pembayaran berjaya": "successful payments", "Kadar Tutup": "Close Rate", "dibayar ÷ sebut harga diterbitkan": "paid ÷ quotes issued", "Operasi Jualan": "Sales Operations", "Senarai Penilaian & Deal": "Assessments & Deals", "Setiap penilaian AGM dari laman awam muncul di sini. \"Proses\" membawa lead ke aliran sebut harga → invois → pembayaran.": "Every AGM assessment from the public site appears here. \"Process\" takes the lead through quote → invoice → payment.", "↻ Muat Semula": "↻ Reload", "⬇ Eksport CSV": "⬇ Export CSV", "⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca agm_assessments, quotes, invoices, payments).": "⚠️ Demo operations page — in production this is protected by auth + RLS (only AGMX operators can read agm_assessments, quotes, invoices, payments).", "Rekod Aktiviti Komersial": "Commercial Activity Log", "Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: rekod audit_events berantai-hash SHA-256 di pangkalan data Supabase projek ini.": "All sales-flow events (append-only). In production: SHA-256 hash-chained audit_events rows in this project's Supabase database.", "Status Backend": "Backend Status", "Memuat status…": "Loading status…", "Backend ditetapkan oleh deployment ini (/api/config.js) dan tidak boleh ditukar daripada pelayar. PocketBase telah bersara; rute aliran wang berada pada Edge Function money-flow di Supabase.": "The backend is set by this deployment (/api/config.js) and cannot be switched from the browser. PocketBase has been retired; the money-flow routes are the money-flow Edge Function on Supabase.", "Tutup": "Close", "Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di app.html — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.": "Operational data (inbox, metrics, audit) requires operator login (admin/secretary) at app.html — the session token is reused automatically. No secrets here.", "lead dari laman awam": "leads from the public site"};
+  var MAP = {"Lead Inbox · Operasi": "Lead Inbox · Operations", "+ Penilaian Baharu": "+ New Assessment", "Penilaian Diterima": "Assessments Received", "Nilai Pipeline": "Pipeline Value", "sebut harga + anggaran belum diproses": "quotes + estimates pending", "Hasil Dikutip": "Revenue Collected", "pembayaran berjaya": "successful payments", "Kadar Tutup": "Close Rate", "dibayar ÷ sebut harga diterbitkan": "paid ÷ quotes issued", "Operasi Jualan": "Sales Operations", "Senarai Penilaian & Deal": "Assessments & Deals", "Setiap penilaian AGM dari laman awam muncul di sini. \"Proses\" membawa lead ke aliran sebut harga → invois → pembayaran.": "Every AGM assessment from the public site appears here. \"Process\" takes the lead through quote → invoice → payment.", "↻ Muat Semula": "↻ Reload", "⬇ Eksport CSV": "⬇ Export CSV", "⚠️ Halaman demo operasi — dalam pengeluaran ini dilindungi oleh auth + RLS (hanya operator AGMX boleh membaca agm_assessments, quotes, invoices, payments).": "⚠️ Demo operations page — in production this is protected by auth + RLS (only AGMX operators can read agm_assessments, quotes, invoices, payments).", "Rekod Aktiviti Komersial": "Commercial Activity Log", "Semua peristiwa aliran jualan (append-only). Dalam pengeluaran: rekod audit_events berantai-hash SHA-256 di pangkalan data Supabase projek ini.": "All sales-flow events (append-only). In production: SHA-256 hash-chained audit_events rows in this project's Supabase database.", "Status Backend": "Backend Status", "Memuat status…": "Loading status…", "Backend ditetapkan oleh deployment ini (/api/config.js) dan tidak boleh ditukar daripada pelayar. PocketBase telah bersara; rute aliran wang berada pada Edge Function money-flow di Supabase.": "The backend is set by this deployment (/api/config.js) and cannot be switched from the browser. PocketBase has been retired; the money-flow routes are the money-flow Edge Function on Supabase.", "Tutup": "Close", "Data operasi (inbox, metrik, audit) memerlukan log masuk operator (admin/setiausaha) di app.html — token sesi digunakan semula secara automatik. Tiada kunci rahsia di sini.": "Operational data (inbox, metrics, audit) requires operator login (admin/secretary) at app.html — the session token is reused automatically. No secrets here.", "lead dari laman awam": "leads from the public site"};
   var lang = "ms";
   try {
     var q = new URLSearchParams(location.search).get("lang");
