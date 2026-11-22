@@ -761,7 +761,7 @@ export function makeRestClient(db) {
 /* ---------- fixtures ---------- */
 
 export async function seedUser(db, { id, email, role = "authenticated", appRole = null }) {
-  /* Tests build their organization/profile fixtures explicitly. Suppress the
+/* Tests build their organization/profile fixtures explicitly. Suppress the
      production signup trigger for this auth-only seed so it cannot create a
      second organization before the fixture is ready. */
   await db.exec("alter table auth.users disable trigger on_auth_user_created");
