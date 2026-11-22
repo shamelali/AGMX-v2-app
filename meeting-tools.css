@@ -1,0 +1,38 @@
+:root {font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#162d2d;background:#f5f4ec;font-size:16px;line-height:1.55;color-scheme:light}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0} [hidden]{display:none!important}
+.tool-nav{background:#102f30;color:#f4efd9;display:flex;justify-content:space-between;align-items:center;padding:12px max(18px,calc((100% - 1120px)/2));gap:12px}
+.tool-nav>div,.tool-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.tool-nav a{color:inherit}.tool-brand{font-size:1.4rem;font-weight:850;letter-spacing:-.06em;text-decoration:none}
+.tool-nav button{background:transparent;color:#eee9d2;border-color:#698682}
+.tool-main{max-width:1160px;margin:auto;padding:clamp(28px,5vw,64px) clamp(16px,3vw,30px) 64px}
+.tool-heading{max-width:780px;margin-bottom:26px}.tool-context{font:700 .76rem/1.5 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#41625c}
+h1{font:500 clamp(2.5rem,6vw,4.8rem)/1.05 Georgia,serif;letter-spacing:-.05em;margin:10px 0 14px}h2{font-size:1.3rem;letter-spacing:-.025em;margin:0 0 12px}h3{font-size:1rem;margin:18px 0 6px}
+p{overflow-wrap:anywhere}.tool-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+.tool-card{padding:clamp(18px,3vw,30px);border:1px solid #c5d1c6;border-radius:18px;background:#fffefa;min-width:0}
+.tool-card+.tool-card,.tool-grid+.tool-card{margin-top:16px}.tool-grid>.tool-card{margin-top:0}
+.tool-actions{margin:14px 0}.tool-card form{margin-top:18px}a{color:#135953;font-weight:650;text-underline-offset:.2em}
+button,.tool-primary{line-height:1.25;font-family:inherit;font-size:.95rem;font-weight:700;background:#fffefa;color:#174d45;border:1px solid #9bafa3;border-radius:8px;padding:10px 14px;min-height:44px;cursor:pointer}
+.tool-primary{display:inline-flex;align-items:center;background:#17534b;border-color:#17534b;color:white;text-decoration:none}
+button:disabled{opacity:.55;cursor:not-allowed}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #a46a15;outline-offset:3px}
+.tool-card label{display:block;font-weight:650;margin:12px 0 5px}
+.tool-card input:not([type=checkbox]),.tool-card textarea,.tool-card select{width:100%;max-width:100%;padding:10px 12px;min-height:44px;border:1px solid #91a59b;border-radius:7px;background:white;color:#182e29;font:inherit;margin:0 0 9px}
+.tool-card textarea{resize:vertical}.tool-status{min-height:1.5em;font-weight:600}
+.stage-card{background:#143c3c;color:#fcf8e7;border-color:#204e4c}.stage-card .tool-primary{background:#ead295;color:#173833}.floor-name{font:italic 2.2rem/1.15 Georgia,serif;color:#ecd596;margin:16px 0 28px}
+.caption-line{padding:9px 0 9px 14px;border-left:2px solid #e5c981}
+.tool-skip{position:absolute;left:12px;top:-100px;background:white;padding:12px}.tool-skip:focus{top:8px}
+@media(max-width:740px){.tool-grid{grid-template-columns:minmax(0,1fr)}.tool-nav{padding-inline:16px}.tool-main{padding-top:25px}.tool-actions>*{max-width:100%}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
+.passages{padding-left:1.35rem}.passages li{border-bottom:1px solid #d7dfd6;padding:10px 0;overflow-wrap:anywhere}.passages p{margin:4px 0}.passages strong{font-size:.83rem;color:#42685c}
+.key-panel{margin-top:18px}.key-panel summary{cursor:pointer;font-weight:700;min-height:44px;align-content:center}
+
+#stream-player iframe {width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin:12px 0;display:block}
+#video {margin-block:10px}
+
+html.dark {color-scheme:dark;color:#eaf0e5;background:#112b2b}
+html.dark .tool-card,html.dark button {color:#e5eee1;background:#1c3834;border-color:#587768}
+html.dark .tool-card input:not([type=checkbox]),html.dark .tool-card textarea,html.dark .tool-card select {background:#122c2b;color:#edf1e3;border-color:#739184}
+html.dark .tool-context,html.dark .passages strong {color:#aed9c0}
+html.dark a {color:#bcdfc9}
+html.dark .tool-primary {background:#deca92;color:#163832;border-color:#deca92}
+html.senior-mode {font-size:19px}

@@ -10,7 +10,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders, handleCors } from "../_shared/cors.ts"
-import { getEmbedding, chatCompletion, llmReadiness } from "../_shared/llm.ts"
+import { getEmbedding, chatCompletion, getClientLLMConfig, llmReadiness } from "../_shared/llm.ts"
+
+import { readPassages, splitPassages, maxFileBytes } from "../_shared/document-text.ts"
 
 // SUPABASE_SECRET_KEY is this repo's Vercel-side name; the Edge Runtime injects
 // SUPABASE_SERVICE_ROLE_KEY and has no secret called SUPABASE_SECRET_KEY (see
@@ -22,6 +24,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || ""
 const SUPABASE_SECRET_KEY =
   Deno.env.get("SUPABASE_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 
+const publicKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || ""
+
 let admin: ReturnType<typeof makeAdminClient> | null = null
 
 function makeAdminClient() {
@@ -31,7 +35,7 @@ function makeAdminClient() {
 // Built on first request, behind the backendReady() guard in the handler, so an
 // unconfigured project can answer "not configured" instead of failing to load.
 function backendReady() {
-  return Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY)
+  return Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY && publicKey)
 }
 
 function db() {
@@ -39,8 +43,9 @@ function db() {
   return admin
 }
 
-const CHUNK_SIZE = 1000
-const CHUNK_OVERLAP = 200
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } })
+}
 
 interface IngestRequest {
   document_id: string
@@ -58,7 +63,7 @@ async function getAuthUser(req: Request) {
 async function getUserOrg(userId: string) {
   const { data: profile } = await db()
     .from("profiles")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("id", userId)
     .single()
   return profile
@@ -86,69 +91,9 @@ async function checkRateLimit(req: Request): Promise<boolean> {
   }
 }
 
-async function extractTextFromDocument(documentId: string): Promise<string> {
-  const { data: doc, error } = await db()
-    .from("documents")
-    .select("storage_path, mime, filename")
-    .eq("id", documentId)
-    .single()
-
-  if (error || !doc) throw new Error("Document not found")
-
-  const { data: fileData, error: downloadError } = await db().storage
-    .from("documents")
-    .download(doc.storage_path)
-
-  if (downloadError || !fileData) throw new Error("Failed to download document")
-
-  const arrayBuffer = await fileData.arrayBuffer()
-  const uint8Array = new Uint8Array(arrayBuffer)
-
-  const mime = doc.mime || ""
-  let text = ""
-
-  if (mime === "application/pdf") {
-    const decoder = new TextDecoder("utf-8", { ignoreBOM: true })
-    text = decoder.decode(uint8Array)
-    text = text.replace(/[^\x20-\x7E\n\r\t]/g, " ")
-  } else if (mime.includes("word") || mime.includes("officedocument")) {
-    const decoder = new TextDecoder("utf-8")
-    text = decoder.decode(uint8Array)
-  } else {
-    const decoder = new TextDecoder("utf-8")
-    text = decoder.decode(uint8Array)
-  }
-
-  return text.slice(0, 50000)
-}
-
-function chunkText(text: string, chunkSize: number, overlap: number): Array<{ content: string; index: number }> {
-  const chunks = []
-  const sentences = text.split(/(?<=[.!?])\s+/)
-  let currentChunk = ""
-  let index = 0
-
-  for (const sentence of sentences) {
-    if (currentChunk.length + sentence.length > chunkSize && currentChunk.length > 0) {
-      chunks.push({ content: currentChunk.trim(), index: index++ })
-      const words = currentChunk.split(/\s+/)
-      const overlapWords = words.slice(-Math.floor(overlap / 5))
-      currentChunk = overlapWords.join(" ") + " " + sentence
-    } else {
-      currentChunk += (currentChunk ? " " : "") + sentence
-    }
-  }
-
-  if (currentChunk.trim().length > 0) {
-    chunks.push({ content: currentChunk.trim(), index: index++ })
-  }
-
-  return chunks
-}
-
 async function extractAssertions(chunkText: string): Promise<Array<{ subject: string; predicate: string; object: string; quote: string; confidence: number }>> {
   const prompt = `Extract 3-5 key factual assertions from this text as (subject, predicate, object) triples.
-Return JSON array: [{"subject": "...", "predicate": "...", "object": "...", "quote": "...", "confidence": 0.9}]
+Return a JSON object: {"assertions":[{"subject":"...", "predicate":"...", "object":"...", "quote":"exact passage from the text", "confidence":0.9}]}. Use an empty array if the text contains no factual assertions.
 
 Text: ${chunkText.slice(0, 1500)}`
 
@@ -158,7 +103,11 @@ Text: ${chunkText.slice(0, 1500)}`
       temperature: 0,
       responseFormat: { type: "json_object" },
     })
-    return JSON.parse(content)?.assertions || []
+    const items = JSON.parse(content)?.assertions
+    if (!Array.isArray(items)) return []
+    return items.filter(item => item && ["subject","predicate","object","quote"].every(
+      field => typeof item[field] === "string" && item[field].trim().length > 0 && item[field].length <= 1500
+    ) && chunkText.includes(item.quote) && Number.isFinite(item.confidence) && item.confidence >= 0 && item.confidence <= 1).slice(0,5)
   } catch {
     return []
   }
@@ -244,26 +193,33 @@ serve(async (req) => {
       })
     }
 
-    const { data: doc, error: docError } = await db()
-      .from("documents")
-      .select("id, organization_id, filename")
-      .eq("id", document_id)
-      .single()
-
-    if (docError || !doc) {
-      return new Response(JSON.stringify({ error: "Document not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
+    if (!["admin","administrator","secretary"].includes(String(profile.role).toLowerCase())) {
+      return json(403, { error: "An administrator or secretary must index organisation documents" })
     }
-
-    // Verify user owns the document's organization
-    if (doc.organization_id !== orgId) {
-      return new Response(JSON.stringify({ error: "Unauthorized: document belongs to different organization" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
+    const caller = createClient(SUPABASE_URL, publicKey, {
+      global: { headers: { Authorization: req.headers.get("Authorization")! } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { data: doc, error: docError } = await caller.from("documents")
+      .select("id, filename, storage_path, size_bytes, sha256").eq("id", document_id).eq("organization_id", orgId).maybeSingle()
+    if (docError || !doc) return json(404, { error: "Document not found" })
+    if (!/\.(pdf|docx|md|txt)$/i.test(doc.filename)) return json(415, { error: "Supported formats: PDF, DOCX, TXT and Markdown" })
+    if (doc.size_bytes > maxFileBytes) return json(413, { error: "Maximum file size is 8 MiB" })
+    const folders = String(doc.storage_path).split("/")
+    if (folders[0] !== orgId || folders.some(segment => !segment || segment === "." || segment === "..")) {
+      return json(422, { error: "The file must be stored in this organisation’s documents folder" })
     }
+    const { data: file, error: downloadError } = await caller.storage.from("documents").download(doc.storage_path)
+    if (downloadError || !file) return json(404, { error: "Stored file could not be read" })
+    if (file.size > maxFileBytes) return json(413, { error: "Maximum file size is 8 MiB" })
+    if (doc.sha256) {
+      const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()))
+      const hex = Array.from(hash, n => n.toString(16).padStart(2, "0")).join("")
+      if (hex !== String(doc.sha256).toLowerCase()) return json(409, { error: "Stored file differs from its registered hash" })
+    }
+    let passages
+    try { passages = splitPassages(await readPassages(file, doc.filename)) }
+    catch (error) { return json(422, { error: error instanceof Error ? error.message : "Document could not be read" }) }
 
     const { data: job, error: jobError } = await db()
       .from("knowledge_jobs")
@@ -280,73 +236,18 @@ serve(async (req) => {
     if (jobError) throw jobError
 
     try {
-      const text = await extractTextFromDocument(doc.id)
-      if (!text.trim()) throw new Error("No text extracted")
-
-      const chunks = chunkText(text, CHUNK_SIZE, CHUNK_OVERLAP)
-      const processedChunks = []
-      const allAssertions = []
-
-      for (const chunk of chunks) {
-        const embedding = await getEmbedding(chunk.content)
-        const assertions = await extractAssertions(chunk.content)
-
-        const { data: chunkData, error: chunkError } = await db()
-          .from("knowledge_chunks")
-          .insert({
-            organization_id: orgId,
-            document_id: doc.id,
-            job_id: job.id,
-            chunk_index: chunk.index,
-            title: doc.filename,
-            content: chunk.content,
-            page: null,
-            token_count: Math.ceil(chunk.content.length / 4),
-            embedding: `[${embedding.join(",")}]`,
-            metadata: {},
-          })
-          .select()
-          .single()
-
-        if (chunkError) throw chunkError
-
-        if (assertions.length > 0) {
-          const assertionsWithChunk = assertions.map(a => ({
-            organization_id: orgId,
-            document_id: doc.id,
-            chunk_id: chunkData.id,
-            subject: a.subject,
-            predicate: a.predicate,
-            object: a.object,
-            quote: a.quote,
-            confidence: a.confidence || 0.8,
-          }))
-          await db().from("knowledge_assertions").insert(assertionsWithChunk)
-          allAssertions.push(...assertionsWithChunk)
-        }
-
-        processedChunks.push(chunkData)
+      const model = getClientLLMConfig().embeddingModel
+      const indexed = []
+      let assertionCount = 0
+      for (const passage of passages) {
+        const embedding = await getEmbedding(passage.text, "passage")
+        const assertions = await extractAssertions(passage.text)
+        assertionCount += assertions.length
+        indexed.push({ ...passage, model, embedding: JSON.stringify(embedding), assertions })
       }
-
-      await db()
-        .from("knowledge_jobs")
-        .update({
-          status: "completed",
-          total_chunks: chunks.length,
-          processed_chunks: processedChunks.length,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", job.id)
-
-      return new Response(JSON.stringify({
-        success: true,
-        jobId: job.id,
-        chunks: processedChunks.length,
-        assertions: allAssertions.length,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
-
+      const { error } = await db().rpc("publish_document_index", { p_document: doc.id, p_job: job.id, p_chunks: indexed })
+      if (error) throw new Error(error.message)
+      return json(200, { success: true, jobId: job.id, chunks: indexed.length, assertions: assertionCount })
     } catch (err) {
       await db()
         .from("knowledge_jobs")

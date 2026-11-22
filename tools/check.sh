@@ -1400,34 +1400,20 @@ fi
 # ----------------------------------------------------------------
 head_ "16. Edge Functions type-check"
 
-# The three functions under supabase/functions/ are Deno TypeScript and were
-# never compiled by anything in this repo — duplicated declarations in
-# money-flow/index.ts (auditLog, checkRateLimit, a second p_txn_id key) sat
-# unnoticed. Third-party .d.ts noise (std@0.168 on Deno 2, esm.sh auth-js)
-# is excluded: this pass asserts only that our own files are clean, so it
-# does not require a runtime we do not control.
+# Deno checks our application sources and their use of imported types by
+# default. --remote would additionally type-check declaration internals from
+# every dependency, including npm packages stored on disk in DENO_DIR.
 if ! command -v deno >/dev/null 2>&1; then
   warn "deno not installed — Edge Functions were not type-checked"
 else
   DENO_OUT=$(mktemp /tmp/agmx-deno-XXXXXX.txt)
-  # NO_COLOR is not cosmetic: deno colourises even when redirected, so the
-  # "at file://" location line becomes "at \e[36mfile://…" and grepping for a
-  # local error finds nothing — a pass that reports failure as a warning.
-  if ! NO_COLOR=1 timeout 180 deno check --remote \
-        supabase/functions/money-flow/index.ts \
-        supabase/functions/knowledge-query/index.ts \
-        supabase/functions/knowledge-ingest/index.ts >"$DENO_OUT" 2>&1; then
-    LOCAL_ERRS=$(grep -c '^[[:space:]]*at file://' "$DENO_OUT" || true)
-    if [ "$LOCAL_ERRS" -gt 0 ]; then
-      bad "$LOCAL_ERRS type error(s) in our own Edge Function files:"
-      grep -B3 '^[[:space:]]*at file://' "$DENO_OUT" | head -30 | sed 's/^/      /'
-    elif grep -qiE 'error: (uncaught|relative import|module not found|fetch|network)|a network error|timed out' "$DENO_OUT"; then
-      warn "Edge Functions not type-checked — remote modules could not be resolved: $(grep -iE '^error:' "$DENO_OUT" | head -1)"
-    else
-      warn "Edge Functions type-check unresolved on deno $(deno --version | awk 'NR==1{print $2}') — all reported errors are in remote modules (std@0.168 / esm.sh), not repo code"
-    fi
+  if NO_COLOR=1 timeout 180 deno check --frozen supabase/functions/*/index.ts >"$DENO_OUT" 2>&1; then
+    ok "deno check clean: all Edge Function entry points with the committed lockfile"
+  elif grep -qiE 'a network error|dns error|connection refused|client error [(]connect[)]' "$DENO_OUT"; then
+    warn "Edge Functions not type-checked — dependencies could not be fetched"
   else
-    ok "deno check clean: supabase/functions/**/*.ts"
+    bad "Edge Functions failed Deno type-check or lockfile verification"
+    tail -30 "$DENO_OUT" | sed 's/^/      /'
   fi
   rm -f "$DENO_OUT"
 fi

@@ -112,25 +112,24 @@ async function databaseStatus() {
   if (!url || !key) {
     return { configured: false, ok: false, latencyMs: null, error: "Supabase is not configured" };
   }
-  const probe = await restProbe(url, key, "organizations");
-  if (probe.ok) {
-    return { configured: true, ok: true, latencyMs: probe.latencyMs, credential: keyName };
+  let checkedTable = "organizations";
+  let probe = await restProbe(url, key, checkedTable);
+  let latencyMs = probe.latencyMs;
+  if (keyName !== "SUPABASE_SECRET_KEY" && (probe.status === 401 || probe.status === 403)) {
+    // Anonymous clients can read the plan catalog even when tenant tables are private.
+    checkedTable = "plans";
+    probe = await restProbe(url, key, checkedTable);
+    latencyMs += probe.latencyMs;
   }
-  // 42501 is not an outage. `grant select ... to authenticated` is the only
-  // table grant in supabase/migrations/0001_schema.sql, so a publishable key is
-  // refused on every table by design and no probe can pass with one; calling
-  // that "unreachable" sends the operator to check the network.
-  const refused = probe.status === 401 || probe.status === 403;
+  const result = { configured: true, ok: probe.ok, latencyMs, credential: keyName, checkedTable };
+  if (probe.ok) return result;
   return {
-    configured: true,
-    ok: false,
-    latencyMs: probe.latencyMs,
-    credential: keyName,
+    ...result,
     status: probe.status,
     error: probe.status === 404
       ? "Supabase schema is not applied"
-      : refused
-        ? `PostgREST refused the probe (401/403): this check needs a secret key, and ${keyName} only reaches authenticated-granted tables. Set SUPABASE_SECRET_KEY.`
+      : probe.status === 401 || probe.status === 403
+        ? `PostgREST denied read access to ${checkedTable} with ${keyName}`
         : "Supabase is unreachable",
   };
 }
@@ -175,12 +174,11 @@ async function knowledgeStatus(database) {
   const missing = configured ? [] : chosen.needed;
   const schema = { configured: database.configured, ready: false, missing: [], invalid: [] };
   const { url, key } = supabaseSettings();
-  // knowledge_chunks is an authenticated-granted table too, so this probe is
-  // only meaningful once the database check is holding a secret key.
   if (database.ok) {
     const probe = await restProbe(url, key, "knowledge_chunks");
     schema.ready = probe.ok;
-    if (!probe.ok) schema.invalid = ["KNOWLEDGE_SCHEMA"];
+    schema.status = probe.status;
+    if (!probe.ok && probe.status !== 401 && probe.status !== 403) schema.invalid = ["KNOWLEDGE_SCHEMA"];
   }
   // `ready` used to mean "this platform holds an LLM key and the table exists",
   // which was true of a project whose functions answered 503 to every question.

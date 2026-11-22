@@ -288,6 +288,52 @@ async function run() {
     }
     for (const name of PAYMENT_ENV) delete process.env[name];
 
+    const publicKey = "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY";
+    const anonKey = "NEXT_PUBLIC_SUPABASE_ANON_KEY";
+    const serverKey = "SUPABASE_SECRET_KEY";
+    for (const [credential, orgStatus, plansStatus, checkedTable, httpStatus] of [
+      [publicKey, 401, 200, "plans", 200],
+      [anonKey, 403, 200, "plans", 200],
+      [publicKey, 401, 403, "plans", 503],
+      [publicKey, 200, 403, "organizations", 200],
+      [publicKey, 404, 200, "organizations", 503],
+      [publicKey, 503, 200, "organizations", 503],
+      [serverKey, 403, 200, "organizations", 503],
+    ]) {
+      const env = { NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co", [credential]: "test-key" };
+      for (const name of SUPABASE_ENV) delete process.env[name];
+      Object.assign(process.env, env);
+      const tables = [];
+      global.fetch = async (input) => {
+        const url = new URL(input);
+        if (url.pathname === "/functions/v1/knowledge-query") return functionAnswer({ llmConfigured: true });
+        const table = url.pathname.split("/").pop();
+        assert.equal(url.searchParams.get("limit"), "0");
+        tables.push(table);
+        const status = { organizations: orgStatus, plans: plansStatus, knowledge_chunks: 403 }[table];
+        return { ok: status === 200, status };
+      };
+      const vercelRes = response();
+      await health({ method: "GET" }, vercelRes);
+      const cfRes = await cf.onRequest({ request: { method: "GET" }, env });
+      for (const [status, payload] of [
+        [vercelRes.statusCode, JSON.parse(vercelRes.body)],
+        [cfRes.status, await cfRes.json()],
+      ]) {
+        assert.equal(status, httpStatus);
+        assert.equal(payload.checks.database.ok, httpStatus === 200);
+        assert.equal(payload.checks.database.checkedTable, checkedTable);
+        assert.equal(payload.checks.database.credential, credential);
+        if (httpStatus === 200) {
+          const schema = payload.checks.knowledge.schema;
+          assert.equal(schema.status, 403);
+          assert.equal(schema.ready, false);
+          assert.deepEqual(schema.invalid, [], "access denial cannot establish a missing schema");
+        }
+      }
+      assert.equal(tables.filter((name) => name === "plans").length, checkedTable === "plans" ? 2 : 0);
+    }
+
     // Both ports answer knowledge readiness from the same function probe, so
     // they must agree on it too — the payments loop above only covers gateways.
     const cfKnowledge = async (env, answer) => {
