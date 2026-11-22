@@ -2,7 +2,7 @@
   "name": "agmx",
   "private": true,
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "packageManager": "npm@10.9.9",
   "scripts": {
