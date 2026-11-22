@@ -182,6 +182,9 @@ supabase functions deploy knowledge-ingest
 supabase functions deploy send-email-hook
 ```
 
+Apply the meeting-floor and document-index migrations to the target Supabase environment before rolling out these functions. Test a check-in and speaking request with two accounts from the same staging cooperative. Operators can upload and register a PDF, DOCX, TXT or Markdown file in the document vault, then select **Index with organisation AI** when retrieval is enabled. Indexing accepts up to 8 MiB and 50,000 extracted characters per file, with an 80-page limit for PDFs. Scanned PDFs need a text layer. A new index replaces the previous passages in one transaction.
+
+
 **JWT verification** (declared in `supabase/config.toml`, confirm with
 `supabase functions list`):
 
@@ -208,9 +211,8 @@ supabase secrets set APP_URL=https://your-production-host   # money-flow builds 
 # request answers 500 WORKER_ERROR with no handler and no log line.
 supabase secrets set SUPABASE_SECRET_KEY=eyJ...
 
-# knowledge-query also reads SUPABASE_ANON_KEY, to build a client that carries
-# the caller's JWT — knowledge_search derives the tenant from auth.uid(), so a
-# service-role client would return zero rows. The runtime injects this one.
+# Both knowledge functions use SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY)
+# with the member's session to read only their organisation's data.
 
 # Billplz — leave unset and /api/config.js reports paymentsMode: bank_transfer
 supabase secrets set BILLPLZ_API_KEY=...
@@ -494,7 +496,7 @@ AGMX-v2-app/
 | Payment webhook 404 | Ensure `APP_URL` in Supabase secrets matches Vercel deployment URL |
 | **NVIDIA NIM 401 Unauthorized** | Verify `NVIDIA_NIM_API_KEY` is valid NGC API Key |
 | **NVIDIA NIM 404 Model Not Found** | Check model name on build.nvidia.com; some models require access request |
-| **Embedding dimension mismatch** | Ensure `NVIDIA_NIM_EMBEDDING_DIMS=1024` matches pgvector schema |
+| **Embedding dimension mismatch** | Set `NVIDIA_NIM_EMBEDDING_DIMS` to the model’s native width. The index stores `halfvec(2048)`. Reindex the organisation’s sources after changing models. |
 
 ---
 

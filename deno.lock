@@ -1,5 +1,27 @@
 {
   "version": "5",
+  "specifiers": {
+    "npm:fflate@0.8.2": "0.8.2",
+    "npm:saxes@6.0.0": "6.0.0",
+    "npm:unpdf@2.2.1": "2.2.1"
+  },
+  "npm": {
+    "fflate@0.8.2": {
+      "integrity": "sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A=="
+    },
+    "saxes@6.0.0": {
+      "integrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+      "dependencies": [
+        "xmlchars"
+      ]
+    },
+    "unpdf@2.2.1": {
+      "integrity": "sha512-tstQpe/fhxkDGY1ZtpejwnU14QZ9w0SYLo9lIZooB1zQ7QXVE4t+SBQUN/2a9+EBg9UrrO2bWlqdzV+UtoebHw=="
+    },
+    "xmlchars@2.2.0": {
+      "integrity": "sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw=="
+    }
+  },
   "redirects": {
     "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.118.0",
     "https://esm.sh/iceberg-js@^0.8.1?target=denonext": "https://esm.sh/iceberg-js@0.8.1?target=denonext"
@@ -33,6 +55,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@electric-sql/pglite-pgvector@0.0.10",
         "npm:@electric-sql/pglite@~0.5.9",
         "npm:@neondatabase/serverless@^1.2.0",
         "npm:clean-css@^5.3.3",

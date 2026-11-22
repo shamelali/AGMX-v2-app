@@ -22,12 +22,7 @@
       Only Postgres can assert what the RPC decided.
 
    Known limits, stated rather than hidden:
-     * `0002_knowledge.sql` and `create extension vector` are skipped: PGlite
-       cannot represent pgvector's `vector(1024)` typmod, so the knowledge
-       store is not exercised here (see archive/neon/tools/test_knowledge_store.js).
-     * RLS is not enforced: both functions connect with the service-role key,
-       which has BYPASSRLS in production too. The application-layer tenant
-       guards those functions rely on are covered by test_money_flow_auth.mjs.
+     * pgvector exercises knowledge indexing and search against the deployed types.
 
    Usage (from a test, not directly):
      const { db, rest } = await bootDatabase().then(b => ({ db: b.db, rest: makeRestClient(b.db) }))
@@ -36,23 +31,14 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { vector } from "@electric-sql/pglite-pgvector";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const BUNDLE = join(ROOT, "supabase", "schema_final.sql");
 
-export const UNSUPPORTED_SECTIONS = new Set([
-  "0002_knowledge.sql",
-  "0011_knowledge_embedding_halfvec2048.sql",
-]);
-/* Everything pgvector touches: the extension, and the aggregate/function
-   signatures that name the public.vector type. PGlite has no pgvector, and its
-   catalog cannot declare a type whose typmod_in is missing, so `vector(1024)`
-   is not expressible — the knowledge store is therefore not exercised here. */
-export const UNSUPPORTED_STATEMENTS = [
-  /^create\s+extension\s+(?:if\s+not\s+exists\s+)?"?(vector|pg_trgm|citext|uuid-ossp)"?/i,
-  /\bpublic\.vector\b/i,
-];
+// These optional extensions do not participate in any application table or RPC.
+export const UNSUPPORTED_STATEMENTS = [/^create\s+extension\s+(?:if\s+not\s+exists\s+)?"?(pg_trgm|citext|uuid-ossp)"?/i];
 
 /* Supabase objects the bundle assumes already exist. */
 const PRELUDE = `
@@ -230,7 +216,7 @@ async function reconcile(db, claims) {
 }
 
 export async function bootDatabase({ log = null } = {}) {
-  const db = new PGlite({ extensions: { pgcrypto } });
+  const db = new PGlite({ extensions: { pgcrypto, vector } });
   await db.exec(PRELUDE);
   const applied = await applyBundle(db, { log });
   await reconcile(db, applied.claims);
@@ -248,13 +234,6 @@ export async function applyBundle(db, { log = null } = {}) {
   const stats = { statements: 0, skippedSections: [], skippedStatements: [] };
 
   for (const section of sections) {
-    if (UNSUPPORTED_SECTIONS.has(section.name)) {
-      stats.skippedSections.push(section.name);
-      if (log) log(`  skipped ${section.name} (pgvector cannot be emulated on PGlite)`);
-      continue;
-    }
-    /* Only objects this section will actually create: claiming the skipped
-       knowledge-store tables would demand things PGlite cannot have. */
     const sectionClaims = claimsOf(section.text);
     for (const key of Object.keys(claims)) {
       for (const name of sectionClaims[key]) claims[key].add(name);
@@ -262,7 +241,7 @@ export async function applyBundle(db, { log = null } = {}) {
     for (const stmt of splitStatements(section.text)) {
       if (UNSUPPORTED_STATEMENTS.some((pattern) => pattern.test(stmt))) {
         stats.skippedStatements.push(clip(stmt));
-        if (log) log(`  skipped ${clip(stmt, 70)} (pgvector is not available to PGlite)`);
+        if (log) log(`  skipped ${clip(stmt, 70)} (optional extension unavailable)`);
         continue;
       }
       try {
