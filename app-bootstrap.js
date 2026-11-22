@@ -290,9 +290,11 @@
     const user = data.currentUser || {};
     const header = node("header", "agmx-shell-header");
     const brand = node("div", "agmx-brand");
+    const brandLogo = node("img", "agmx-logo agmx-logo--nav");
+    brandLogo.src = "/images/brand/agmx-logo.webp";
+    brandLogo.alt = "AGMX";
     append(brand, [
-      node("span", "agmx-brand-mark", "AG"),
-      node("span", "agmx-brand-name", "AGMX"),
+      brandLogo,
       node("span", "agmx-brand-context", valueOf(cooperative.shortName || cooperative.name, "DutaGovern")),
     ]);
 
