@@ -37,6 +37,8 @@ pb_migrations/
 # is gitignored but the CLI uploads the working tree, so it must be listed
 # here or settings.local.json becomes a public URL.
 /.qoder/
+/.codex/
+/.mcp.json
 /.wrignore
 /deploy.sh
 /worktree

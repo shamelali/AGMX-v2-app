@@ -9,10 +9,8 @@
       "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium"]
     },
     "supabase": {
-      "command": "mcp-server-supabase",
-      "env": {
-        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
-      }
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=jchfalaibabmszewemat"
     },
     "github": {
       "command": "npx",

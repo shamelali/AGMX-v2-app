@@ -6,7 +6,6 @@
   <meta name="robots" content="noindex">
   <meta name="description" content="Sebut harga, invois dan pembayaran AGM — AGMX. Sahkan pakej AGM anda dan selesaikan pembayaran dengan selamat.">
   <title>Pembayaran AGM · AGMX</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B5394'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='central' font-family='Arial' font-weight='800' font-size='28' fill='%23D4A017'%3EAG%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/styles.css">
   <script src="/theme.js"></script>
   <style>
@@ -83,12 +82,28 @@
       .as-main { padding: 0; }
     }
     @media (max-width: 720px) { .as-card { padding: 18px; } .step { min-width: 100%; } }
+    .as-header {background: #193d39}
+    .as-header .ag-badge {background:#e5c982;color:#163934}
+    .as-header .wrap {flex-wrap:wrap}
+    @media (max-width:600px) {
+      .as-header {padding:10px 0}
+      .as-header .wrap {gap:8px;padding-inline:14px}
+      .as-header .as-brand {margin-right:auto}
+      .as-header .wrap > div:not(.as-brand) {min-width:0;max-width:100%}
+      .as-header .btn {min-height:44px}
+      .as-main > .wrap {padding-inline:12px}
+    }
   </style>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png">
+  <link rel="apple-touch-icon" href="/images/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/brand.css">
 </head>
 <body>
   <header class="as-header">
     <div class="wrap">
-      <div class="as-brand"><span class="ag-badge">AG</span> AGMX</div>
+      <div class="as-brand"><img class="agmx-logo agmx-logo--header" src="/images/brand/agmx-logo.webp" alt="AGMX"></div>
       <button type="button" id="lang-toggle" class="btn btn-ghost" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);color:#fff;min-width:48px;font-weight:800" aria-label="Tukar bahasa">EN</button>
       <span class="backend-chip" id="backend-chip"><span class="dot"></span><span id="backend-label">Backend…</span></span>
     </div>
@@ -333,7 +348,53 @@
 (function () {
   var MAP = {"Sebut Harga": "Quote", "Invois": "Invoice", "Pembayaran": "Payment", "Resit": "Receipt", "Langganan": "Subscription", "Tiada Penilaian Dijumpai": "No Assessment Found", "Mulakan dengan penilaian AGM percuma — skor kerumitan, saranan pakej dan sebut harga dijana dalam 60 saat.": "Start with the free AGM assessment — complexity score, package recommendation and quote generated in 60 seconds.", "Mula Penilaian Percuma →": "Start Free Assessment →", "Langkah 1 · Sebut Harga": "Step 1 · Quote", "Sebut Harga AGM": "AGM Quote", "Semak pakej dan tambahan pilihan anda.": "Review your package and optional add-ons.", "Item Sebut Harga": "Quote Items", "Keterangan": "Description", "Kuantiti": "Qty", "Harga Unit": "Unit Price", "Jumlah": "Total", "Tambahan Pilihan": "Optional Add-ons", "Terbitkan & Terima Sebut Harga →": "Issue & Accept Quote →", "Sebut harga ini dijana daripada penilaian AGM anda dan sah selama 30 hari. Harga termasuk SST 8% seperti yang dinyatakan. Sebut harga muktamad disahkan oleh pasukan AGMX selepas konsultasi percuma.": "This quote is generated from your AGM assessment and is valid for 30 days. Prices include 8% SST where stated. The final quote is confirmed by the AGMX team after a free consultation.", "Langkah 2 · Invois": "Step 2 · Invoice", "Invois rasmi telah diterbitkan berdasarkan sebut harga yang diterima.": "An official invoice has been issued based on the accepted quote.", "🖨 Cetak / Simpan Invois": "🖨 Print / Save Invoice", "Bayar Sekarang →": "Pay Now →", "Syarat bayaran: NET 14 hari. Status koperasi anda akan dikemas kini kepada Dibayar selepas pembayaran disahkan.": "Payment terms: NET 14 days. Your cooperative's status will be updated to Paid once payment is verified.", "Langkah 3 · Pembayaran": "Step 3 · Payment", "Pilih Kaedah Pembayaran": "Choose Payment Method", "Bayar dalam talian melalui HitPay dengan kad kredit/debit, atau buat pemindahan bank manual. Kami tidak menyimpan butiran kad anda.": "Pay online through HitPay by credit/debit card, or make a manual bank transfer. We do not store your card details.", "💳 HitPay — Kad Kredit/Debit": "💳 HitPay — Credit/Debit Card", "Gerbang pembayaran berlesen. Pilih kad kredit/debit pada halaman HitPay.": "A licensed payment gateway. Choose credit/debit card on the HitPay page.", "🏛 Pemindahan Bank (Manual)": "🏛 Bank Transfer (Manual)", "Untuk koperasi yang perlu kelulusan lembaga. Disahkan dalam 1 hari bekerja.": "For cooperatives requiring board approval. Verified within 1 business day.", "Pilih Bank": "Select Bank", "Akaun Bank AGMX": "AGMX Bank Account", "Nombor akaun terimaan dihantar bersama invois anda.": "The receiving account number is sent with your invoice.",
             "Kami tidak memaparkan nombor akaun tetap di halaman ini supaya butiran yang anda gunakan sentiasa sepadan dengan invois yang dikeluarkan.": "We do not publish a standing account number on this page, so the details you use always match the invoice issued to you.",
-            "Rujukan:": "Reference:", "Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.": "Please include the reference number above when transferring. We will verify within 1 business day.", "Jumlah Bayaran:": "Amount Due:", "Bayaran dalam talian melalui HitPay disahkan secara automatik oleh gerbang. Pemindahan bank manual disahkan oleh pasukan AGMX dalam 1 hari bekerja.": "Online payments through HitPay are confirmed automatically by the gateway. Manual bank transfers are verified by the AGMX team within 1 business day.", "Memproses Pembayaran…": "Processing Payment…", "Sila jangan tutup tetingkap ini.": "Please do not close this window.", "Langkah 4 · Selesai": "Step 4 · Done", "Pembayaran Berjaya 🎉": "Payment Successful 🎉", "Terima kasih! AGM koperasi anda kini dijadualkan untuk persediaan.": "Thank you! Your cooperative's AGM is now scheduled for preparation.", "DIBAYAR": "PAID", "Peringkat Seterusnya": "Next Steps", "✓ 2 · Sebut Harga": "✓ 2 · Quote", "✓ 3 · Pembayaran": "✓ 3 · Payment", "→ 4 · Persediaan AGM (48 jam)": "→ 4 · AGM Setup (48h)", "5 · AGM Dijadualkan": "5 · AGM Scheduled", "Pengurus projek AGMX akan menghubungi": "Your AGMX project manager will contact", "dalam 48 jam untuk persediaan AGM: import ahli, notis AGM mengikut tempoh yang dikonfigurasi untuk AGM anda (lalai 21 hari — sahkan minimum dalam UUK anda), dan penerbitan dewan AGM.": "within 48 hours for AGM setup: member import, the AGM notice sent to the period configured for your AGM (21 days by default — confirm your constitution's minimum), and hall launch.", "🖨 Cetak Resit": "🖨 Print Receipt", "Lihat Demo Platform": "View Platform Demo", "Lead Inbox (Operasi) →": "Lead Inbox (Operations) →", "Jejak Audit": "Audit Trail", "Rekod Transaksi": "Transaction Records", "Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah audit_events append-only berantai-hash.": "Every action in the commercial flow is recorded — in production this is a hash-chained append-only audit_events log.", "Langkah 5 · Langganan": "Step 5 · Subscription", "Langganan DutaGovern": "DutaGovern Subscription", "Sahkan pakej tahunan. Invois berulang pertama dijadwalkan pada hari langganan dicipta.": "Confirm the annual package. The first recurring invoice is scheduled the day the subscription is created.", "Pilihan Pakej": "Package Options", "Pakej Terpilih": "Selected Package", "Maklumat Bil": "Billing Info", "Buat Langganan →": "Create Subscription →", "Langganan bermula pada tarikh diluluskan dan berjalan dua belas bulan. Invois tahunan pertama dijadwalkan pada hari ia dicipta, jadi tiada tempoh tanpa invois. Pembaharuan automatik pada akhir tempoh; boleh dimatikan bila-bila masa dan akses kekal sehingga tamat tempoh bil.": "Subscription starts on the approval date and runs twelve months. The first annual invoice is scheduled the day it is created, so there is no un-invoiced period. Auto-renewal runs at the end of the period; turn it off anytime and access remains until the period ends.", "Langganan Aktif": "Active Subscription", "Butiran Langganan": "Subscription Details", "Kelola langganan, lihat bil bertolak ansur, dan jadual pembayaran.": "Manage subscription, view recurring invoices, and payment schedules.", "Bil Bertolak Ansur": "Recurring Invoices", "Tarikh Diterbitkan": "Issued Date", "Tarikh Jatuh Tempo": "Due Date", "Amaun": "Amount", "Status": "Status", "Jadual Pembayaran": "Payment Schedule", "Tarikh Dijadualkan": "Scheduled Date", "Bil Berkaitan": "Related Invoice", "Batalkan Langganan": "Cancel Subscription", "Terbitkan Bil Sekarang": "Generate Invoice Now", "Pembatalan berkuat kuasa pada akhir tempoh bil semasa. Akses platform kekal sehingga tamat tempoh. Bil seterusnya tidak diterbitkan.": "Cancellation takes effect at end of current billing period. Platform access remains until period end. No further invoices generated."};
+            "Rujukan:": "Reference:",
+            "Sila masukkan nombor rujukan di atas semasa pemindahan. Kami akan mengesahkan dalam 1 hari bekerja.": "Please include the reference number above when transferring. We will verify within 1 business day.",
+            "Jumlah Bayaran:": "Amount Due:",
+            "Bayaran dalam talian melalui HitPay disahkan secara automatik oleh gerbang. Pemindahan bank manual disahkan oleh pasukan AGMX dalam 1 hari bekerja.": "Online payments through HitPay are confirmed automatically by the gateway. Manual bank transfers are verified by the AGMX team within 1 business day.",
+            "Memproses Pembayaran…": "Processing Payment…",
+            "Sila jangan tutup tetingkap ini.": "Please do not close this window.",
+            "Langkah 4 · Selesai": "Step 4 · Done",
+            "Pembayaran Berjaya 🎉": "Payment Successful 🎉",
+            "Terima kasih! AGM koperasi anda kini dijadualkan untuk persediaan.": "Thank you! Your cooperative's AGM is now scheduled for preparation.",
+            "DIBAYAR": "PAID",
+            "Peringkat Seterusnya": "Next Steps",
+            "✓ 2 · Sebut Harga": "✓ 2 · Quote",
+            "✓ 3 · Pembayaran": "✓ 3 · Payment",
+            "→ 4 · Persediaan AGM (48 jam)": "→ 4 · AGM Setup (48h)",
+            "5 · AGM Dijadualkan": "5 · AGM Scheduled",
+            "Pengurus projek AGMX akan menghubungi": "Your AGMX project manager will contact",
+            "dalam 48 jam untuk persediaan AGM: import ahli, notis AGM mengikut tempoh yang dikonfigurasi untuk AGM anda (lalai 21 hari — sahkan minimum dalam UUK anda), dan penerbitan dewan AGM.": "within 48 hours for AGM setup: member import, the AGM notice sent to the period configured for your AGM (21 days by default — confirm your constitution's minimum), and hall launch.",
+            "🖨 Cetak Resit": "🖨 Print Receipt",
+            "Lihat Demo Platform": "View Platform Demo",
+            "Lead Inbox (Operasi) →": "Lead Inbox (Operations) →",
+            "Jejak Audit": "Audit Trail",
+            "Rekod Transaksi": "Transaction Records",
+            "Setiap tindakan dalam aliran komersial direkodkan — dalam pengeluaran ini adalah audit_events append-only berantai-hash.": "Every action in the commercial flow is recorded — in production this is a hash-chained append-only audit_events log.",
+            "Langkah 5 · Langganan": "Step 5 · Subscription",
+            "Langganan Governance OS": "Governance OS Subscription",
+            "Sahkan pakej tahunan. Invois berulang pertama dijadwalkan pada hari langganan dicipta.": "Confirm the annual package. The first recurring invoice is scheduled the day the subscription is created.",
+            "Pilihan Pakej": "Package Options",
+            "Pakej Terpilih": "Selected Package",
+            "Maklumat Bil": "Billing Info",
+            "Buat Langganan →": "Create Subscription →",
+            "Langganan bermula pada tarikh diluluskan dan berjalan dua belas bulan. Invois tahunan pertama dijadwalkan pada hari ia dicipta, jadi tiada tempoh tanpa invois. Pembaharuan automatik pada akhir tempoh; boleh dimatikan bila-bila masa dan akses kekal sehingga tamat tempoh bil.": "Subscription starts on the approval date and runs twelve months. The first annual invoice is scheduled the day it is created, so there is no un-invoiced period. Auto-renewal runs at the end of the period; turn it off anytime and access remains until the period ends.",
+            "Langganan Aktif": "Active Subscription",
+            "Butiran Langganan": "Subscription Details",
+            "Kelola langganan, lihat bil bertolak ansur, dan jadual pembayaran.": "Manage subscription, view recurring invoices, and payment schedules.",
+            "Bil Bertolak Ansur": "Recurring Invoices",
+            "Tarikh Diterbitkan": "Issued Date",
+            "Tarikh Jatuh Tempo": "Due Date",
+            "Amaun": "Amount",
+            "Status": "Status",
+            "Jadual Pembayaran": "Payment Schedule",
+            "Tarikh Dijadualkan": "Scheduled Date",
+            "Bil Berkaitan": "Related Invoice",
+            "Batalkan Langganan": "Cancel Subscription",
+            "Terbitkan Bil Sekarang": "Generate Invoice Now",
+            "Pembatalan berkuat kuasa pada akhir tempoh bil semasa. Akses platform kekal sehingga tamat tempoh. Bil seterusnya tidak diterbitkan.": "Cancellation takes effect at end of current billing period. Platform access remains until period end. No further invoices generated.",
+            "Pembayaran disahkan oleh pasukan AGMX dalam 1 hari bekerja selepas pemindahan diterima.": "Payment is verified by the AGMX team within 1 business day after the transfer is received.",
+            "Langganan DutaGovern": "DutaGovern Subscription"};
   var lang = "ms";
   try {
     var q = new URLSearchParams(location.search).get("lang");

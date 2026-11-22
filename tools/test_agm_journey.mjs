@@ -27,6 +27,7 @@
            AGMX_TRACE_SQL=1 node tools/test_agm_journey.mjs   (print compiled SQL)
    ============================================================ */
 import fs from "node:fs";
+import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -73,8 +74,7 @@ const rest = makeRestClient(db);
 ok(stats.statements > 150, `bundle executed ${stats.statements} statements on real Postgres`);
 ok(stats.claims.tables > 30 && stats.claims.policies > 30,
   `every claimed object exists (${stats.claims.tables} tables, ${stats.claims.functions} functions, ${stats.claims.policies} policies)`);
-ok(stats.skippedSections.join() === "0002_knowledge.sql,0011_knowledge_embedding_halfvec2048.sql",
-  "only the pgvector knowledge sections are unavailable to PGlite");
+ok(stats.skippedSections.length === 0, "every migration section was applied");
 
 /* 20261119151200_restrict_ballot_writes.sql: ballots must pass through the
    governance Edge Function, which resolves the voter from the session before
@@ -351,6 +351,36 @@ eq(self.json.present, 2, "the second member checked himself in, and an injected 
 eq(self.json.satisfied, true, `2 of 8 eligible members is ${self.json.pct}% — quorum satisfied`);
 eq((await rest.from("attendance").select("id").eq("agm_id", agmId)).data.length, 2, "two attendance rows, and the body's member was not added");
 
+// Each call uses one member's signed-in database identity.
+async function floor(actor, action, value = null, speaker = null) {
+  await db.query("select set_config('agmx.uid', $1, false)", [actor]);
+  const query = action
+    ? ["select public.update_agm_floor($1,$2,$3,$4) as room", [agmId, action, value, speaker]]
+    : ["select public.agm_floor_state($1) as room", [agmId]];
+  return (await db.query(...query)).rows[0].room;
+}
+async function floorDenied(work, reason) {
+  try { await work(); return false; }
+  catch (error) { return reason.test(error.message); }
+}
+ok(await floorDenied(() => floor(USER.member[2], "join"), /Check in/), "check-in is required to join the speaker queue");
+const queued = await floor(USER.member[0], "join");
+const speaker = queued.speakers[0].id;
+eq(queued.speakers[0].mine, true, "the member sees their own queued request in the write response");
+eq((await floor(USER.member[0], "join")).speakers.length, 1, "retrying a request keeps one queue position");
+const secondRequest = await floor(USER.member[1], "join");
+eq(secondRequest.speakers[0].id, speaker, "two members see the same speaking order");
+const secondSpeaker = secondRequest.speakers[1].id;
+ok(await floorDenied(() => floor(USER.member[1], "call", null, speaker), /Operator access/), "only meeting operators can call a speaker");
+eq((await floor(USER.operator, "call", null, speaker)).speakers[0].state, "called", "chair calls the first member");
+eq((await floor(USER.member[1], "withdraw", null, secondSpeaker)).speakers.length, 1, "a member can withdraw their own waiting request");
+eq((await floor(USER.operator, "finish", null, speaker)).speakers.length, 0, "finishing the turn frees the floor");
+await floor(USER.operator, "caption", "Agenda diteruskan");
+eq((await floor(USER.member[0])).caption, "Agenda diteruskan", "a caption published by the chair reaches the member");
+await floor(USER.operator, "link", "https://meet.google.com/abc-defg-hij");
+eq((await floor(USER.member[0])).link, "https://meet.google.com/abc-defg-hij", "a member receives the room video link");
+eq((await floor(USER.operator, "link", "")).link, null, "the chair can remove a meeting link");
+
 const tally = { [motionA.id]: ["ya", "ya", "tidak"], [motionB.id]: ["ya", "ya", "tidak"], [motionC.id]: ["ya", "tidak", "kecuali"] };
 async function castVotes(motionId) {
   for (let i = 0; i < 3; i++) {
@@ -405,6 +435,7 @@ eq(byRule.gp14b_motions, "amaran", "the motion raised without a seconder is flag
 eq(byRule.akta1993_immutable, "belum_disemak", "record immutability reports itself as not evaluated rather than green");
 
 eq((await call("governance", "/agm/close", { as: OP, body: { agmId } })).json.status, "closed", "the meeting is closed");
+ok(await floorDenied(() => floor(USER.member[0], "join"), /not live/), "closing the meeting closes the floor");
 eq((await call("governance", "/vote", { as: voters[0], body: { motionId: motionA.id, choice: "ya" } })).json.error, "Voting window closed",
   "no ballot is accepted after the chair closes the meeting");
 eq((await call("governance", "/agm/start", { as: OP, body: { agmId } })).json.error, "AGM already started or closed",
@@ -466,10 +497,33 @@ await seedUser(db, { id: USER.rival });
    (404) — which is the assertion this block is making. */
 await rest.from("profiles").insert({ id: USER.rival, organization_id: orgB.id, full_name: "Lawan", role: "admin" });
 const RIVAL = rest.registerActor({ id: USER.rival });
+ok(await floorDenied(() => floor(USER.rival), /unavailable/), "another cooperative cannot enter the room");
 eq((await call("governance", `/agm/${agmId}/roster`, { as: RIVAL, method: "GET" })).status, 404, "another cooperative's secretary cannot read the roster");
 eq((await call("governance", "/vote", { as: RIVAL, body: { motionId: motionA.id, choice: "ya" } })).json.error,
   "No member record linked to your account", "and has no member record with which to vote in it");
 eq((await call("governance", "/agm/close", { as: RIVAL, body: { agmId } })).status, 404, "or close it");
+
+section("Knowledge publication and search");
+{
+  const one = async (sql,args=[]) => (await db.query(sql,args)).rows[0];
+  await one("select set_config('agmx.uid',$1,false)",[USER.operator]);
+  const doc = await one("select id from documents where organization_id=$1 limit 1",[orgId]);
+ const job=async()=>(await one("insert into knowledge_jobs(organization_id,document_id,source_type,status) values ($1,$2,'md','processing') returning id",[orgId,doc.id])).id;
+ const emb=Array(2048).fill(0);emb[0]=0.4;emb[1]=0.9;
+ const chunk=(text,embedding)=>({text,page:1,model:"test",embedding:JSON.stringify(embedding),assertions:[{subject:"AGM",predicate:"mentions",object:"quorum",quote:"quorum",confidence:1}]});
+ const publish=async(j,items)=>one("select publish_document_index($1,$2,$3)",[doc.id,j,JSON.stringify(items)]);
+ await publish(await job(),[chunk('Meeting quorum',emb)]);
+ assert.equal((await one("select * from knowledge_search($1,8,0.65)",[JSON.stringify(emb)])).content,"Meeting quorum");
+ const next=await job();
+ await assert.rejects(publish(next,[chunk('New quorum',emb),chunk('Invalid vector',[5])]));
+ assert.equal((await one("select count(*) from knowledge_chunks where document_id=$1",[doc.id])).count,1);
+ assert.equal((await one("select content from knowledge_chunks where document_id=$1",[doc.id])).content,"Meeting quorum");
+ await publish(next,[chunk('Final quorum',emb)]);
+ const row=await one("select * from knowledge_search($1,8,0.65)",[JSON.stringify(emb)]);
+ assert.equal(row.content,"Final quorum");assert.equal(row.page,1);assert.equal(row.assertions.length,1);
+ assert.equal((await one("select count(*) from knowledge_chunks where document_id=$1",[doc.id])).count,1);
+  ok(true,"a complete document index replaces the old version and a failed replacement preserves it");
+}
 
 /* ---------- 9. the harness is not asserting nothing ---------- */
 section("8. Harness integrity");

@@ -48,9 +48,16 @@ create table if not exists public.knowledge_chunks (
 
 create index if not exists idx_knowledge_chunks_org on public.knowledge_chunks(organization_id);
 create index if not exists idx_knowledge_chunks_doc on public.knowledge_chunks(document_id);
-create index if not exists idx_knowledge_chunks_embedding 
-  on public.knowledge_chunks using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
+-- Replaying the bundle after 0011 must keep its halfvec index. PostgreSQL
+-- checks operator compatibility even when CREATE INDEX IF NOT EXISTS skips.
+do $$
+begin
+  if exists (select 1 from pg_attribute where attrelid='public.knowledge_chunks'::regclass
+    and attname='embedding' and atttypid=to_regtype('vector') and not attisdropped) then
+    create index if not exists idx_knowledge_chunks_embedding
+      on public.knowledge_chunks using ivfflat (embedding vector_cosine_ops) with (lists=100);
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- KNOWLEDGE ASSERTIONS

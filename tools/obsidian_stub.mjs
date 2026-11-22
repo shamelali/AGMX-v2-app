@@ -29,6 +29,8 @@ const server = createServer(async (req, res) => {
       return send(200, { ok: true, embedStatusCode });
     }
     if (req.url.includes("/embeddings")) {
+      const request = JSON.parse(body);
+      if (request.input_type !== "passage" || "dimensions" in request) return send(400, {error:"Invalid NVIDIA passage request"});
       if (embedStatusCode !== 200) return send(embedStatusCode, { error: "rate limited" });
       return send(200, {
         data: [{ embedding: Array.from({ length: 1024 }, (_, i) => i / 1024) }],

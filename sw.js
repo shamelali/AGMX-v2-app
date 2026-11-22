@@ -164,7 +164,9 @@
 // toggle fix, status page verified.
 // Bumped to v12: index.html hero-proof text updated (removed "Data hosted in Singapore"),
 // DutaGovern branding applied across page, Undraw illustrations added.
-const CACHE = "agmx-www-agmx-my-v14";
+// Bumped to v16: the canonical AGMX logo, favicon and PWA icons replace the
+// legacy text-only AG marks across the public site, workspace and tools.
+const CACHE = "agmx-www-agmx-my-v16";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -177,8 +179,24 @@ const PRECACHE = [
   "/app-shell.css",
   "/runtime-diagnostics.js",
   "/styles.css",
+  "/brand.css",
+  "/favicon.ico",
+  "/images/brand/agmx-logo.webp",
+  "/images/brand/agmx-icon-192.png",
+  "/images/brand/agmx-icon-512.png",
+  "/images/brand/apple-touch-icon.png",
+  "/images/brand/favicon-32.png",
   "/landing.css",
   "/landing.js",
+  "/document-desk.html",
+  "/document-desk.js",
+  "/evidence.html",
+  "/evidence.js",
+  "/meeting-tools.js",
+  "/meeting-tools.css",
+  "/live-meeting.html",
+  "/live-meeting.js",
+  "/demo/guided-demo.html",
   "/data.js",
   "/price-list.js",
   "/assessment.html",
