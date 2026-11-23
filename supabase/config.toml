@@ -301,14 +301,15 @@ max_frequency = "5s"
 # Local development URI. For production, replace with the deployed
 # function URL, e.g.:
 #   uri = "https://jchfalaibabmszewemat.supabase.co/functions/v1/send-email-hook"
-# Set the secret in Supabase Dashboard → Edge Functions → Secrets:
+# Read the secret from the root .env file (gitignored) and set the same
+# value as a Supabase Edge Function secret:
 #   SEND_EMAIL_HOOK_SECRETS=v1,whsec_<base64-secret>
 #   RESEND_API_KEY=re_<your-resend-api-key>
 #   SMTP_FROM=noreply@agmx.my
 [auth.hook.send_email]
 enabled = true
 uri = "https://jchfalaibabmszewemat.supabase.co/functions/v1/send-email-hook"
-secrets = "v1,whsec_cF4ynsc8KFwBWXY6oXywWCf22BnOZT9LerFv4a+frX0="
+secrets = "env(SEND_EMAIL_HOOK_SECRETS)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
