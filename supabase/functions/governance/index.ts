@@ -20,6 +20,7 @@
  *   POST /agm                        - create an AGM (+ settings row)
  *   POST /agm/start                  - {agmId}
  *   POST /agm/close                  - {agmId}
+ *   POST /agm/advance-stage          - {agmId, toStage} (one stage at a time, gates enforced)
  *   POST /attendance                 - {agmId, memberId?, method} (self check-in allowed)
  *   POST /motion                     - {agmId, title, type, proposerId?, seconderId?}
  *   POST /motion/open-voting         - {motionId}
@@ -317,6 +318,24 @@ async function handleAgmClose(req: Request, ctx: any) {
   return rpcResult(data)
 }
 
+async function handleAgmAdvanceStage(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, toStage } = await req.json()
+  if (!agmId || !toStage) return err("Missing agmId or toStage")
+
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("advance_agm_stage", {
+    p_agm_id: agmId,
+    p_to_stage: toStage,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
 async function handleAttendance(req: Request, ctx: any) {
   const { agmId, memberId, method } = await req.json()
   if (!agmId) return err("Missing agmId")
@@ -473,6 +492,63 @@ async function handleDocumentCreate(req: Request, ctx: any) {
   return rpcResult(data)
 }
 
+async function handleMembersImport(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { organization_id, members } = await req.json()
+  if (!organization_id || !Array.isArray(members)) return err("Missing organization_id or members")
+  if (organization_id !== ctx.profile.organization_id) return err("Forbidden", 403)
+
+  const { data, error } = await supabase.rpc("import_members", {
+    p_organization_id: organization_id,
+    p_members: members,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleElectoralRollFreeze(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, reasonCode } = await req.json()
+  if (!agmId) return err("Missing agmId")
+
+  const { data, error } = await supabase.rpc("freeze_electoral_roll", {
+    p_agm_id: agmId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+    p_reason_code: reasonCode || "election_opened",
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleElectoralRollList(ctx: any) {
+  const { data: rolls } = await supabase
+    .from("electoral_rolls")
+    .select("*, entries:electoral_roll_entries(*)")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("version", { ascending: false })
+  return ok({ rolls: rolls || [] })
+}
+
+async function handleElectoralRollEntries(rollId: string, ctx: any) {
+  const { data: roll } = await supabase
+    .from("electoral_rolls")
+    .select("*")
+    .eq("id", rollId)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single()
+  if (!roll) return err("Roll not found", 404)
+
+  const { data: entries } = await supabase
+    .from("electoral_roll_entries")
+    .select("*")
+    .eq("electoral_roll_id", rollId)
+    .order("member_no")
+  return ok({ roll, entries: entries || [] })
+}
+
 /* ---- Router ---- */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
@@ -502,6 +578,7 @@ serve(async (req) => {
     if (method === "POST" && path === "/agm") return await handleAgmCreate(req, ctx)
     if (method === "POST" && path === "/agm/start") return await handleAgmStart(req, ctx)
     if (method === "POST" && path === "/agm/close") return await handleAgmClose(req, ctx)
+    if (method === "POST" && path === "/agm/advance-stage") return await handleAgmAdvanceStage(req, ctx)
     if (method === "POST" && path === "/attendance") return await handleAttendance(req, ctx)
     if (method === "POST" && path === "/motion") return await handleMotionCreate(req, ctx)
     if (method === "POST" && path === "/motion/open-voting") return await handleMotionOpenVoting(req, ctx)
@@ -510,6 +587,11 @@ serve(async (req) => {
     if (method === "POST" && path === "/action") return await handleActionCreate(req, ctx)
     if (method === "POST" && path === "/compliance/run") return await handleComplianceRun(req, ctx)
     if (method === "POST" && path === "/document") return await handleDocumentCreate(req, ctx)
+    if (method === "POST" && path === "/members/import") return await handleMembersImport(req, ctx)
+    if (method === "POST" && path === "/electoral-roll/freeze") return await handleElectoralRollFreeze(req, ctx)
+    if (method === "GET" && path === "/electoral-roll") return await handleElectoralRollList(ctx)
+    const rollEntryMatch = path.match(/^\/electoral-roll\/([^/]+)\/entries$/)
+    if (method === "GET" && rollEntryMatch) return await handleElectoralRollEntries(rollEntryMatch[1], ctx)
 
     return err("Not found", 404)
   } catch (e) {

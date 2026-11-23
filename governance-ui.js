@@ -460,6 +460,16 @@
 
   function agmStatusCard(ctx, agm, payload, rerender) {
     const tone = agm.status === "live" ? "ok" : "muted";
+    const STAGE_NEXT = {
+      planned: { stage: "configuring", label: "Configure AGM" },
+      configuring: { stage: "published", label: "Publish AGM" },
+      published: { stage: "registration_open", label: "Open Registration" },
+      registration_open: { stage: "ready", label: "Mark Ready" },
+      ready: { stage: "live", label: "Open Meeting" },
+      live: { stage: "closed", label: "Close AGM" },
+      closed: { stage: "post_agm", label: "Post-AGM minutes" },
+      post_agm: { stage: "archived", label: "Archive AGM" },
+    };
     const controls = node("div", "agmx-gov-controls");
     if (ctx.isAdmin) {
       if (agm.status === "planned") {
@@ -467,9 +477,10 @@
           await runAction(e, ctx, () => ctx.api.startAgm(agm.id), rerender);
         }));
       }
-      if (agm.status === "live") {
-        controls.appendChild(button("Close AGM", "btn btn-danger btn-sm", async (e) => {
-          await runAction(e, ctx, () => ctx.api.closeAgm(agm.id), rerender);
+      const next = STAGE_NEXT[agm.status || "planned"];
+      if (next) {
+        controls.appendChild(button(next.label, "btn btn-secondary btn-sm", async (e) => {
+          await runAction(e, ctx, () => ctx.api.advanceStage(agm.id, next.stage), rerender);
         }));
       }
     }
