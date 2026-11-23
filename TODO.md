@@ -108,6 +108,13 @@
 
 ## 📋 Remaining
 
+- [ ] 🔴 **Rotate the send-email webhook secret.** It was committed in plaintext
+      in `supabase/config.toml` on a public repo (`shamelali/AGMX-v2-app`).
+      `config.toml` now reads it from the gitignored root `.env` as
+      `env(SEND_EMAIL_HOOK_SECRETS)`. Generate a new `whsec_...`, set it both as
+      the Supabase Edge Function secret and in the auth hook config, then commit
+      the `config.toml` change. Until then the old secret must be considered
+      compromised.
 - [ ] 🏭 **GitHub Actions is locked for billing, so CI deploys nothing.** Every run
       on `master` fails in ~2s with *"The job was not started because your account
       is locked due to a billing issue."* Deploys are CLI-only until that clears.
