@@ -19,6 +19,7 @@
         <p style="color:#666;font-size:0.875rem;margin:0.25rem 0 0;">Senarai ahli koperasi dan kelayakan undi</p>
       </div>
       <button onclick="location.reload()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Muat Semula</button>
+      <button onclick="openImportModal()" style="padding:0.5rem 1rem;border:1px solid #2563EB;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Impor Ahli</button>
     </header>
 
     <div style="margin-bottom:1.5rem;">
@@ -53,6 +54,7 @@
             <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">ID Ahli</th>
             <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Nama</th>
             <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Status</th>
+            <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Daerah</th>
             <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Saham</th>
             <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Tunggakan</th>
             <th style="padding:0.75rem;text-align:left;border-bottom:1px solid #e5e7eb;color:#64748b;">Boleh Undi</th>
@@ -116,6 +118,7 @@
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;font-weight:500;color:#374151;">${escapeHtml(m.member_no || '-')}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(m.name || '-')}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;${statusClass}">${escapeHtml(m.status || '-')}</span></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(m.region || '-')}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${Number(m.shares || 0).toLocaleString()}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">RM ${Number(m.arrears || 0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;font-weight:600;${eligClass}">${m.eligible !== false ? 'Ya' : 'Tidak'}</span></td>
@@ -136,6 +139,43 @@
     window.viewMember = (id) => {
       alert('Butiran ahli akan dipaparkan dalam versi seterusnya.');
     };
+
+    <!-- Import modal -->
+    <div id="importModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:12px;padding:1.5rem;min-width:400px;max-width:90vw;max-height:90vh;overflow-y:auto;">
+        <h3 style="margin:0 0 1rem;font-size:1.125rem;">Impor Ahli (JSON)</h3>
+        <p style="font-size:0.875rem;color:#666;margin-bottom:1rem;">Paste JSON array of members. Each object: {member_no, name, ic?, phone?, region?, shares?, status?, arrears?, eligible?, age?, joined_at?, contact_channels?}</p>
+        <textarea id="importJson" style="width:100%;height:160px;font-family:monospace;font-size:0.8rem;padding:0.75rem;border:1px solid #d1d5db;border-radius:6px;margin-bottom:1rem;" placeholder='[{"member_no":"M001","name":"Ahmad","region":"Selangor"}]'></textarea>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+          <button onclick="closeImportModal()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Batal</button>
+          <button onclick="doImport()" style="padding:0.5rem 1rem;border:1px solid #2563EB;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Impor</button>
+        </div>
+      </div>
+    </div>
+
+    function openImportModal() { document.getElementById('importModal').style.display = 'flex'; }
+    function closeImportModal() { document.getElementById('importModal').style.display = 'none'; document.getElementById('importJson').value = ''; }
+
+    async function doImport() {
+      const textarea = document.getElementById('importJson');
+      let members;
+      try { members = JSON.parse(textarea.value); }
+      catch { alert('JSON tidak sah.'); return; }
+      if (!Array.isArray(members)) { alert('Input mesti JSON array.'); return; }
+
+      const profile = await AGMX_API.profile.getCurrent();
+      const orgId = profile?.organization?.id;
+      if (!orgId) return;
+
+      try {
+        const res = await AGMX_API.governance.importMembers(orgId, members);
+        alert('Impor selesai: ' + JSON.stringify(res.data || res));
+        closeImportModal();
+        load();
+      } catch (err) {
+        alert('Gagal import: ' + err.message);
+      }
+    }
 
     load();
   </script>

@@ -164,7 +164,14 @@
 // toggle fix, status page verified.
 // Bumped to v12: index.html hero-proof text updated (removed "Data hosted in Singapore"),
 // DutaGovern branding applied across page, Undraw illustrations added.
-const CACHE = "agmx-www-agmx-my-v14";
+// Bumped to v15: governance-ui.js gained AGM lifecycle stage-advancement
+// controls (Draft → … → Archived) calling /agm/advance-stage — a precached
+// file, so installed clients must replace the old copy.
+// Bumped to v17: index.html's published RLS counts (tables/policies) now
+// match the regenerated migration bundle after Sprint 3 added
+// electoral_rolls and electoral_roll_entries — installed clients serving
+// the old copy would advertise numbers the bundle no longer produces.
+const CACHE = "agmx-www-agmx-my-v17";
 const PRECACHE = [
   "/",
   "/index.html",
