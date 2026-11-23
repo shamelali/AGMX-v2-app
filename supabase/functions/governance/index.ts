@@ -549,6 +549,228 @@ async function handleElectoralRollEntries(rollId: string, ctx: any) {
   return ok({ roll, entries: entries || [] })
 }
 
+async function handleNotices(ctx: any) {
+  const { data } = await supabase
+    .from("agm_notices")
+    .select("id, agm_id, channel, subject, body, status, scheduled_at, due_at, ack_required, source, recipient_count, sent_at, created_at")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("created_at", { ascending: false })
+    .limit(200)
+  return ok({ notices: data || [] })
+}
+
+async function handleNoticeCompose(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, channel, subject, body, source, dueAt, ackRequired } = await req.json()
+  if (!agmId || !channel || !subject) return err("Missing agmId, channel or subject")
+
+  const { data, error } = await supabase.rpc("compose_notice", {
+    p_agm_id: agmId,
+    p_organization_id: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+    p_channel: channel,
+    p_subject: subject,
+    p_body: body || "",
+    p_source: source || "manual",
+    p_due_at: dueAt || null,
+    p_ack_required: ackRequired === true,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleNoticeAction(req: Request, ctx: any, id: string, verb: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const rpc = { schedule: "schedule_notice", deliver: "deliver_notice", acknowledge: "acknowledge_notice" }[verb]
+  if (!rpc) return err("Unknown notice action", 400)
+
+  if (verb === "acknowledge") {
+    const { memberId } = await req.json()
+    if (!memberId) return err("Missing memberId")
+    const { data, error } = await supabase.rpc(rpc, {
+      p_notice_id: id,
+      p_member_id: memberId,
+      p_operator_org: ctx.profile.organization_id,
+      p_actor: ctx.user.id,
+    })
+    if (error) return err(error.message, 500)
+    return rpcResult(data)
+  }
+
+  const { data, error } = await supabase.rpc(rpc, {
+    p_notice_id: id,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handlePackDocuments(ctx: any, url: URL) {
+  const org = ctx.profile.organization_id
+  const agmId = url.searchParams.get("agm_id")
+  let q = supabase.from("documents").select("*").eq("organization_id", org)
+  if (agmId) q = q.eq("agm_id", agmId)
+  const { data: documents } = await q.order("created_at", { ascending: false }).limit(200)
+
+  const { data: versions } = await supabase
+    .from("document_versions")
+    .select("document_id, version")
+    .eq("organization_id", org)
+  const byDoc: Record<string, number> = {}
+  for (const v of versions || []) {
+    const cur = byDoc[v.document_id] ?? 0
+    if ((v.version ?? 0) > cur) byDoc[v.document_id] = v.version
+  }
+  return ok({
+    documents: (documents || []).map((d: any) => ({ ...d, version: byDoc[d.id] ?? 1 })),
+  })
+}
+
+async function handlePackRegister(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, category, filename, mime, sizeBytes, storagePath, sha256 } = await req.json()
+  if (!category || !filename || !storagePath) return err("Missing category, filename or storagePath")
+
+  const { data, error } = await supabase.rpc("register_pack_document", {
+    p_agm_id: agmId || null,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+    p_category: category,
+    p_filename: filename,
+    p_mime: mime || "application/octet-stream",
+    p_size_bytes: sizeBytes ?? null,
+    p_storage_path: storagePath,
+    p_sha256: sha256 || null,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handlePackVersions(ctx: any, docId: string) {
+  const org = ctx.profile.organization_id
+  const { data } = await supabase
+    .from("document_versions")
+    .select("version, filename, mime, size_bytes, storage_path, sha256, created_by, created_at")
+    .eq("document_id", docId)
+    .eq("organization_id", org)
+    .order("version", { ascending: true })
+  return ok({ versions: data || [] })
+}
+
+async function handlePackAccessList(ctx: any, docId: string) {
+  const org = ctx.profile.organization_id
+  const { data } = await supabase
+    .from("document_access")
+    .select("action, accessed_at, ip, member:members(member_no, name)")
+    .eq("document_id", docId)
+    .eq("organization_id", org)
+    .order("accessed_at", { ascending: false })
+    .limit(200)
+  return ok({ access: data || [] })
+}
+
+async function handlePackAccessLog(req: Request, ctx: any, docId: string) {
+  const org = ctx.profile.organization_id
+  const { action = "view", ip, memberId } = await req.json()
+  let member = memberId || null
+  if (!member) {
+    const { data: me } = await supabase
+      .from("organization_members")
+      .select("member_id")
+      .eq("user_id", ctx.user.id)
+      .eq("organization_id", org)
+      .single()
+    member = me?.member_id || null
+  }
+  if (!member) return err("Member not linked to this organisation", 400)
+
+  const { data, error } = await supabase.rpc("log_document_access", {
+    p_document_id: docId,
+    p_operator_org: org,
+    p_member_id: member,
+    p_action: action,
+    p_ip: ip || null,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handlePackReplace(req: Request, ctx: any, docId: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { filename, mime, sizeBytes, storagePath, sha256 } = await req.json()
+  if (!filename || !storagePath) return err("Missing filename or storagePath")
+
+  const { data, error } = await supabase.rpc("replace_pack_document", {
+    p_document_id: docId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+    p_filename: filename,
+    p_mime: mime || "application/octet-stream",
+    p_size_bytes: sizeBytes ?? null,
+    p_storage_path: storagePath,
+    p_sha256: sha256 || null,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleCommunicationsList(ctx: any) {
+  const { data } = await supabase
+    .from("communications")
+    .select("*")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("created_at", { ascending: false })
+    .limit(200)
+  return ok({ communications: data || [] })
+}
+
+async function handleCommunicationSend(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, type = "notice", channel = "email", subject, body, memberIds } = await req.json()
+  if (!body) return err("Missing body")
+
+  const { data, error } = await supabase.rpc("send_communication", {
+    p_organization_id: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+    p_agm_id: agmId || null,
+    p_type: type,
+    p_channel: channel,
+    p_subject: subject || "",
+    p_body: body,
+    p_member_ids: Array.isArray(memberIds) ? memberIds : null,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleCommunicationLog(ctx: any) {
+  const { data } = await supabase
+    .from("communication_log")
+    .select("*, member:members(member_no, name)")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("occurred_at", { ascending: false })
+    .limit(200)
+  return ok({ log: data || [] })
+}
+
+async function handleRecordDelivery(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { communicationId, memberId, channel, status, providerMessageId, providerResponse } = await req.json()
+  if (!communicationId || !memberId || !channel || !status) return err("Missing fields")
+
+  const { data, error } = await supabase.rpc("record_delivery", {
+    p_communication_id: communicationId,
+    p_member_id: memberId,
+    p_channel: channel,
+    p_status: status,
+    p_provider_message_id: providerMessageId || null,
+    p_provider_response: providerResponse || {},
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
 /* ---- Router ---- */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
@@ -587,6 +809,32 @@ serve(async (req) => {
     if (method === "POST" && path === "/action") return await handleActionCreate(req, ctx)
     if (method === "POST" && path === "/compliance/run") return await handleComplianceRun(req, ctx)
     if (method === "POST" && path === "/document") return await handleDocumentCreate(req, ctx)
+    if (method === "GET" && path === "/notices") return await handleNotices(ctx)
+    if (method === "POST" && path === "/notices") return await handleNoticeCompose(req, ctx)
+    const noticeAction = path.match(/^\/notices\/([^/]+)\/(schedule|deliver|acknowledge)$/)
+    if (method === "POST" && noticeAction)
+      return await handleNoticeAction(req, ctx, noticeAction[1], noticeAction[2])
+    if (method === "GET" && path === "/pack") return await handlePackDocuments(ctx, url)
+    if (method === "POST" && path === "/pack") return await handlePackRegister(req, ctx)
+    const packAction = path.match(/^\/pack\/([^/]+)\/(versions|access|replace)$/)
+    if (packAction) {
+      if (method === "GET" && packAction[2] === "versions")
+        return await handlePackVersions(ctx, packAction[1])
+      if (method === "GET" && packAction[2] === "access")
+        return await handlePackAccessList(ctx, packAction[1])
+      if (method === "POST" && packAction[2] === "access")
+        return await handlePackAccessLog(req, ctx, packAction[1])
+      if (method === "POST" && packAction[2] === "replace")
+        return await handlePackReplace(req, ctx, packAction[1])
+    }
+    if (method === "GET" && path === "/communications")
+      return await handleCommunicationsList(ctx)
+    if (method === "POST" && path === "/communications")
+      return await handleCommunicationSend(req, ctx)
+    if (method === "GET" && path === "/communication-log")
+      return await handleCommunicationLog(ctx)
+    if (method === "POST" && path === "/communication-log/delivery")
+      return await handleRecordDelivery(req, ctx)
     if (method === "POST" && path === "/members/import") return await handleMembersImport(req, ctx)
     if (method === "POST" && path === "/electoral-roll/freeze") return await handleElectoralRollFreeze(req, ctx)
     if (method === "GET" && path === "/electoral-roll") return await handleElectoralRollList(ctx)
