@@ -171,7 +171,11 @@
 // match the regenerated migration bundle after Sprint 3 added
 // electoral_rolls and electoral_roll_entries — installed clients serving
 // the old copy would advertise numbers the bundle no longer produces.
-const CACHE = "agmx-www-agmx-my-v17";
+// Bumped to v18: governance-ui.js gained the Notice Composer, AGM Pack and
+// Communication Log screens (Sprint 4), and index.html restates the bundle's
+// published counts as 46 tables holding 63 policies — installed clients
+// serving the old copy would miss the new routes and advertise stale numbers.
+const CACHE = "agmx-www-agmx-my-v18";
 const PRECACHE = [
   "/",
   "/index.html",

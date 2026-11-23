@@ -969,9 +969,452 @@
     return true;
   }
 
+  const NOTICE_TONE = { draft: "muted", scheduled: "muted", delivered: "ok", acknowledged: "ok" };
+
+  async function renderNotices(container, ctx) {
+    if (ctx.source === "demo") return renderDemoBlocked(container, ctx, t("Notices"));
+    loading(container);
+    let payload;
+    try {
+      payload = await ctx.api.notices();
+    } catch (error) {
+      return renderError(container, ctx, error, () => renderNotices(container, ctx));
+    }
+    container.replaceChildren();
+    container.appendChild(heading(t("Notices"), t("Notices, reminders and updates sent to members."), ctx));
+
+    const controls = node("div", "agmx-gov-controls");
+    if (ctx.isAdmin) {
+      controls.appendChild(button(t("Compose notice"), "btn btn-primary btn-sm", () => {
+        composeNoticeForm(container, ctx);
+      }));
+    }
+    container.appendChild(controls);
+
+    const notices = (payload && payload.notices) || [];
+    if (!notices.length) {
+      container.appendChild(card(t("No notices yet"), t("No notices have been composed for this organisation.")));
+      return;
+    }
+
+    const rows = notices.map((n) => [
+      node("strong", "", text(n.subject, t("Notice"))),
+      node("p", "agmx-gov-small", [
+        node("span", "", text(n.channel, "—")),
+        node("span", "", " · "),
+        node("span", "", fmtDate(n.created_at)),
+        node("span", "", " · "),
+        statusPill(enumLabel(n.status || "draft"), NOTICE_TONE[n.status || "draft"] || "muted"),
+      ]),
+      node("p", "agmx-gov-small", text(n.body, t("No body"))),
+    ]);
+    container.appendChild(table(["Notice", "Channel · Date · Status"], rows));
+
+    const act = node("div", "agmx-gov-controls");
+    notices.forEach((n) => {
+      if (ctx.isAdmin && (n.status === "draft" || n.status === "scheduled")) {
+        act.appendChild(button(t("Schedule"), "btn btn-secondary btn-sm", async (e) => {
+          await runAction(e, ctx, () => ctx.api.scheduleNotice(n.id), () => renderNotices(container, ctx));
+        }));
+      }
+      if (ctx.isAdmin && n.status === "scheduled") {
+        act.appendChild(button(t("Deliver"), "btn btn-primary btn-sm", async (e) => {
+          await runAction(e, ctx, () => ctx.api.deliverNotice(n.id), () => renderNotices(container, ctx));
+        }));
+      }
+      act.appendChild(button(t("Acknowledge"), "btn btn-outline btn-sm", async (e) => {
+        acknowledgeNoticeForm(container, ctx, n.id, () => renderNotices(container, ctx));
+      }));
+    });
+    container.appendChild(act);
+  }
+
+  function composeNoticeForm(container, ctx) {
+    const form = node("div", "agmx-card");
+    const channel = select("notice-channel", [
+      { value: "email", label: "Email" },
+      { value: "sms", label: "SMS" },
+      { value: "whatsapp", label: "WhatsApp" },
+      { value: "portal", label: "Portal" },
+    ]);
+    const subject = input("notice-subject", "text", t("Subject"));
+    const body = node("textarea", "input");
+    body.id = "notice-body"; body.name = "notice-body"; body.placeholder = t("Body"); body.rows = 4;
+    const source = select("notice-source", [
+      { value: "manual", label: "Manual" },
+      { value: "agenda", label: "Agenda" },
+      { value: "motion", label: "Motion" },
+      { value: "resolution", label: "Resolution" },
+    ]);
+    const dueAt = input("notice-due-at", "datetime-local", t("Due date"));
+    const ackRequired = node("input", ""); ackRequired.type = "checkbox"; ackRequired.id = "notice-ack-required";
+    const agmId = input("notice-agm-id", "text", t("AGM id (optional)"));
+
+    append(form, [
+      field(t("Channel"), channel),
+      field(t("Subject"), subject),
+      field(t("Body"), body),
+      field(t("Source"), source),
+      field(t("Due date / time"), dueAt),
+      append(node("div", "agmx-field"), [
+        node("label", "agmx-field-label", t("Acknowledgement required")),
+        node("span", "", [ackRequired, node("span", "", t("Members must acknowledge receipt"))]),
+      ]),
+      field(t("AGM id"), agmId),
+    ]);
+
+    const bar = node("div", "agmx-gov-controls");
+    bar.appendChild(button(t("Cancel"), "btn btn-secondary btn-sm", () => renderNotices(container, ctx)));
+    bar.appendChild(button(t("Compose"), "btn btn-primary btn-sm", async (e) => {
+      e.preventDefault();
+      const status = node("div", "agmx-gov-notice");
+      form.prepend(status);
+      const ok = await submitWrite(status, async () => {
+        await ctx.api.composeNotice({
+          agmId: agmId.value || null,
+          channel: channel.value,
+          subject: subject.value,
+          body: body.value,
+          source: source.value,
+          dueAt: dueAt.value || null,
+          ackRequired: ackRequired.checked,
+        });
+        await ctx.reload();
+      }, () => renderNotices(container, ctx));
+      if (ok) renderNotices(container, ctx);
+    }));
+    append(form, [bar]);
+    container.replaceChildren(form);
+    container.prepend(heading(t("Compose notice"), t("Draft a notice for members to receive."), ctx));
+  }
+
+  function acknowledgeNoticeForm(container, ctx, noticeId, rerender) {
+    const memberId = input("ack-member-id", "text", t("Member id"));
+    const form = node("div", "agmx-card");
+    append(form, [field(t("Member id"), memberId)]);
+    const bar = node("div", "agmx-gov-controls");
+    bar.appendChild(button(t("Cancel"), "btn btn-secondary btn-sm", () => rerender()));
+    bar.appendChild(button(t("Acknowledge"), "btn btn-primary btn-sm", async (e) => {
+      e.preventDefault();
+      const status = node("div", "agmx-gov-notice");
+      form.prepend(status);
+      await submitWrite(status, async () => {
+        await ctx.api.acknowledgeNotice(noticeId, memberId.value);
+      }, rerender);
+    }));
+    append(form, [bar]);
+    container.replaceChildren(form);
+    container.prepend(heading(t("Acknowledge notice"), t("Record that a member received a notice."), ctx));
+  }
+
+  async function renderPack(container, ctx) {
+    if (ctx.source === "demo") return renderDemoBlocked(container, ctx, t("AGM Pack"));
+    const agmId = (new URLSearchParams(window.location.search).get("agm_id") || undefined);
+    loading(container);
+    let payload;
+    try {
+      payload = await ctx.api.packDocuments(agmId);
+    } catch (error) {
+      return renderError(container, ctx, error, () => renderPack(container, ctx));
+    }
+    container.replaceChildren();
+    container.appendChild(heading(t("AGM Pack"), t("Versioned documents for the AGM. Replacements keep every version; nothing is ever overwritten."), ctx));
+
+    const controls = node("div", "agmx-gov-controls");
+    if (ctx.isAdmin) {
+      controls.appendChild(button(t("Register document"), "btn btn-primary btn-sm", () => {
+        registerDocumentForm(container, ctx, agmId);
+      }));
+    }
+    container.appendChild(controls);
+
+    const documents = (payload && payload.documents) || [];
+    if (!documents.length) {
+      container.appendChild(card(t("No documents yet"), t("No AGM pack documents have been registered.")));
+      return;
+    }
+
+    const rows = documents.map((d) => [
+      node("strong", "", text(d.filename, t("Document"))),
+      node("p", "agmx-gov-small", [
+        node("span", "", text(d.category, "—")),
+        node("span", "", " · v" + text(d.version, "1")),
+        node("span", "", " · "),
+        node("span", "", text(d.mime, "—")),
+      ]),
+      node("p", "agmx-gov-small", text(d.storage_path, "—")),
+    ]);
+    container.appendChild(table(["Document", "Category · Version · Mime · Storage path"], rows));
+
+    documents.forEach((d) => {
+      container.appendChild(packDocumentCard(ctx, d, agmId, () => renderPack(container, ctx)));
+    });
+  }
+
+  function packDocumentCard(ctx, doc, agmId, rerender) {
+    const actions = node("div", "agmx-gov-controls");
+    if (ctx.isAdmin) {
+      actions.appendChild(button(t("Replace version"), "btn btn-secondary btn-sm", () => {
+        replaceDocumentForm(container, ctx, doc.id, rerender);
+      }));
+      actions.appendChild(button(t("Log access"), "btn btn-outline btn-sm", () => {
+        logAccessForm(container, ctx, doc.id, rerender);
+      }));
+    }
+    actions.appendChild(button(t("Versions"), "btn btn-outline btn-sm", () => {
+      showVersions(container, ctx, doc.id, rerender);
+    }));
+    actions.appendChild(button(t("Access history"), "btn btn-outline btn-sm", () => {
+      showAccessHistory(container, ctx, doc.id, rerender);
+    }));
+    return card(text(doc.filename), text(doc.category, "—") + " · v" + text(doc.version, "1"), [actions]);
+  }
+
+  function registerDocumentForm(container, ctx, agmId) {
+    const category = select("pack-category", [
+      { value: "minutes", label: "Minutes" },
+      { value: "financial_statement", label: "Financial statement" },
+      { value: "report", label: "Report" },
+      { value: "notice", label: "Notice" },
+      { value: "other", label: "Other" },
+    ]);
+    const filename = input("pack-filename", "text", t("Filename"));
+    const mime = input("pack-mime", "text", t("MIME type"));
+    const sizeBytes = input("pack-size-bytes", "number", t("Size bytes"));
+    const storagePath = input("pack-storage-path", "text", t("Storage path"));
+    const sha256 = input("pack-sha256", "text", t("sha256 (optional)"));
+
+    const form = node("div", "agmx-card");
+    append(form, [
+      field(t("Category"), category),
+      field(t("Filename"), filename),
+      field(t("MIME type"), mime),
+      field(t("Size bytes"), sizeBytes),
+      field(t("Storage path"), storagePath),
+      field(t("sha256"), sha256),
+    ]);
+    const bar = node("div", "agmx-gov-controls");
+    bar.appendChild(button(t("Cancel"), "btn btn-secondary btn-sm", () => renderPack(container, ctx)));
+    bar.appendChild(button(t("Register"), "btn btn-primary btn-sm", async (e) => {
+      e.preventDefault();
+      const status = node("div", "agmx-gov-notice");
+      form.prepend(status);
+      await submitWrite(status, async () => {
+        await ctx.api.registerPackDocument({
+          agmId: agmId || null,
+          category: category.value,
+          filename: filename.value,
+          mime: mime.value || "application/octet-stream",
+          sizeBytes: sizeBytes.value ? Number(sizeBytes.value) : null,
+          storagePath: storagePath.value,
+          sha256: sha256.value || null,
+        });
+      }, () => renderPack(container, ctx));
+      if (ctx.source !== "demo") renderPack(container, ctx);
+    }));
+    append(form, [bar]);
+    container.replaceChildren(form);
+    container.prepend(heading(t("Register document"), t("Add a new document to the AGM pack as version 1."), ctx));
+  }
+
+  function replaceDocumentForm(container, ctx, docId, rerender) {
+    const filename = input("pack-replace-filename", "text", t("Filename"));
+    const mime = input("pack-replace-mime", "text", t("MIME type"));
+    const sizeBytes = input("pack-replace-size-bytes", "number", t("Size bytes"));
+    const storagePath = input("pack-replace-storage-path", "text", t("Storage path"));
+    const sha256 = input("pack-replace-sha256", "text", t("sha256 (optional)"));
+
+    const form = node("div", "agmx-card");
+    append(form, [
+      field(t("Filename"), filename),
+      field(t("MIME type"), mime),
+      field(t("Size bytes"), sizeBytes),
+      field(t("Storage path"), storagePath),
+      field(t("sha256"), sha256),
+    ]);
+    const bar = node("div", "agmx-gov-controls");
+    bar.appendChild(button(t("Cancel"), "btn btn-secondary btn-sm", rerender));
+    bar.appendChild(button(t("Replace"), "btn btn-primary btn-sm", async (e) => {
+      e.preventDefault();
+      const status = node("div", "agmx-gov-notice");
+      form.prepend(status);
+      await submitWrite(status, async () => {
+        await ctx.api.replacePackDocument(docId, {
+          filename: filename.value,
+          mime: mime.value || "application/octet-stream",
+          sizeBytes: sizeBytes.value ? Number(sizeBytes.value) : null,
+          storagePath: storagePath.value,
+          sha256: sha256.value || null,
+        });
+      }, rerender);
+    }));
+    append(form, [bar]);
+    container.replaceChildren(form);
+    container.prepend(heading(t("Replace document version"), t("Store a new version; the previous version is never overwritten."), ctx));
+  }
+
+  function logAccessForm(container, ctx, docId, rerender) {
+    const action = select("pack-access-action", [
+      { value: "view", label: "View" },
+      { value: "download", label: "Download" },
+    ]);
+    const ip = input("pack-access-ip", "text", t("IP address"));
+    const form = node("div", "agmx-card");
+    append(form, [field(t("Action"), action), field(t("IP address"), ip)]);
+    const bar = node("div", "agmx-gov-controls");
+    bar.appendChild(button(t("Cancel"), "btn btn-secondary btn-sm", rerender));
+    bar.appendChild(button(t("Log"), "btn btn-primary btn-sm", async (e) => {
+      e.preventDefault();
+      const status = node("div", "agmx-gov-notice");
+      form.prepend(status);
+      await submitWrite(status, async () => {
+        await ctx.api.logDocumentAccess(docId, { action: action.value, ip: ip.value || null });
+      }, rerender);
+    }));
+    append(form, [bar]);
+    container.replaceChildren(form);
+    container.prepend(heading(t("Log document access"), t("Record that a member viewed or downloaded this document."), ctx));
+  }
+
+  async function showVersions(container, ctx, docId, rerender) {
+    let payload;
+    try {
+      payload = await ctx.api.documentVersions(docId);
+    } catch (error) {
+      return renderError(container, ctx, error, () => showVersions(container, ctx, docId, rerender));
+    }
+    const versions = (payload && payload.versions) || [];
+    const rows = versions.map((v) => [
+      text(v.version, "—"),
+      text(v.filename, "—"),
+      text(v.mime, "—"),
+      text(v.size_bytes, "—"),
+      text(v.sha256, "—"),
+      fmtDateTime(v.created_at),
+    ]);
+    const back = node("div", "agmx-gov-controls");
+    back.appendChild(button(t("Back"), "btn btn-secondary btn-sm", rerender));
+    container.replaceChildren([]);
+    container.appendChild(heading(t("Versions"), t("Every version ever registered for this document."), ctx));
+    container.appendChild(back);
+    container.appendChild(table(["Version", "Filename", "Mime", "Size bytes", "sha256", "Created at"], rows));
+  }
+
+  async function showAccessHistory(container, ctx, docId, rerender) {
+    let payload;
+    try {
+      payload = await ctx.api.documentAccess(docId);
+    } catch (error) {
+      return renderError(container, ctx, error, () => showAccessHistory(container, ctx, docId, rerender));
+    }
+    const access = (payload && payload.access) || [];
+    const rows = access.map((a) => [
+      text(a.action, "—"),
+      fmtDateTime(a.accessed_at),
+      text(a.ip, "—"),
+      text(a.member && a.member.name, "—"),
+      text(a.member && a.member.member_no, "—"),
+    ]);
+    const back = node("div", "agmx-gov-controls");
+    back.appendChild(button(t("Back"), "btn btn-secondary btn-sm", rerender));
+    container.replaceChildren([]);
+    container.appendChild(heading(t("Access history"), t("Who viewed or downloaded this document and when."), ctx));
+    container.appendChild(back);
+    container.appendChild(table(["Action", "Accessed at", "IP", "Member", "Member no"], rows));
+  }
+
+  async function renderComms(container, ctx) {
+    if (ctx.source === "demo") return renderDemoBlocked(container, ctx, t("Communication Log"));
+    loading(container);
+    let comms, log;
+    try {
+      comms = await ctx.api.communications();
+      log = await ctx.api.communicationLog();
+    } catch (error) {
+      return renderError(container, ctx, error, () => renderComms(container, ctx));
+    }
+    container.replaceChildren();
+    container.appendChild(heading(t("Communication Log"), t("Per-member sent, delivered, opened, failed, bounced, acknowledged."), ctx));
+
+    const controls = node("div", "agmx-gov-controls");
+    if (ctx.isAdmin) {
+      controls.appendChild(button(t("Send communication"), "btn btn-primary btn-sm", () => {
+        sendCommunicationForm(container, ctx);
+      }));
+    }
+    container.appendChild(controls);
+
+    const rows = (log && log.log) || [];
+    if (!rows.length) {
+      container.appendChild(card(t("No communication log yet"), t("No messages have been sent to members.")));
+      return;
+    }
+    container.appendChild(table(["Member", "Channel", "Status", "Provider message id", "Occurred at"],
+      rows.map((r) => [
+        text(r.member && r.member.name, "—"),
+        text(r.channel, "—"),
+        statusPill(enumLabel(r.status || "sent"), "muted"),
+        text(r.provider_message_id, "—"),
+        fmtDateTime(r.occurred_at),
+      ])));
+  }
+
+  function sendCommunicationForm(container, ctx) {
+    const type = select("comm-type", [
+      { value: "notice", label: "Notice" },
+      { value: "reminder", label: "Reminder" },
+      { value: "update", label: "Update" },
+    ]);
+    const channel = select("comm-channel", [
+      { value: "email", label: "Email" },
+      { value: "sms", label: "SMS" },
+      { value: "whatsapp", label: "WhatsApp" },
+      { value: "portal", label: "Portal" },
+    ]);
+    const subject = input("comm-subject", "text", t("Subject"));
+    const body = node("textarea", "input");
+    body.id = "comm-body"; body.name = "comm-body"; body.placeholder = t("Body"); body.rows = 4;
+    const memberIds = input("comm-member-ids", "text", t("Member ids (comma-separated, blank = all)"));
+
+    const form = node("div", "agmx-card");
+    append(form, [
+      field(t("Type"), type),
+      field(t("Channel"), channel),
+      field(t("Subject"), subject),
+      field(t("Body"), body),
+      field(t("Member ids"), memberIds),
+    ]);
+    const bar = node("div", "agmx-gov-controls");
+    bar.appendChild(button(t("Cancel"), "btn btn-secondary btn-sm", () => renderComms(container, ctx)));
+    bar.appendChild(button(t("Send"), "btn btn-primary btn-sm", async (e) => {
+      e.preventDefault();
+      const status = node("div", "agmx-gov-notice");
+      form.prepend(status);
+      const ids = memberIds.value.trim()
+        ? memberIds.value.split(",").map((s) => s.trim()).filter(Boolean)
+        : null;
+      await submitWrite(status, async () => {
+        await ctx.api.sendCommunication({
+          type: type.value,
+          channel: channel.value,
+          subject: subject.value,
+          body: body.value,
+          memberIds: ids,
+        });
+      }, () => renderComms(container, ctx));
+      renderComms(container, ctx);
+    }));
+    append(form, [bar]);
+    container.replaceChildren(form);
+    container.prepend(heading(t("Send communication"), t("Send a notice, reminder or update to members."), ctx));
+  }
+
   window.AGMX_GOVERNANCE = {
-    routes: ["agm", "governance"],
+    routes: ["agm", "governance", "notices", "pack", "comms"],
     renderAgmHall,
     renderGovernanceRegister,
+    renderNotices,
+    renderPack,
+    renderComms,
   };
 })(window, document);

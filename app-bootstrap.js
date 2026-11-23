@@ -104,6 +104,9 @@
      partner: "#/partner",
      federation: "#/federation",
      distribution: "#/distribution",
+     notices: "#/notices",
+     pack: "#/pack",
+     comms: "#/comms",
    };
 
   function setStatus(status, details) {
@@ -138,6 +141,9 @@
       subscription: { BM: "Langganan", EN: "Subscription" },
       partner: { BM: "Mitra", EN: "Partner" },
       federation: { BM: "Federasi", EN: "Federation" },
+      notices: { BM: "Notis", EN: "Notices" },
+      pack: { BM: "Paket AGM", EN: "AGM Pack" },
+      comms: { BM: "Log Komunikasi", EN: "Communication Log" },
     };
     const lang = (window.state && window.state.lang) || "BM";
     return labels[key]?.[lang] || labels[key]?.BM || key;
@@ -162,7 +168,7 @@
 
    function routeFromHash() {
      const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-     return ["members", "agm", "agmSchedule", "governance", "subscription", "partner", "federation", "distribution"].includes(route) ? route : "dashboard";
+     return ["members", "agm", "agmSchedule", "governance", "subscription", "partner", "federation", "distribution", "notices", "pack", "comms"].includes(route) ? route : "dashboard";
    }
 
   function routeHref(route) {
@@ -335,6 +341,9 @@
        navLink("agmSchedule", "📅", "Jadual AGM"),
        navLink("subscription", "💳", "Langganan"),
        navLink("members", "♙", "Members"),
+       navLink("notices", "📢", navLabel("notices")),
+       navLink("pack", "📦", navLabel("pack")),
+       navLink("comms", "📬", navLabel("comms")),
      ];
      // Only surface the link when knowledge RAG is enabled, so it never points
      // at the page's "service unavailable" state in a deployment that has not
@@ -735,7 +744,7 @@
     content.replaceChildren();
      if (route === "members") renderMembers(content);
      else if (route === "distribution") renderDistribution(content);
-     else if (route === "agm" || route === "governance") renderGovernance(content, route);
+     else if (route === "agm" || route === "governance" || route === "notices" || route === "pack" || route === "comms") renderGovernance(content, route);
      else if (route === "agmSchedule") renderAgmSchedule(content);
      else if (route === "subscription") renderSubscription(content);
      else if (route === "partner") renderPartner(content);
@@ -767,7 +776,12 @@
       content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", "AGMX API is unavailable.")));
       return;
     }
-    const render = route === "agm" ? view.renderAgmHall : view.renderGovernanceRegister;
+    const render =
+      route === "agm" ? view.renderAgmHall :
+      route === "notices" ? view.renderNotices :
+      route === "pack" ? view.renderPack :
+      route === "comms" ? view.renderComms :
+      view.renderGovernanceRegister;
     Promise.resolve(render(content, ctx)).catch((error) => {
       content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", errorMessage(error, "Could not load."))));
     });

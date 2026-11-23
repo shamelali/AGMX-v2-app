@@ -81,6 +81,13 @@ function stubApi(overrides) {
     checkIn: record("checkIn"), createMotion: record("createMotion"), openVoting: record("openVoting"),
     vote: record("vote"), recordResolution: record("recordResolution"), createAction: record("createAction"),
     runCompliance: record("runCompliance"), registerDocument: record("registerDocument"),
+    notices: record("notices"), composeNotice: record("composeNotice"), scheduleNotice: record("scheduleNotice"),
+    deliverNotice: record("deliverNotice"), acknowledgeNotice: record("acknowledgeNotice"),
+    packDocuments: record("packDocuments"), registerPackDocument: record("registerPackDocument"),
+    documentVersions: record("documentVersions"), documentAccess: record("documentAccess"),
+    logDocumentAccess: record("logDocumentAccess"), replacePackDocument: record("replacePackDocument"),
+    communications: record("communications"), sendCommunication: record("sendCommunication"),
+    communicationLog: record("communicationLog"), recordDelivery: record("recordDelivery"),
   };
   return { api, calls };
 }
@@ -105,9 +112,12 @@ const ROSTER = {
   {
     const { view } = harness(stubApi({}).api, { role: "admin" });
     // the view builds its arrays inside the vm realm, so compare values
-    assert.deepStrictEqual(Array.from(view.routes), ["agm", "governance"]);
+    assert.deepStrictEqual(Array.from(view.routes), ["agm", "governance", "notices", "pack", "comms"]);
     assert.strictEqual(typeof view.renderAgmHall, "function");
     assert.strictEqual(typeof view.renderGovernanceRegister, "function");
+    assert.strictEqual(typeof view.renderNotices, "function");
+    assert.strictEqual(typeof view.renderPack, "function");
+    assert.strictEqual(typeof view.renderComms, "function");
   }
 
   /* ---- 2. a member with no AGM sees no creation form ---- */
@@ -431,6 +441,83 @@ const ROSTER = {
     assert.ok(!status.textContent.includes("row-level security"),
       "raw policy text was surfaced to the secretary");
     assert.ok(logs.some((line) => line.includes("row-level security")), "the refusal was not logged");
+  }
+
+  /* ---- 16. notices screen: empty state and compose payload ---- */
+  {
+    const { api, calls } = stubApi({ notices: () => ({ notices: [] }) });
+    const { view, ctx, container } = harness(api, { role: "admin" });
+    await view.renderNotices(container, ctx);
+    assert.ok(container.findText("No notices yet"), "notices empty state missing");
+    assert.ok(findBtn(container, "Compose notice"), "compose button missing");
+    assert.strictEqual(calls.length, 1, "notices screen did not read notices");
+    await findBtn(container, "Compose notice").click();
+
+    container.findById("notice-subject").value = "Undangan AGM";
+    container.findById("notice-body").value = "Hadir semua";
+    container.findById("notice-channel").value = "email";
+    await findBtn(container, "Compose").click();
+    const composed = calls.find((c) => c.name === "composeNotice");
+    assert.ok(composed, "composeNotice never called");
+    assert.deepStrictEqual(Object.keys(composed.args[0]).sort(),
+      ["ackRequired", "agmId", "body", "channel", "dueAt", "source", "subject"],
+      "compose payload keys drifted from the Edge Function contract");
+    assert.strictEqual(composed.args[0].subject, "Undangan AGM");
+    assert.strictEqual(composed.args[0].ackRequired, false);
+    assert.strictEqual(ctx.reloadCalls, 1, "notices view did not reload after compose");
+  }
+
+  /* ---- 17. pack screen: empty state and register document payload ---- */
+  {
+    const { api, calls } = stubApi({ packDocuments: () => ({ documents: [] }) });
+    const { view, ctx, container } = harness(api, { role: "admin" });
+    await view.renderPack(container, ctx);
+    assert.ok(container.findText("No documents yet"), "pack empty state missing");
+    assert.ok(findBtn(container, "Register document"), "register button missing");
+    await findBtn(container, "Register document").click();
+
+    container.findById("pack-filename").value = "notis-agm.pdf";
+    container.findById("pack-storage-path").value = "vault/notis-agm.pdf";
+    container.findById("pack-category").value = "notice";
+    await findBtn(container, "Register").click();
+    const registered = calls.find((c) => c.name === "registerPackDocument");
+    assert.ok(registered, "registerPackDocument never called");
+    assert.deepStrictEqual(Object.keys(registered.args[0]).sort(),
+      ["agmId", "category", "filename", "mime", "sha256", "sizeBytes", "storagePath"],
+      "register pack payload keys drifted from the Edge Function contract");
+    assert.strictEqual(registered.args[0].filename, "notis-agm.pdf");
+  }
+
+  /* ---- 18. communications screen: empty state and send payload ---- */
+  {
+    const { api, calls } = stubApi({ communications: () => ({ communications: [] }), communicationLog: () => ({ log: [] }) });
+    const { view, ctx, container } = harness(api, { role: "admin" });
+    await view.renderComms(container, ctx);
+    assert.ok(container.findText("No communication log yet"), "comms empty state missing");
+    assert.ok(findBtn(container, "Send communication"), "send button missing");
+    await findBtn(container, "Send communication").click();
+
+    container.findById("comm-subject").value = "Pengingat AGM";
+    container.findById("comm-body").value = "Jangan lupa hadir";
+    container.findById("comm-channel").value = "email";
+    await findBtn(container, "Send").click();
+    const sent = calls.find((c) => c.name === "sendCommunication");
+    assert.ok(sent, "sendCommunication never called");
+    assert.deepStrictEqual(Object.keys(sent.args[0]).sort(),
+      ["body", "channel", "memberIds", "subject", "type"],
+      "send communication payload keys drifted from the Edge Function contract");
+    assert.strictEqual(sent.args[0].subject, "Pengingat AGM");
+  }
+
+  /* ---- 19. new screens are blocked in demo mode ---- */
+  {
+    const { api, calls } = stubApi({});
+    const { view, ctx, container } = harness(api, { role: "admin", source: "demo" });
+    await view.renderNotices(container, ctx);
+    await view.renderPack(container, ctx);
+    await view.renderComms(container, ctx);
+    assert.strictEqual(calls.length, 0, "demo mode called the live governance API for new screens");
+    assert.ok(container.findByClass("agmx-demo-banner"), "no demo banner rendered");
   }
 
   console.log("governance-ui view harness: all assertions passed");

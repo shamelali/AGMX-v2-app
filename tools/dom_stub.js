@@ -24,6 +24,7 @@ class El {
     this.parentElement = null;
     this.disabled = false;
     this.value = "";
+    this.checked = false;
   }
   get className() { return this._attrs.class || ""; }
   set className(v) { this._attrs.class = String(v); }
@@ -52,7 +53,8 @@ class El {
   click() {
     const calls = this._listeners.click || [];
     assert.ok(calls.length, `no click handler on ${this.className}`);
-    return Promise.all(calls.map((fn) => fn({ currentTarget: this })));
+    const event = { currentTarget: this, preventDefault: () => {} };
+    return Promise.all(calls.map((fn) => fn(event)));
   }
   hasListener(type) { return (this._listeners[type] || []).length > 0; }
   get parentNode() { return this.parentElement; }
