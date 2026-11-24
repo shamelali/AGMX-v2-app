@@ -374,6 +374,7 @@
        links.push(navLink("control", "⌨️", navLabel("control")));
        links.push(navLink("registration", "📝", navLabel("registration")));
        links.push(navLink("voting", "🗳️", navLabel("voting")));
+       links.push(navLink("live", "🔴", navLabel("live")));
      } else {
        links.push(navLink("hub", "🏠", navLabel("hub")));
        links.push(navLink("registration", "📝", navLabel("registration")));
