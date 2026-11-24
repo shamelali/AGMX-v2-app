@@ -13,6 +13,21 @@ AGMX_SKIP_NET=1 ./tools/check.sh   # skip network probe — for CI/hooks/offline
 Exit code is non-zero on the first failing pass, so it works as a pre-commit
 hook and as a CI step.
 
+## Phase 1 contract check
+
+`npm run check:phase1-contract` validates that the Phase 1 release contract,
+phase boundaries, gate IDs, and roadmap link exist. It does not prove that
+G1–G9 pass. Release readiness requires the named test and manual evidence for
+every gate; skipped evidence remains a failure.
+
+## Commercial requirements check
+
+`npm run check:commercial-requirements` validates the target commercial addendum's structure, requirement IDs, states, and metrics. It does not change prices, migrate subscriptions, or prove that billing behavior is implemented.
+
+## Founding 100 program check
+
+`npm run check:founding100-program` validates the playbook's structure, cohort rules, event contract, metrics, and requirement IDs. It does not start the campaign, create customer records, or prove any pricing or renewal outcome.
+
 ## Install as a pre-commit hook
 
 ```bash

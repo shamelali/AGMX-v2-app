@@ -16,8 +16,9 @@ Load, security, accessibility, DR, audit and production claims review before Pha
 - Versioning: UUK/rules, AGM Pack, electoral roll and candidate list snapshots
 
 ## Release gates
-- Phase 1 gate: One physical AGM managed end-to-end with auditable records (§17).
-- Phase 2 gate: Hybrid/online AGM operates without leaving AGMX; tested failure/reconnect paths (§17).
+- Phase 1: one physical AGM managed end-to-end with auditable records; security, accessibility, retention, backup/restore, and claims evidence must pass.
+- Phase 2: hybrid/online AGM operates without leaving AGMX; reconnect and failure paths are tested.
+- Phase 3: enterprise scale, full DR, advanced analytics/AI, white-label, integrations, and operational SLA readiness.
 
 ## Acceptance criteria (this sprint)
 - [ ] Load, security, accessibility, DR verified.

@@ -44,6 +44,8 @@ Sales wedge: *"Bila AGM koperasi anda akan datang?"* — not "would you like to 
 
 ## 4. Commercial packages (current)
 
+> **Commercial status:** the packages below describe the currently deployed legacy offer. The target calendar-year, Founding 100, referral-credit, partner-commission, and versioned-pricing requirements are defined in [`specs/prd-v2/AGMX_COMMERCIAL_REQUIREMENTS.md`](specs/prd-v2/AGMX_COMMERCIAL_REQUIREMENTS.md). Final prices and campaign terms remain unapproved; do not change production pricing from this plan alone.
+
 ### AGM Service (one-off)
 | Package | Price | Threshold |
 |---|---|---|
@@ -160,17 +162,16 @@ not just stated: a number printed on the landing page must be a number the
 documented bundle installs (§23), and a failed statutory read must render as a
 failure rather than an all-clear (§22f).
 
-## 9. Acceptance test (definition of done for MVP)
+## 9. Phase 1 release contract
 
-> **A real Malaysian cooperative submits an AGM assessment, receives a package recommendation + quote, pays AGMX, creates its AGM, imports members, establishes quorum, runs live voting, produces resolutions/minutes, and retains an auditable record.**
+The Phase 1 release gate is defined in
+[`specs/prd-v2/AGMX_PHASE1_RELEASE_CONTRACT.md`](specs/prd-v2/AGMX_PHASE1_RELEASE_CONTRACT.md):
+one physical AGM managed end-to-end with auditable records.
 
-This sentence is now a repository check. `tools/test_agm_journey.mjs` boots the
-generated deploy bundle on embedded Postgres and drives the real `money-flow` and
-`governance` handlers from the public assessment through a signed HitPay webhook
-to minutes, resolutions, actions, a compliance run and the audit chain — 120
-assertions, no credentials, no network, run as `tools/check.sh` §24. §25 then
-applies the same bundle twice to one database and compares the catalog, which is
-what a re-paste after a partial deploy actually does.
+The existing `tools/test_agm_journey.mjs` is useful regression evidence, but it
+uses a hybrid fixture and does not yet prove every Phase 1 gate. The release
+contract therefore remains **NOT READY** until gates G1–G9 have named, passing
+evidence. Do not describe the current journey as proof of Phase 1 completion.
 
 ## 10. Immediate next actions
 
@@ -213,6 +214,8 @@ Done since the 2026-08-12 plan:
       `BACKLOG.md` all consistent.
 
 Open, in order:
+
+- [ ] **Founding 100 pricing validation — playbook defined, not started.** Follow [`specs/prd-v2/AGMX_FOUNDING100_VALIDATION.md`](specs/prd-v2/AGMX_FOUNDING100_VALIDATION.md). No paid cohort, price decision, or renewal result may be claimed until the event contract and approval gates are operating.
 
 - [x] **Governance SQL fixes are live on `jchfalaibabmszewemat`** (2026-11-05).
       `supabase migration list` reported `0007`–`0009` applied, and that is the
