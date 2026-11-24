@@ -169,15 +169,15 @@
           return;
         }
 
-        const profile = await AGMX_API.profile.getCurrent();
+        const profileResult = await AGMX_API.profile.getCurrent();
         wlLoading.style.display = 'none';
 
-        if (!profile || !profile.organization) {
+        if (profileResult.error || !profileResult.data || !profileResult.data.organization) {
           document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Tiada Organisasi Ditemui</h2><p>Akaun anda belum dikaitkan dengan organisasi manapun. Hubungi pentadbir sistem.</p></div>';
           return;
         }
 
-        const org = profile.organization;
+        const org = profileResult.data.organization;
         primaryColor = org.primary_color || '#2563EB';
 
         // Apply white-label theme

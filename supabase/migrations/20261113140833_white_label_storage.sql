@@ -24,6 +24,8 @@ begin
 
     -- Storage RLS policies (rerun-safe: drop + create)
     -- Admins can upload logos to their own organization's folder
+    -- Path is <org-id>/logo.<ext>; policy checks the uploader's
+    -- organization_id from public.profiles, not the raw user id.
     drop policy if exists coop_logos_admin_insert on storage.objects;
     create policy coop_logos_admin_insert
     on storage.objects
@@ -31,7 +33,9 @@ begin
     to authenticated
     with check (
       bucket_id = 'coop-logos'
-      and split_part(name, '/', 1) = auth.uid()::text
+      and split_part(name, '/', 1) = (
+        select organization_id from public.profiles where id = auth.uid() limit 1
+      )
       and exists (
         select 1 from public.profiles
         where id = auth.uid()
@@ -47,7 +51,9 @@ begin
     to authenticated
     using (
       bucket_id = 'coop-logos'
-      and split_part(name, '/', 1) = auth.uid()::text
+      and split_part(name, '/', 1) = (
+        select organization_id from public.profiles where id = auth.uid() limit 1
+      )
       and exists (
         select 1 from public.profiles
         where id = auth.uid()
@@ -62,7 +68,9 @@ begin
     to authenticated
     using (
       bucket_id = 'coop-logos'
-      and split_part(name, '/', 1) = auth.uid()::text
+      and split_part(name, '/', 1) = (
+        select organization_id from public.profiles where id = auth.uid() limit 1
+      )
       and exists (
         select 1 from public.profiles
         where id = auth.uid()
@@ -108,4 +116,4 @@ with check (
 -- ------------------------------------------------------------
 -- Helper: upload path is <user-id>/logo.<ext>
 -- ------------------------------------------------------------
--- Comment: coop-logos bucket stores co-op branding logos at <user-id>/logo.<ext>
+-- Comment: coop-logos bucket stores co-op branding logos at <org-id>/logo.<ext>

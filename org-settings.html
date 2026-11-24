@@ -218,7 +218,7 @@
     </p>
   </main>
   <script type="module">
-    import { AGMX_API } from './supabase-client.js';
+    import { AGMX_API, supabase } from './supabase-client.js';
 
     const preview = document.getElementById('wlPreview');
     const previewLogo = document.getElementById('wlPreviewLogo');
@@ -241,6 +241,7 @@
     };
 
     let currentOrg = null;
+    let currentUserRole = null;
     let hasChanges = false;
 
     function showStatus(message, type = 'error') {
@@ -271,7 +272,7 @@
       detailEls.orgName.textContent = currentOrg.name || '-';
       detailEls.orgSlug.textContent = currentOrg.slug || '-';
       detailEls.orgPlan.textContent = currentOrg.plan || '-';
-      detailEls.userRole.textContent = 'Admin';
+      detailEls.userRole.textContent = (currentUserRole || 'member').charAt(0).toUpperCase() + (currentUserRole || 'member').slice(1);
     }
 
     async function load() {
@@ -286,13 +287,14 @@
           return;
         }
 
-        const profile = await AGMX_API.profile.getCurrent();
-        if (!profile || !profile.organization) {
+        const profileResult = await AGMX_API.profile.getCurrent();
+        if (profileResult.error || !profileResult.data || !profileResult.data.organization) {
           document.body.innerHTML = '<div style="max-width:600px;margin:3rem auto;padding:1rem;text-align:center;"><h2>Tiada Organisasi</h2><p>Akaun anda belum dikaitkan dengan organisasi manapun.</p></div>';
           return;
         }
 
-        currentOrg = profile.organization;
+        currentOrg = profileResult.data.organization;
+        currentUserRole = profileResult.data.role || 'member';
         updatePreview();
         saveBtn.disabled = false;
         hasChanges = false;
@@ -356,50 +358,25 @@
           const ext = file.name.split('.').pop().toLowerCase();
           const storagePath = `${currentOrg.id}/logo.${ext}`;
 
-          const uploadResp = await fetch(
-            `https://jchfalaibabmszewemat.supabase.co/storage/v1/object/coop-logos/${storagePath}`,
-            {
-              method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
-                'apikey': "", // ← PASTE YOUR ANON KEY FROM SUPABASE DASHBOARD HERE (Settings → API)
-                'Content-Type': file.type,
-                'x-upsert': 'true'
-              },
-              body: file
-            }
-          );
+          const { error: uploadError } = await supabase.storage
+            .from('coop-logos')
+            .upload(storagePath, file, { upsert: true, contentType: file.type });
 
-          if (!uploadResp.ok) {
-            const err = await uploadResp.text().catch(() => '');
-            throw new Error('Gagal muat naik logo: ' + err);
-          }
+          if (uploadError) throw new Error('Gagal muat naik logo: ' + uploadError.message);
 
-          logoUrl = `https://jchfalaibabmszewemat.supabase.co/storage/v1/object/public/coop-logos/${storagePath}`;
+          const { data: publicUrlData } = supabase.storage
+            .from('coop-logos')
+            .getPublicUrl(storagePath);
+          logoUrl = publicUrlData.publicUrl;
         }
 
         // Update organization record
-        const updateResp = await fetch(
-          `https://jchfalaibabmszewemat.supabase.co/rest/v1/organizations?id=eq.${currentOrg.id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${(await AGMX_API.getSession()).data.session?.access_token}`,
-              'apikey': "", // ← PASTE YOUR ANON KEY FROM SUPABASE DASHBOARD HERE (Settings → API)
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            },
-            body: JSON.stringify({
-              logo_url: logoUrl,
-              primary_color: colorInput.value
-            })
-          }
-        );
+        const { error: updateError } = await supabase
+          .from('organizations')
+          .update({ logo_url: logoUrl, primary_color: colorInput.value })
+          .eq('id', currentOrg.id);
 
-        if (!updateResp.ok) {
-          const err = await updateResp.text().catch(() => '');
-          throw new Error('Gagal simpan tetapan: ' + err);
-        }
+        if (updateError) throw new Error('Gagal simpan tetapan: ' + updateError.message);
 
         hasChanges = false;
         saveBtn.disabled = true;
