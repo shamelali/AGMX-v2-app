@@ -30,6 +30,7 @@
 --   0015_agm_lifecycle.sql  (163 lines)
 --   0016_members_electoral_roll.sql  (242 lines)
 --   0017_notice_pack_comms.sql  (682 lines)
+--   0018_federation_member_read.sql  (17 lines)
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (111 lines)
 --   20261119151200_restrict_ballot_writes.sql  (6 lines)
@@ -3831,6 +3832,28 @@ $$;
 
 revoke execute on function public.record_delivery(uuid, uuid, text, text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.record_delivery(uuid, uuid, text, text, text, jsonb) to service_role;
+
+
+-- ============================================================
+-- 0018_federation_member_read.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 5: Partner & Federation roll-up
+-- Federation read access for member organisations
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Federations: member organisations can read federations they belong to
+-- (owner_org_id isolation already covers owners; this adds member read)
+-- ------------------------------------------------------------
+do $$
+begin
+  execute 'drop policy if exists feds_member_read on public.federations';
+  execute 'create policy feds_member_read on public.federations for select using (
+    id in (select federation_id from public.federation_organizations
+           where organization_id = public.current_org_id())
+  )';
+end $$;
 
 
 -- ============================================================

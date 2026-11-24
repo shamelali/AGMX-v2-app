@@ -24,7 +24,7 @@
       <div id="fedCard" style="display:none;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Nama Federasi</div><div style="font-weight:600;color:#1e293b;" id="fedName">-</div></div>
-          <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Koperasi Anggota</div><div style="font-weight:600;color:#1e293b;" id="fedMemberCount">-</div></div>
+          <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Federasi Diikuti</div><div style="font-weight:600;color:#1e293b;" id="fedMemberCount">-</div></div>
           <div><div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;">Jumlah AGM</div><div style="font-weight:600;color:#1e293b;" id="fedAgmCount">-</div></div>
         </div>
       </div>
@@ -71,36 +71,62 @@
         }
 
         const profile = await AGMX_API.profile.getCurrent();
-        const [federations, fedOrgs] = await Promise.all([
-          AGMX_API.distribution.getFederations(),
-          AGMX_API.distribution.getFederationOrganizations(),
-        ]);
+        const fedOrgs = await AGMX_API.distribution.getFederationOrganizations();
 
         fedLoading.style.display = 'none';
-
-        if (profile) {
-          fedName.textContent = profile.organization?.name || '-';
-        }
         fedCard.style.display = 'block';
 
-        const orgCount = fedOrgs.length;
-        fedMemberCount.textContent = orgCount;
-        fedAgmCount.textContent = '0';
+        const org = profile?.organization;
+        const orgId = org?.id;
+
+        const fedIds = [...new Set((fedOrgs || []).map(m => m.federation_id).filter(Boolean))];
+        const fedRows = fedIds.length
+          ? await AGMX_API.db.from("federations").select("id, name").in("id", fedIds)
+          : { data: null };
+        const fedNameById = new Map((fedRows.data || []).map(f => [f.id, f.name]));
+
+        let memberCount = 0;
+        let agmCount = 0;
+        let compliance = null;
+        if (orgId) {
+          const [mRes, aRes, fRes] = await Promise.all([
+            AGMX_API.db.from("members").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
+            AGMX_API.db.from("agms").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
+            AGMX_API.db.from("compliance_findings").select("severity").eq("organization_id", orgId),
+          ]);
+          memberCount = mRes.count ?? 0;
+          agmCount = aRes.count ?? 0;
+          const findings = fRes.data || [];
+          if (findings.length) {
+            const lulus = findings.filter(f => f.severity === "lulus").length;
+            compliance = Math.round(lulus / findings.length * 100);
+          }
+        }
+
+        if (fedOrgs.length === 1) {
+          fedName.textContent = fedNameById.get(fedOrgs[0].federation_id) || '-';
+        } else if (fedOrgs.length > 1) {
+          fedName.textContent = `${fedOrgs.length} federasi`;
+        } else {
+          fedName.textContent = '-';
+        }
+        fedMemberCount.textContent = fedOrgs.length;
+        fedAgmCount.textContent = agmCount;
 
         fedTableBody.innerHTML = '';
         if (fedOrgs.length === 0) {
-          fedTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--c-text-3);padding:20px">Tiada data koperasi anggota.</td></tr>';
+          fedTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--c-text-3);padding:20px">Tiada federasi yang diikuti.</td></tr>';
           return;
         }
 
-        for (const org of fedOrgs) {
+        for (const m of fedOrgs) {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(org.organization_name || org.organization_id || '-')}</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(fedNameById.get(m.federation_id) || m.federation_id || '-')}</td>
             <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;background:#dcfce7;color:#166534">Aktif</span></td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${Number(org.member_count || 0).toLocaleString()}</td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;">${Number(org.agm_count || 0)}</td>
-            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${Number(org.compliance_score || 0)}%</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${Number(memberCount).toLocaleString()}</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;">${Number(agmCount)}</td>
+            <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${compliance === null ? '-' : compliance + '%'}</td>
           `;
           fedTableBody.appendChild(tr);
         }
