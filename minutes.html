@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Minit AGM — AGMX DutaGovern">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Minit AGM • AGMX</title>
+</head>
+<body>
+  <a href="#app" class="skip-link">Lompat ke kandungan utama</a>
+  <main class="page" style="max-width:720px;margin:2rem auto;padding:0 1rem;">
+    <header style="margin-bottom:2rem;">
+      <h1 style="margin:0 0 0.5rem 0;">Minit AGM</h1>
+      <p style="color:#666;margin:0;">Rekod minit mesyuarat, samaran ulasan dan phlulusan.</p>
+    </header>
+    <div id="minContainer"></div>
+    <p id="minMsg" style="margin-top:1rem;font-size:0.875rem;color:#64748b;"></p>
+  </main>
+
+  <script src="/theme.js"></script>
+  <script src="/config.js" onerror="window.AGMX_CONFIG=window.AGMX_CONFIG||{}"></script>
+  <script type="module" src="/supabase-client.js"></script>
+  <script src="/login.js"></script>
+  <script src="/minutes-ui.js"></script>
+  <script type="module">
+    import { AGMX_API } from './supabase-client.js';
+
+    const container = document.getElementById('minContainer');
+    const msg = document.getElementById('minMsg');
+
+    function setMsg(text, color) {
+      msg.textContent = text || "";
+      msg.style.color = color || "#64748b";
+    }
+
+    function isOperator(data) {
+      const role = String((data && data.currentUser && data.currentUser.role) || "").toLowerCase();
+      return role === "admin" || role === "secretary" || role.includes("administrator");
+    }
+
+    async function main() {
+      container.replaceChildren();
+      setMsg("");
+
+      if (AGMX_API.configProblem) {
+        setMsg(AGMX_API.configProblem, "#dc2626");
+        return;
+      }
+
+      let authenticated = false;
+      try {
+        authenticated = await AGMX_API.isAuthenticated();
+      } catch (err) {
+        setMsg("Ralat: " + (err.message || err), "#dc2626");
+        return;
+      }
+
+      if (!authenticated) {
+        setMsg("Sila log masuk terlebih dahulu.", "#dc2626");
+        if (window.AGMX_LOGIN && typeof window.AGMX_LOGIN.render === "function") {
+          window.AGMX_LOGIN.render(container);
+          window.AGMX_LOGIN.onSuccess = () => {
+            window.AGMX_LOGIN.onSuccess = null;
+            location.reload();
+          };
+        } else {
+          const node = document.createElement("p");
+          node.textContent = "Modul log masuk tidak dimuat. Buka /app.html untuk log masuk.";
+          node.style.color = "#dc2626";
+          container.appendChild(node);
+        }
+        return;
+      }
+
+      let data;
+      try {
+        data = await AGMX_API.loadDashboard();
+      } catch (err) {
+        setMsg("Gagal memuat data papan pemuka: " + (err.message || err), "#dc2626");
+        return;
+      }
+
+      const ctx = {
+        data,
+        source: "supabase",
+        isAdmin: isOperator(data),
+        api: AGMX_API.governance,
+        reload: () => location.reload(),
+      };
+
+      if (!window.AGMX_MINUTES || typeof window.AGMX_MINUTES.renderMinutes !== "function") {
+        setMsg("Modul minit tidak dimuat. Buka /app.html untuk menggunakan Modul AGM.", "#dc2626");
+        return;
+      }
+
+      window.AGMX_MINUTES.renderMinutes(container, ctx);
+    }
+
+    main().catch((err) => {
+      setMsg("Ralat: " + (err.message || err), "#dc2626");
+    });
+  </script>
+</body>
+</html>
