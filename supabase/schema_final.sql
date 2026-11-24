@@ -31,6 +31,12 @@
 --   0016_members_electoral_roll.sql  (242 lines)
 --   0017_notice_pack_comms.sql  (682 lines)
 --   0018_federation_member_read.sql  (17 lines)
+--   0019_registration_presence.sql  (196 lines)
+--   0020_elections_ballots.sql  (676 lines)
+--   0021_nominations_candidates.sql  (261 lines)
+--   0022_minutes.sql  (452 lines)
+--   0023_evidence_incidents.sql  (336 lines)
+--   0024_speaker_queue_questions.sql  (349 lines)
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (119 lines)
 --   20261119151200_restrict_ballot_writes.sql  (6 lines)
@@ -3854,6 +3860,2306 @@ begin
            where organization_id = public.current_org_id())
   )';
 end $$;
+
+
+-- ============================================================
+-- 0019_registration_presence.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 7: Registration + Presence + Quorum
+-- Member RSVP per AGM, operator-assisted check-in, append-only
+-- presence events. Registration counts feed the readiness gate
+-- before Convene (ready -> live).
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Registrations: one RSVP per member per AGM
+-- ------------------------------------------------------------
+create table if not exists public.registrations (
+  id              uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id          uuid not null references public.agms(id) on delete cascade,
+  member_id       uuid not null references public.members(id) on delete cascade,
+  status          text not null default 'rsvp',         -- rsvp | attending | not_attending | acknowledged
+  channel         text not null default 'portal',        -- portal | notice | sms | email
+  acknowledged_at timestamptz,
+  created_at      timestamptz not null default now(),
+  unique (agm_id, member_id)
+);
+
+comment on table public.registrations is 'Member registration/RSVP per AGM. One row per member per AGM.';
+comment on column public.registrations.status is 'rsvp | attending | not_attending | acknowledged';
+comment on column public.registrations.channel is 'How the registration was received: portal | notice | sms | email';
+
+create index if not exists idx_registrations_agm on public.registrations(agm_id);
+create index if not exists idx_registrations_member on public.registrations(member_id);
+
+-- ------------------------------------------------------------
+-- Presence events: append-only timestamped check-ins
+-- ------------------------------------------------------------
+create table if not exists public.presence_events (
+  id            uuid primary key default gen_random_uuid(),
+  agm_id        uuid not null references public.agms(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  member_id     uuid not null references public.members(id) on delete cascade,
+  method        text not null,                         -- kiosk | qr | portal | operator
+  channel       text not null,                         -- physical | online
+  checked_in_at timestamptz not null default now(),
+  created_at    timestamptz not null default now()
+);
+
+comment on table public.presence_events is 'Append-only log of member check-ins per AGM. Never updated or deleted.';
+create index if not exists idx_presence_events_agm on public.presence_events(agm_id);
+create index if not exists idx_presence_events_member on public.presence_events(member_id);
+
+-- ------------------------------------------------------------
+-- RLS on registration tables
+-- ------------------------------------------------------------
+alter table public.registrations enable row level security;
+alter table public.presence_events enable row level security;
+
+execute 'drop policy if exists registrations_org on public.registrations';
+execute 'create policy registrations_org on public.registrations for all using (organization_id = public.current_org_id())';
+
+execute 'drop policy if exists presence_events_org on public.presence_events';
+execute 'create policy presence_events_org on public.presence_events for all using (organization_id = public.current_org_id())';
+
+-- ------------------------------------------------------------
+-- RPC: register_member — register/RSVP a member for an AGM
+-- Idempotent: re-registering updates the existing row.
+-- ------------------------------------------------------------
+create or replace function public.register_member(
+  p_agm_id       uuid,
+  p_member_id    uuid,
+  p_status       text default 'rsvp',
+  p_channel      text default 'portal',
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  -- Tenant boundary: AGM and member must belong to the caller's organization
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  if not exists (select 1 from public.members where id = p_member_id and organization_id = p_operator_org) then
+    return jsonb_build_object('error', 'Member not found in this organisation');
+  end if;
+
+  insert into public.registrations
+    (organization_id, agm_id, member_id, status, channel, acknowledged_at)
+  values
+    (p_operator_org, p_agm_id, p_member_id, p_status, p_channel,
+     case when p_status = 'acknowledged' then now() else null end)
+  on conflict (agm_id, member_id) do update
+    set status         = excluded.status,
+        channel        = excluded.channel,
+        acknowledged_at = case when excluded.status = 'acknowledged' then now()
+                               else registrations.acknowledged_at end;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'member.registered', 'registration', p_agm_id::text,
+    jsonb_build_object('member_id', p_member_id, 'status', p_status, 'channel', p_channel)
+  );
+
+  return jsonb_build_object(
+    'registered', true,
+    'agm_id', p_agm_id,
+    'member_id', p_member_id,
+    'status', p_status,
+    'channel', p_channel
+  );
+end;
+$$;
+
+revoke execute on function public.register_member(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.register_member(uuid, uuid, text, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: check_in_member — check a member in at an AGM
+-- Self check-in (member checks themselves in) or operator check-in.
+-- ------------------------------------------------------------
+create or replace function public.check_in_member(
+  p_agm_id       uuid,
+  p_member_id    uuid,
+  p_method       text default 'portal',
+  p_channel      text default 'physical',
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org  uuid;
+  v_event uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  if not exists (select 1 from public.members where id = p_member_id and organization_id = p_operator_org) then
+    return jsonb_build_object('error', 'Member not found in this organisation');
+  end if;
+
+  insert into public.presence_events
+    (agm_id, organization_id, member_id, method, channel, checked_in_at)
+  values
+    (p_agm_id, v_org, p_member_id, p_method, p_channel, now())
+  returning id into v_event;
+
+  -- Mark the registration as attending (idempotent on the registration row)
+  insert into public.registrations
+    (organization_id, agm_id, member_id, status, channel)
+  values
+    (v_org, p_agm_id, p_member_id, 'attending', p_channel)
+  on conflict (agm_id, member_id) do update
+    set status  = 'attending',
+        channel = coalesce(excluded.channel, registrations.channel);
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'member.checked_in', 'presence', v_event::text,
+    jsonb_build_object('agm_id', p_agm_id, 'member_id', p_member_id, 'method', p_method, 'channel', p_channel)
+  );
+
+  return jsonb_build_object(
+    'checked_in', true,
+    'event_id', v_event,
+    'agm_id', p_agm_id,
+    'member_id', p_member_id,
+    'checked_in_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.check_in_member(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.check_in_member(uuid, uuid, text, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- GRANTS: authenticated users can read registration tables (RLS scoped)
+-- Mutations go through the security-definer RPCs above.
+-- ------------------------------------------------------------
+grant select on public.registrations, public.presence_events to authenticated;
+
+
+-- ============================================================
+-- 0020_elections_ballots.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 8: Elections + Secret Ballots
+-- Election control centre, secret ballot store (separate from
+-- identity/eligibility), maker-checker on close, verified-before-
+-- published results, tally without voter linkage.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Elections: control centre state per AGM
+-- ------------------------------------------------------------
+create table if not exists public.elections (
+  id               uuid primary key default gen_random_uuid(),
+  organization_id  uuid not null references public.organizations(id) on delete cascade,
+  agm_id           uuid not null references public.agms(id) on delete cascade,
+  title            text not null,
+  status           text not null default 'draft',      -- draft | open | suspended | closed | verified | published
+  opens_at         timestamptz,
+  closes_at        timestamptz,
+  quorum_required  numeric not null default 25,
+  created_at       timestamptz not null default now(),
+  verified_at      timestamptz,
+  verified_by      uuid,
+  published_at     timestamptz,
+  published_by     uuid,
+  close_approvals  uuid[] not null default '{}'::uuid[], -- maker-checker: distinct operators who approved close
+  unique (agm_id)
+);
+
+comment on table public.elections is 'Election control centre per AGM. Status machine: draft -> open -> suspended|closed -> verified -> published.';
+comment on column public.elections.close_approvals is 'Maker-checker: distinct operator ids who approved closing voting. Close happens when two distinct operators have approved.';
+
+create index if not exists idx_elections_agm on public.elections(agm_id);
+create index if not exists idx_elections_org on public.elections(organization_id);
+
+-- ------------------------------------------------------------
+-- Ballots: secret ballot store. NO choice column here.
+-- One row per voter per election; receipt token is random and
+-- carries no choice linkage.
+-- ------------------------------------------------------------
+create table if not exists public.ballots (
+  id             uuid primary key default gen_random_uuid(),
+  election_id    uuid not null references public.elections(id) on delete cascade,
+  voter_member_id uuid not null references public.members(id),
+  receipt_token  text not null unique,
+  cast_at        timestamptz not null default now(),
+  created_at     timestamptz not null default now(),
+  unique (election_id, voter_member_id)
+);
+
+comment on table public.ballots is 'Secret ballot store: one row per voter per election, no choice column. Receipt token is random and unlinked to the choice.';
+
+create index if not exists idx_ballots_election on public.ballots(election_id);
+create index if not exists idx_ballots_voter on public.ballots(voter_member_id);
+
+-- ------------------------------------------------------------
+-- Ballot selections: the actual choice, stored separately from
+-- voter identity. choice: ya | tidak | kecuali
+-- ------------------------------------------------------------
+create table if not exists public.ballot_selections (
+  id         uuid primary key default gen_random_uuid(),
+  ballot_id  uuid not null references public.ballots(id) on delete cascade,
+  choice     text not null check (choice in ('ya','tidak','kecuali')),
+  created_at timestamptz not null default now()
+);
+
+comment on table public.ballot_selections is 'Ballot choice stored separately from the voter-identifying ballot row.';
+
+create index if not exists idx_ballot_selections_ballot on public.ballot_selections(ballot_id);
+
+-- ------------------------------------------------------------
+-- RLS on election tables
+-- ------------------------------------------------------------
+alter table public.elections enable row level security;
+alter table public.ballots enable row level security;
+alter table public.ballot_selections enable row level security;
+
+execute 'drop policy if exists elections_org on public.elections';
+execute 'create policy elections_org on public.elections for all using (organization_id = public.current_org_id())';
+
+execute 'drop policy if exists ballots_org on public.ballots';
+execute 'create policy ballots_org on public.ballots for all using (
+  exists (
+    select 1 from public.elections e
+    where e.id = public.ballots.election_id
+      and e.organization_id = public.current_org_id()
+  )
+)';
+
+execute 'drop policy if exists ballot_selections_org on public.ballot_selections';
+execute 'create policy ballot_selections_org on public.ballot_selections for all using (
+  exists (
+    select 1 from public.ballots b
+    join public.elections e on e.id = b.election_id
+    where e.id = public.ballot_selections.ballot_id
+      and e.organization_id = public.current_org_id()
+  )
+)';
+
+-- ------------------------------------------------------------
+-- Append-only triggers: ballots and selections are immutable once cast
+-- ------------------------------------------------------------
+drop trigger if exists ballots_append_only on public.ballots;
+create trigger ballots_append_only
+  before update or delete on public.ballots
+  for each row execute function public.raise_append_only();
+
+drop trigger if exists ballot_selections_append_only on public.ballot_selections;
+create trigger ballot_selections_append_only
+  before update or delete on public.ballot_selections
+  for each row execute function public.raise_append_only();
+
+-- ------------------------------------------------------------
+-- RPC: election_configure — create or update a draft election
+-- ------------------------------------------------------------
+create or replace function public.election_configure(
+  p_agm_id       uuid,
+  p_title        text,
+  p_opens_at     timestamptz,
+  p_closes_at    timestamptz,
+  p_quorum_required numeric,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_election uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id, status into v_election, v_status
+  from public.elections where agm_id = p_agm_id;
+
+  if found then
+    if v_status is distinct from 'draft' then
+      return jsonb_build_object('error', 'Election already configured', 'code', 'ELECTION_CONFIGURED', 'status', v_status);
+    end if;
+    update public.elections
+       set title = p_title,
+           opens_at = p_opens_at,
+           closes_at = p_closes_at,
+           quorum_required = coalesce(p_quorum_required, 25)
+     where id = v_election;
+  else
+    insert into public.elections
+      (organization_id, agm_id, title, opens_at, closes_at, quorum_required)
+    values
+      (p_operator_org, p_agm_id, p_title, p_opens_at, p_closes_at,
+       coalesce(p_quorum_required, 25))
+    returning id into v_election;
+  end if;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'election.configured', 'election', v_election::text,
+    jsonb_build_object('agm_id', p_agm_id, 'title', p_title, 'status', 'draft')
+  );
+
+  return jsonb_build_object(
+    'election_id', v_election,
+    'agm_id', p_agm_id,
+    'status', 'draft'
+  );
+end;
+$$;
+
+revoke execute on function public.election_configure(uuid, text, timestamptz, timestamptz, numeric, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.election_configure(uuid, text, timestamptz, timestamptz, numeric, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: election_open — open voting (requires frozen roll + candidates snapshot)
+-- ------------------------------------------------------------
+create or replace function public.election_open(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org     uuid;
+  v_election uuid;
+  v_status  text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id, status into v_election, v_status
+  from public.elections where agm_id = p_agm_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Election not configured for this AGM');
+  end if;
+  if v_status = 'open' then
+    return jsonb_build_object('opened', false, 'election_id', v_election, 'status', 'open');
+  end if;
+  if v_status is distinct from 'draft' then
+    return jsonb_build_object('error', 'Cannot open election in status ' || v_status);
+  end if;
+
+  -- Immutable snapshots required before voting opens
+  if not exists (
+        select 1 from public.electoral_rolls er
+        where er.agm_id = p_agm_id and er.frozen_at is not null
+      ) then
+    return jsonb_build_object('error', 'Electoral roll must be frozen before voting opens');
+  end if;
+  if not exists (select 1 from public.candidates c where c.agm_id = p_agm_id) then
+    return jsonb_build_object('error', 'Candidates snapshot must exist before voting opens');
+  end if;
+
+  update public.elections
+     set status = 'open', opens_at = now()
+   where id = v_election;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'election.opened', 'election', v_election::text,
+    jsonb_build_object('agm_id', p_agm_id)
+  );
+
+  return jsonb_build_object(
+    'opened', true,
+    'election_id', v_election,
+    'status', 'open',
+    'opens_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.election_open(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.election_open(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: election_suspend — suspend voting
+-- ------------------------------------------------------------
+create or replace function public.election_suspend(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org     uuid;
+  v_election uuid;
+  v_status  text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id, status into v_election, v_status
+  from public.elections where agm_id = p_agm_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Election not configured for this AGM');
+  end if;
+  if v_status = 'suspended' then
+    return jsonb_build_object('suspended', false, 'election_id', v_election, 'status', 'suspended');
+  end if;
+  if v_status is distinct from 'open' then
+    return jsonb_build_object('error', 'Cannot suspend election in status ' || v_status);
+  end if;
+
+  update public.elections set status = 'suspended' where id = v_election;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'election.suspended', 'election', v_election::text,
+    jsonb_build_object('agm_id', p_agm_id)
+  );
+
+  return jsonb_build_object(
+    'suspended', true,
+    'election_id', v_election,
+    'status', 'suspended'
+  );
+end;
+$$;
+
+revoke execute on function public.election_suspend(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.election_suspend(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: election_close — close voting (maker-checker: two distinct operators)
+-- ------------------------------------------------------------
+create or replace function public.election_close(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org         uuid;
+  v_election    uuid;
+  v_status      text;
+  v_approved    boolean := false;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id, status into v_election, v_status
+  from public.elections where agm_id = p_agm_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Election not configured for this AGM');
+  end if;
+  if v_status = 'closed' then
+    return jsonb_build_object('closed', false, 'election_id', v_election, 'status', 'closed');
+  end if;
+  if v_status not in ('open','suspended') then
+    return jsonb_build_object('error', 'Cannot close election in status ' || v_status);
+  end if;
+
+  -- Maker-checker: record this operator's approval; close only when two
+  -- distinct operators have approved.
+  update public.elections
+     set close_approvals = close_approvals || p_operator_org
+   where id = v_election
+     and not (p_operator_org = any(close_approvals));
+
+  select array_length(close_approvals, 1) >= 2 into v_approved
+  from public.elections where id = v_election;
+
+  if v_approved then
+    update public.elections
+       set status = 'closed', closes_at = now()
+     where id = v_election;
+
+    perform public.log_audit(
+      p_operator_org, p_actor, 'election.closed', 'election', v_election::text,
+      jsonb_build_object('agm_id', p_agm_id, 'approvals',
+        (select close_approvals from public.elections where id = v_election))
+    );
+
+    return jsonb_build_object(
+      'closed', true,
+      'election_id', v_election,
+      'status', 'closed',
+      'closes_at', now()
+    );
+  end if;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'election.close.requested', 'election', v_election::text,
+    jsonb_build_object('agm_id', p_agm_id)
+  );
+
+  return jsonb_build_object(
+    'closed', false,
+    'election_id', v_election,
+    'status', v_status,
+    'approvals_needed', 2,
+    'approvals_recorded', array_length(close_approvals, 1)
+  );
+end;
+$$;
+
+revoke execute on function public.election_close(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.election_close(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: cast_ballot — cast a secret ballot (idempotent per voter)
+-- ------------------------------------------------------------
+create or replace function public.cast_ballot(
+  p_election_id     uuid,
+  p_voter_member_id uuid,
+  p_choice          text,
+  p_actor           uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_election  uuid;
+  v_agm_id    uuid;
+  v_org       uuid;
+  v_status    text;
+  v_eligible  boolean;
+  v_ballot_id uuid;
+  v_receipt   text;
+  v_cast_at   timestamptz;
+begin
+  if p_choice not in ('ya','tidak','kecuali') then
+    return jsonb_build_object('error', 'Invalid choice', 'code', 'INVALID_CHOICE');
+  end if;
+
+  select e.id, e.agm_id, e.organization_id, e.status
+  into v_election, v_agm_id, v_org, v_status
+  from public.elections e where id = p_election_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Election not found');
+  end if;
+  if v_status is distinct from 'open' then
+    return jsonb_build_object('error', 'Voting is not open', 'code', 'VOTING_NOT_OPEN');
+  end if;
+
+  -- Voter must be on the frozen electoral roll for this AGM with vote_eligible
+  select count(*) > 0 into v_eligible
+  from public.electoral_rolls er
+  join public.electoral_roll_entries ere on ere.electoral_roll_id = er.id
+  where er.agm_id = v_agm_id
+    and er.frozen_at is not null
+    and ere.member_id = p_voter_member_id
+    and ere.vote_eligible = true;
+
+  if not v_eligible then
+    return jsonb_build_object('error', 'Voter not eligible', 'code', 'VOTER_NOT_ELIGIBLE');
+  end if;
+
+  -- Idempotent: one accepted ballot per voter per election
+  insert into public.ballots
+    (election_id, voter_member_id, receipt_token, cast_at)
+  values
+    (p_election_id, p_voter_member_id, encode(gen_random_bytes(16), 'hex'), now())
+  on conflict (election_id, voter_member_id) do nothing
+  returning id, receipt_token, cast_at into v_ballot_id, v_receipt, v_cast_at;
+
+  if not found then
+    -- Ballot already exists: return the existing receipt (idempotent replay)
+    select id, receipt_token, cast_at into v_ballot_id, v_receipt, v_cast_at
+    from public.ballots
+    where election_id = p_election_id and voter_member_id = p_voter_member_id;
+
+    perform public.log_audit(
+      v_org, p_actor, 'ballot.replay', 'ballot', v_ballot_id::text,
+      jsonb_build_object('election_id', p_election_id, 'voter_member_id', p_voter_member_id)
+    );
+
+    return jsonb_build_object(
+      'cast', false,
+      'ballot_id', v_ballot_id,
+      'receipt_token', v_receipt,
+      'cast_at', v_cast_at,
+      'message', 'Ballot already cast for this voter'
+    );
+  end if;
+
+  insert into public.ballot_selections (ballot_id, choice)
+  values (v_ballot_id, p_choice);
+
+  perform public.log_audit(
+    v_org, p_actor, 'ballot.cast', 'ballot', v_ballot_id::text,
+    jsonb_build_object('election_id', p_election_id, 'voter_member_id', p_voter_member_id)
+    -- NOTE: the voter's choice is deliberately NOT written to the audit payload
+  );
+
+  return jsonb_build_object(
+    'cast', true,
+    'ballot_id', v_ballot_id,
+    'receipt_token', v_receipt,
+    'cast_at', v_cast_at
+  );
+end;
+$$;
+
+revoke execute on function public.cast_ballot(uuid, uuid, text, uuid) from public, anon, authenticated;
+grant execute on function public.cast_ballot(uuid, uuid, text, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: election_verify — authorise results (gate before publish)
+-- ------------------------------------------------------------
+create or replace function public.election_verify(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org     uuid;
+  v_election uuid;
+  v_status  text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id, status into v_election, v_status
+  from public.elections where agm_id = p_agm_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Election not configured for this AGM');
+  end if;
+  if v_status = 'verified' then
+    return jsonb_build_object('verified', false, 'election_id', v_election, 'status', 'verified');
+  end if;
+  if v_status not in ('open','suspended','closed') then
+    return jsonb_build_object('error', 'Cannot verify election in status ' || v_status);
+  end if;
+
+  update public.elections
+     set status = 'verified', verified_at = now(), verified_by = p_actor
+   where id = v_election;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'election.verified', 'election', v_election::text,
+    jsonb_build_object('agm_id', p_agm_id)
+  );
+
+  return jsonb_build_object(
+    'verified', true,
+    'election_id', v_election,
+    'status', 'verified',
+    'verified_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.election_verify(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.election_verify(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: election_publish — publish results (requires verification)
+-- ------------------------------------------------------------
+create or replace function public.election_publish(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org     uuid;
+  v_election uuid;
+  v_status  text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id, status into v_election, v_status
+  from public.elections where agm_id = p_agm_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Election not configured for this AGM');
+  end if;
+  if v_status = 'published' then
+    return jsonb_build_object('published', false, 'election_id', v_election, 'status', 'published');
+  end if;
+  if v_status is distinct from 'verified' then
+    return jsonb_build_object('error', 'Results must be verified before publishing', 'code', 'NOT_VERIFIED');
+  end if;
+
+  update public.elections
+     set status = 'published', published_at = now(), published_by = p_actor
+   where id = v_election;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'election.published', 'election', v_election::text,
+    jsonb_build_object('agm_id', p_agm_id)
+  );
+
+  return jsonb_build_object(
+    'published', true,
+    'election_id', v_election,
+    'status', 'published',
+    'published_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.election_publish(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.election_publish(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: election_tally — read-only counts, no voter linkage
+-- ------------------------------------------------------------
+create or replace function public.election_tally(p_election_id uuid)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_status text;
+  v_total  int;
+  v_ya     int;
+  v_tidak  int;
+  v_kecuali int;
+begin
+  select status into v_status from public.elections where id = p_election_id;
+  if not found then
+    return jsonb_build_object('error', 'Election not found');
+  end if;
+  if v_status not in ('verified','published') then
+    return jsonb_build_object('error', 'Results not yet authorised for release', 'code', 'RESULTS_NOT_RELEASED');
+  end if;
+
+  select count(b.id),
+         count(*) filter (where bs.choice = 'ya'),
+         count(*) filter (where bs.choice = 'tidak'),
+         count(*) filter (where bs.choice = 'kecuali')
+  into v_total, v_ya, v_tidak, v_kecuali
+  from public.ballots b
+  join public.ballot_selections bs on bs.ballot_id = b.id
+  where b.election_id = p_election_id;
+
+  return jsonb_build_object(
+    'election_id', p_election_id,
+    'status', v_status,
+    'total_ballots', coalesce(v_total, 0),
+    'ya', coalesce(v_ya, 0),
+    'tidak', coalesce(v_tidak, 0),
+    'kecuali', coalesce(v_kecuali, 0)
+  );
+end;
+$$;
+
+revoke execute on function public.election_tally(uuid) from public, anon, authenticated;
+grant execute on function public.election_tally(uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- GRANTS: authenticated users can read elections (RLS scoped)
+-- Ballots/selections are readable only via the tally RPC (service_role).
+-- Mutations go through the security-definer RPCs above.
+-- ------------------------------------------------------------
+grant select on public.elections to authenticated;
+
+
+-- ============================================================
+-- 0021_nominations_candidates.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 8: Nominations + Candidates
+-- Nomination applications reviewed by operators; immutable
+-- candidate snapshot taken when the election opens.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Nominations: member applications for election positions
+-- ------------------------------------------------------------
+create table if not exists public.nominations (
+  id              uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id          uuid not null references public.agms(id) on delete cascade,
+  member_id       uuid not null references public.members(id) on delete cascade,
+  position        text not null,
+  statement       text not null default '',
+  status          text not null default 'submitted', -- submitted | reviewing | approved | rejected
+  reviewed_by     uuid,
+  reviewed_at     timestamptz,
+  review_reason   text,
+  created_at      timestamptz not null default now()
+);
+
+comment on table public.nominations is 'Nomination applications for AGM election positions.';
+comment on column public.nominations.status is 'submitted | reviewing | approved | rejected';
+
+create index if not exists idx_nominations_agm on public.nominations(agm_id);
+create index if not exists idx_nominations_member on public.nominations(member_id);
+
+-- ------------------------------------------------------------
+-- Candidates: immutable snapshot of approved nominations
+-- taken when the election opens (unique per AGM + member)
+-- ------------------------------------------------------------
+create table if not exists public.candidates (
+  id           uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id       uuid not null references public.agms(id) on delete cascade,
+  nomination_id uuid not null references public.nominations(id) on delete cascade,
+  member_id    uuid not null references public.members(id),
+  member_no    text not null,
+  name         text not null,
+  snapshot_at  timestamptz not null default now(),
+  unique (agm_id, member_id)
+);
+
+comment on table public.candidates is 'Immutable candidate snapshot taken when an election opens.';
+
+create index if not exists idx_candidates_agm on public.candidates(agm_id);
+
+-- ------------------------------------------------------------
+-- RLS on nomination tables
+-- ------------------------------------------------------------
+alter table public.nominations enable row level security;
+alter table public.candidates enable row level security;
+
+execute 'drop policy if exists nominations_org on public.nominations';
+execute 'create policy nominations_org on public.nominations for all using (organization_id = public.current_org_id())';
+
+execute 'drop policy if exists candidates_org on public.candidates';
+execute 'create policy candidates_org on public.candidates for all using (organization_id = public.current_org_id())';
+
+-- ------------------------------------------------------------
+-- RPC: nomination_submit — a member applies for a position
+-- ------------------------------------------------------------
+create or replace function public.nomination_submit(
+  p_agm_id       uuid,
+  p_member_id    uuid,
+  p_position     text,
+  p_statement    text,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+  v_nomination uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  if not exists (select 1 from public.members where id = p_member_id and organization_id = p_operator_org) then
+    return jsonb_build_object('error', 'Member not found in this organisation');
+  end if;
+
+  -- Member must be eligible to stand as a candidate on the current roll
+  if not exists (
+        select 1 from public.electoral_rolls er
+        join public.electoral_roll_entries ere on ere.electoral_roll_id = er.id
+        where er.agm_id = p_agm_id
+          and er.frozen_at is not null
+          and ere.member_id = p_member_id
+          and ere.candidate_eligible = true
+      ) then
+    return jsonb_build_object('error', 'Member not eligible to stand as candidate', 'code', 'NOT_CANDIDATE_ELIGIBLE');
+  end if;
+
+  insert into public.nominations
+    (organization_id, agm_id, member_id, position, statement, status)
+  values
+    (p_operator_org, p_agm_id, p_member_id, p_position, coalesce(p_statement, ''), 'submitted')
+  returning id into v_nomination;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'nomination.submitted', 'nomination', v_nomination::text,
+    jsonb_build_object('agm_id', p_agm_id, 'member_id', p_member_id, 'position', p_position)
+  );
+
+  return jsonb_build_object(
+    'nomination_id', v_nomination,
+    'agm_id', p_agm_id,
+    'member_id', p_member_id,
+    'position', p_position,
+    'status', 'submitted'
+  );
+end;
+$$;
+
+revoke execute on function public.nomination_submit(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.nomination_submit(uuid, uuid, text, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: nomination_review — operator approves or rejects a nomination
+-- ------------------------------------------------------------
+create or replace function public.nomination_review(
+  p_nomination_id uuid,
+  p_approved      boolean,
+  p_reason        text,
+  p_operator_org  uuid,
+  p_actor         uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_nomination uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select n.organization_id, n.agm_id, n.id, n.status
+  into v_org, v_agm_id, v_nomination, v_status
+  from public.nominations n where id = p_nomination_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Nomination not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  update public.nominations
+     set status = case when p_approved then 'approved' else 'rejected' end,
+         reviewed_by = p_actor,
+         reviewed_at = now(),
+         review_reason = p_reason
+   where id = v_nomination;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'nomination.reviewed', 'nomination', v_nomination::text,
+    jsonb_build_object('agm_id', v_agm_id, 'approved', p_approved, 'reason', p_reason)
+  );
+
+  return jsonb_build_object(
+    'nomination_id', v_nomination,
+    'agm_id', v_agm_id,
+    'status', case when p_approved then 'approved' else 'rejected' end,
+    'reviewed_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.nomination_review(uuid, boolean, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.nomination_review(uuid, boolean, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: candidates_snapshot — snapshot approved nominations as candidates
+-- Called when the election opens. Idempotent: returns existing rows
+-- if a snapshot already exists for this AGM.
+-- ------------------------------------------------------------
+create or replace function public.candidates_snapshot(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+  v_count int;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  -- Idempotent: if a snapshot already exists for this AGM, return it
+  select count(*) into v_count from public.candidates where agm_id = p_agm_id;
+  if v_count > 0 then
+    return jsonb_build_object(
+      'snapshot', false,
+      'agm_id', p_agm_id,
+      'candidates', v_count
+    );
+  end if;
+
+  insert into public.candidates
+    (organization_id, agm_id, nomination_id, member_id, member_no, name, snapshot_at)
+  select
+    n.organization_id, n.agm_id, n.id, n.member_id,
+    m.member_no, m.name, now()
+  from public.nominations n
+  join public.members m on m.id = n.member_id
+  where n.agm_id = p_agm_id
+    and n.status = 'approved';
+
+  get diagnostics v_count = row_count;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'candidates.snapshot', 'candidates', p_agm_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'candidates', v_count)
+  );
+
+  return jsonb_build_object(
+    'snapshot', true,
+    'agm_id', p_agm_id,
+    'candidates', v_count
+  );
+end;
+$$;
+
+revoke execute on function public.candidates_snapshot(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.candidates_snapshot(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- GRANTS: authenticated users can read nomination tables (RLS scoped)
+-- Mutations go through the security-definer RPCs above.
+-- ------------------------------------------------------------
+grant select on public.nominations, public.candidates to authenticated;
+
+
+-- ============================================================
+-- 0022_minutes.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 12: Minutes (manual Phase 1)
+-- Draft -> editorial review -> verification -> approved -> locked.
+-- Human verification mandatory before final; locked minutes are
+-- append-only (no UPDATE/DELETE).
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Minutes: the AGM record, versioned and locked
+-- ------------------------------------------------------------
+create table if not exists public.minutes (
+  id              uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id          uuid not null references public.agms(id) on delete cascade,
+  title           text not null default 'Minit Mesyuarat Agung Tahunan',
+  status          text not null default 'draft',      -- draft | editorial_review | verification | approved | locked
+  drafted_by      uuid,
+  drafted_at      timestamptz,
+  reviewed_by     uuid,
+  reviewed_at     timestamptz,
+  verified_by     uuid,
+  verified_at     timestamptz,
+  approved_by     uuid,
+  approved_at     timestamptz,
+  locked_at       timestamptz,
+  locked_by       uuid,
+  content         text not null default '',
+  created_at      timestamptz not null default now(),
+  unique (agm_id)
+);
+
+comment on table public.minutes is 'AGM minutes record with lifecycle: draft -> editorial_review -> verification -> approved -> locked.';
+comment on column public.minutes.status is 'draft | editorial_review | verification | approved | locked';
+comment on column public.minutes.content is 'Minutes content (plain text, no HTML)';
+
+create index if not exists idx_minutes_agm on public.minutes(agm_id);
+
+-- ------------------------------------------------------------
+-- Minute versions: append-only version history
+-- ------------------------------------------------------------
+create table if not exists public.minute_versions (
+  id         uuid primary key default gen_random_uuid(),
+  minutes_id uuid not null references public.minutes(id) on delete cascade,
+  version    int not null,
+  content    text not null default '',
+  edited_by  uuid,
+  edited_at  timestamptz not null default now()
+);
+
+comment on table public.minute_versions is 'Append-only version history of minutes content.';
+
+create index if not exists idx_minute_versions_minutes on public.minute_versions(minutes_id);
+
+-- ------------------------------------------------------------
+-- RLS on minutes tables
+-- ------------------------------------------------------------
+alter table public.minutes enable row level security;
+alter table public.minute_versions enable row level security;
+
+execute 'drop policy if exists minutes_org on public.minutes';
+execute 'create policy minutes_org on public.minutes for all using (organization_id = public.current_org_id())';
+
+execute 'drop policy if exists minute_versions_org on public.minute_versions';
+execute 'create policy minute_versions_org on public.minute_versions for all using (
+  exists (
+    select 1 from public.minutes m
+    where m.id = public.minute_versions.minutes_id
+      and m.organization_id = public.current_org_id()
+  )
+)';
+
+-- ------------------------------------------------------------
+-- Trigger: locked minutes are append-only (no UPDATE/DELETE once locked)
+-- ------------------------------------------------------------
+create or replace function public.minutes_protect_locked()
+returns trigger language plpgsql as $$
+begin
+  if old.locked_at is not null then
+    raise exception 'Locked minutes cannot be updated or deleted';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists minutes_append_only on public.minutes;
+create trigger minutes_append_only
+  before update or delete on public.minutes
+  for each row execute function public.minutes_protect_locked();
+
+drop trigger if exists minute_versions_append_only on public.minute_versions;
+create trigger minute_versions_append_only
+  before update or delete on public.minute_versions
+  for each row execute function public.raise_append_only();
+
+-- ------------------------------------------------------------
+-- RPC: minutes_create — create a draft minutes record
+-- ------------------------------------------------------------
+create or replace function public.minutes_create(
+  p_agm_id       uuid,
+  p_title        text,
+  p_content      text,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org  uuid;
+  v_id   uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  insert into public.minutes
+    (organization_id, agm_id, title, status, drafted_by, drafted_at, content, created_at)
+  values
+    (p_operator_org, p_agm_id, coalesce(p_title, 'Minit Mesyuarat Agung Tahunan'),
+     'draft', p_actor, now(), coalesce(p_content, ''), now())
+  returning id into v_id;
+
+  insert into public.minute_versions (minutes_id, version, content, edited_by, edited_at)
+  values (v_id, 1, coalesce(p_content, ''), p_actor, now());
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'minutes.created', 'minutes', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'title', coalesce(p_title, 'Minit Mesyuarat Agung Tahunan'), 'status', 'draft')
+  );
+
+  return jsonb_build_object(
+    'minutes_id', v_id,
+    'agm_id', p_agm_id,
+    'status', 'draft',
+    'version', 1
+  );
+end;
+$$;
+
+revoke execute on function public.minutes_create(uuid, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.minutes_create(uuid, text, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: minutes_edit — draft-only edit; appends a new version
+-- ------------------------------------------------------------
+create or replace function public.minutes_edit(
+  p_minutes_id   uuid,
+  p_content      text,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+  v_version int;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select m.organization_id, m.agm_id, m.status
+  into v_org, v_agm_id, v_status
+  from public.minutes m where id = p_minutes_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Minutes not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status is distinct from 'draft' then
+    return jsonb_build_object('error', 'Only draft minutes can be edited', 'code', 'NOT_DRAFT');
+  end if;
+
+  select coalesce(max(version), 0) + 1 into v_version
+  from public.minute_versions where minutes_id = p_minutes_id;
+
+  insert into public.minute_versions (minutes_id, version, content, edited_by, edited_at)
+  values (p_minutes_id, v_version, coalesce(p_content, ''), p_actor, now());
+
+  update public.minutes
+     set content = coalesce(p_content, '')
+   where id = p_minutes_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'minutes.edited', 'minutes', p_minutes_id::text,
+    jsonb_build_object('agm_id', v_agm_id, 'version', v_version)
+  );
+
+  return jsonb_build_object(
+    'minutes_id', p_minutes_id,
+    'agm_id', v_agm_id,
+    'status', v_status,
+    'version', v_version
+  );
+end;
+$$;
+
+revoke execute on function public.minutes_edit(uuid, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.minutes_edit(uuid, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: minutes_submit_review — draft -> editorial_review
+-- ------------------------------------------------------------
+create or replace function public.minutes_submit_review(
+  p_minutes_id   uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select m.organization_id, m.agm_id, m.status
+  into v_org, v_agm_id, v_status
+  from public.minutes m where id = p_minutes_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Minutes not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status is distinct from 'draft' then
+    return jsonb_build_object('error', 'Only draft minutes can be submitted for review', 'code', 'NOT_DRAFT');
+  end if;
+
+  update public.minutes set status = 'editorial_review' where id = p_minutes_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'minutes.submitted_review', 'minutes', p_minutes_id::text,
+    jsonb_build_object('agm_id', v_agm_id, 'from', v_status, 'to', 'editorial_review')
+  );
+
+  return jsonb_build_object(
+    'minutes_id', p_minutes_id,
+    'agm_id', v_agm_id,
+    'status', 'editorial_review'
+  );
+end;
+$$;
+
+revoke execute on function public.minutes_submit_review(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.minutes_submit_review(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: minutes_verify — human verification (mandatory before final)
+-- editorial_review -> verification, sets verified_by/verified_at
+-- ------------------------------------------------------------
+create or replace function public.minutes_verify(
+  p_minutes_id   uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select m.organization_id, m.agm_id, m.status
+  into v_org, v_agm_id, v_status
+  from public.minutes m where id = p_minutes_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Minutes not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status = 'verification' then
+    return jsonb_build_object('verified', false, 'minutes_id', p_minutes_id, 'status', 'verification');
+  end if;
+  if v_status not in ('editorial_review', 'verification') then
+    return jsonb_build_object('error', 'Cannot verify minutes in status ' || v_status, 'code', 'INVALID_TRANSITION');
+  end if;
+
+  update public.minutes
+     set status = 'verification', verified_by = p_actor, verified_at = now()
+   where id = p_minutes_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'minutes.verified', 'minutes', p_minutes_id::text,
+    jsonb_build_object('agm_id', v_agm_id, 'from', v_status, 'to', 'verification')
+  );
+
+  return jsonb_build_object(
+    'minutes_id', p_minutes_id,
+    'agm_id', v_agm_id,
+    'status', 'verification',
+    'verified_by', p_actor,
+    'verified_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.minutes_verify(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.minutes_verify(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: minutes_approve — verification -> approved
+-- Requires human verification (verified_by not null)
+-- ------------------------------------------------------------
+create or replace function public.minutes_approve(
+  p_minutes_id   uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+  v_verified_by uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select m.organization_id, m.agm_id, m.status, m.verified_by
+  into v_org, v_agm_id, v_status, v_verified_by
+  from public.minutes m where id = p_minutes_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Minutes not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status = 'approved' then
+    return jsonb_build_object('approved', false, 'minutes_id', p_minutes_id, 'status', 'approved');
+  end if;
+  if v_status is distinct from 'verification' then
+    return jsonb_build_object('error', 'Minutes must be in verification before approval', 'code', 'INVALID_TRANSITION');
+  end if;
+  if v_verified_by is null then
+    return jsonb_build_object('error', 'Human verification required before approval', 'code', 'NOT_VERIFIED');
+  end if;
+
+  update public.minutes
+     set status = 'approved', approved_by = p_actor, approved_at = now()
+   where id = p_minutes_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'minutes.approved', 'minutes', p_minutes_id::text,
+    jsonb_build_object('agm_id', v_agm_id, 'from', v_status, 'to', 'approved')
+  );
+
+  return jsonb_build_object(
+    'minutes_id', p_minutes_id,
+    'agm_id', v_agm_id,
+    'status', 'approved',
+    'approved_by', p_actor,
+    'approved_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.minutes_approve(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.minutes_approve(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: minutes_lock — approved -> locked (append-only thereafter)
+-- ------------------------------------------------------------
+create or replace function public.minutes_lock(
+  p_minutes_id   uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select m.organization_id, m.agm_id, m.status
+  into v_org, v_agm_id, v_status
+  from public.minutes m where id = p_minutes_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Minutes not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status = 'locked' then
+    return jsonb_build_object('locked', false, 'minutes_id', p_minutes_id, 'status', 'locked');
+  end if;
+  if v_status is distinct from 'approved' then
+    return jsonb_build_object('error', 'Minutes must be approved before locking', 'code', 'INVALID_TRANSITION');
+  end if;
+
+  update public.minutes
+     set status = 'locked', locked_at = now(), locked_by = p_actor
+   where id = p_minutes_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'minutes.locked', 'minutes', p_minutes_id::text,
+    jsonb_build_object('agm_id', v_agm_id, 'from', v_status, 'to', 'locked')
+  );
+
+  return jsonb_build_object(
+    'minutes_id', p_minutes_id,
+    'agm_id', v_agm_id,
+    'status', 'locked',
+    'locked_by', p_actor,
+    'locked_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.minutes_lock(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.minutes_lock(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- GRANTS: authenticated users can read minutes tables (RLS scoped)
+-- Mutations go through the security-definer RPCs above.
+-- ------------------------------------------------------------
+grant select on public.minutes, public.minute_versions to authenticated;
+
+
+-- ============================================================
+-- 0023_evidence_incidents.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Sprint 13: Evidence Vault + Incident Register
+-- Hash-registered evidence items, immutable export packages,
+-- incident register. Append-only after registration/closure.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Evidence items: hash-registered evidence per AGM
+-- ------------------------------------------------------------
+create table if not exists public.evidence_items (
+  id            uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id        uuid not null references public.agms(id) on delete cascade,
+  category      text not null,                         -- notice | roll | attendance | documents | nominations | ballots | minutes | incidents | audit_logs
+  filename      text not null,
+  storage_path  text not null,
+  mime          text not null,
+  size_bytes    bigint,
+  sha256        text not null,
+  registered_by uuid,
+  created_at    timestamptz not null default now()
+);
+
+comment on table public.evidence_items is 'Evidence register: hash-registered artifacts per AGM (notice, roll, attendance, documents, nominations, ballots/tallies, minutes, incidents, audit logs).';
+comment on column public.evidence_items.sha256 is 'SHA-256 of the stored artifact, registered at ingest time.';
+
+create index if not exists idx_evidence_items_agm on public.evidence_items(agm_id);
+create index if not exists idx_evidence_items_category on public.evidence_items(agm_id, category);
+
+-- ------------------------------------------------------------
+-- Evidence packages: export package, immutable after closure
+-- ------------------------------------------------------------
+create table if not exists public.evidence_packages (
+  id           uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id       uuid not null references public.agms(id) on delete cascade,
+  status       text not null default 'collecting',     -- collecting | exported | closed
+  exported_at  timestamptz,
+  exported_by  uuid,
+  export_path  text,
+  sha256       text,
+  closed_at    timestamptz,
+  unique (agm_id)
+);
+
+comment on table public.evidence_packages is 'AGM Evidence Package export; immutable after closure (status closed).';
+comment on column public.evidence_packages.status is 'collecting | exported | closed';
+
+create index if not exists idx_evidence_packages_agm on public.evidence_packages(agm_id);
+
+-- ------------------------------------------------------------
+-- Incidents: incident register (append-only)
+-- ------------------------------------------------------------
+create table if not exists public.incidents (
+  id             uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id         uuid not null references public.agms(id) on delete cascade,
+  occurred_at    timestamptz not null default now(),
+  actor          text not null,
+  description    text not null,
+  evidence_refs  text[],
+  resolution     text,
+  created_at     timestamptz not null default now()
+);
+
+comment on table public.incidents is 'Incident register for AGM operations. Append-only: never updated or deleted.';
+
+create index if not exists idx_incidents_agm on public.incidents(agm_id);
+
+-- ------------------------------------------------------------
+-- RLS on evidence tables
+-- ------------------------------------------------------------
+alter table public.evidence_items enable row level security;
+alter table public.evidence_packages enable row level security;
+alter table public.incidents enable row level security;
+
+execute 'drop policy if exists evidence_items_org on public.evidence_items';
+execute 'create policy evidence_items_org on public.evidence_items for all using (organization_id = public.current_org_id())';
+
+execute 'drop policy if exists evidence_packages_org on public.evidence_packages';
+execute 'create policy evidence_packages_org on public.evidence_packages for all using (organization_id = public.current_org_id())';
+
+execute 'drop policy if exists incidents_org on public.incidents';
+execute 'create policy incidents_org on public.incidents for all using (organization_id = public.current_org_id())';
+
+-- ------------------------------------------------------------
+-- Append-only triggers: evidence items and incidents are immutable;
+-- evidence packages can only be closed once (no changes after closed_at)
+-- ------------------------------------------------------------
+drop trigger if exists evidence_items_append_only on public.evidence_items;
+create trigger evidence_items_append_only
+  before update or delete on public.evidence_items
+  for each row execute function public.raise_append_only();
+
+create or replace function public.evidence_packages_protect_closed()
+returns trigger language plpgsql as $$
+begin
+  if old.closed_at is not null then
+    raise exception 'Closed evidence package cannot be updated or deleted';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists evidence_packages_append_only on public.evidence_packages;
+create trigger evidence_packages_append_only
+  before update or delete on public.evidence_packages
+  for each row execute function public.evidence_packages_protect_closed();
+
+drop trigger if exists incidents_append_only on public.incidents;
+create trigger incidents_append_only
+  before update or delete on public.incidents
+  for each row execute function public.raise_append_only();
+
+-- ------------------------------------------------------------
+-- RPC: evidence_register — register a hash-registered evidence item
+-- ------------------------------------------------------------
+create or replace function public.evidence_register(
+  p_agm_id       uuid,
+  p_category     text,
+  p_filename     text,
+  p_storage_path text,
+  p_mime         text,
+  p_size_bytes   bigint,
+  p_sha256       text,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+  v_id  uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  insert into public.evidence_items
+    (organization_id, agm_id, category, filename, storage_path, mime, size_bytes, sha256, registered_by, created_at)
+  values
+    (p_operator_org, p_agm_id, p_category, p_filename, p_storage_path, p_mime,
+     p_size_bytes, p_sha256, p_actor, now())
+  returning id into v_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'evidence.registered', 'evidence', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'category', p_category, 'filename', p_filename, 'sha256', p_sha256)
+  );
+
+  return jsonb_build_object(
+    'id', v_id,
+    'agm_id', p_agm_id,
+    'category', p_category,
+    'sha256', p_sha256
+  );
+end;
+$$;
+
+revoke execute on function public.evidence_register(uuid, text, text, text, text, bigint, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.evidence_register(uuid, text, text, text, text, bigint, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: evidence_package_create — create a collecting package for an AGM
+-- ------------------------------------------------------------
+create or replace function public.evidence_package_create(
+  p_agm_id       uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+  v_id  uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  insert into public.evidence_packages
+    (organization_id, agm_id, status)
+  values
+    (p_operator_org, p_agm_id, 'collecting')
+  on conflict (agm_id) do update
+    set status = case when evidence_packages.status = 'closed' then 'closed' else 'collecting' end
+  returning id into v_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'evidence_package.created', 'evidence_package', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id)
+  );
+
+  return jsonb_build_object(
+    'id', v_id,
+    'agm_id', p_agm_id,
+    'status', (select status from public.evidence_packages where id = v_id)
+  );
+end;
+$$;
+
+revoke execute on function public.evidence_package_create(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.evidence_package_create(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: evidence_package_close — close (export) a package; immutable thereafter
+-- ------------------------------------------------------------
+create or replace function public.evidence_package_close(
+  p_agm_id       uuid,
+  p_export_path  text,
+  p_sha256       text,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+  v_id  uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select id into v_id from public.evidence_packages where agm_id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'Evidence package not found for this AGM');
+  end if;
+
+  update public.evidence_packages
+     set status = 'closed', exported_at = now(), exported_by = p_actor,
+         export_path = p_export_path, sha256 = p_sha256, closed_at = now()
+   where id = v_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'evidence_package.closed', 'evidence_package', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'export_path', p_export_path, 'sha256', p_sha256)
+  );
+
+  return jsonb_build_object(
+    'id', v_id,
+    'agm_id', p_agm_id,
+    'status', 'closed',
+    'closed_at', now()
+  );
+end;
+$$;
+
+revoke execute on function public.evidence_package_close(uuid, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.evidence_package_close(uuid, text, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: incident_record — record an incident (append-only)
+-- ------------------------------------------------------------
+create or replace function public.incident_record(
+  p_agm_id       uuid,
+  p_occurred_at  timestamptz,
+  p_actor        text,
+  p_description  text,
+  p_evidence_refs text[],
+  p_resolution   text,
+  p_operator_org uuid,
+  p_recorded_by  uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+  v_id  uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  insert into public.incidents
+    (organization_id, agm_id, occurred_at, actor, description, evidence_refs, resolution, created_at)
+  values
+    (p_operator_org, p_agm_id, p_occurred_at, p_actor, p_description, p_evidence_refs, p_resolution, now())
+  returning id into v_id;
+
+  perform public.log_audit(
+    p_operator_org, p_recorded_by, 'incident.recorded', 'incident', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'actor', p_actor, 'occurred_at', p_occurred_at)
+  );
+
+  return jsonb_build_object(
+    'id', v_id,
+    'agm_id', p_agm_id,
+    'occurred_at', p_occurred_at
+  );
+end;
+$$;
+
+revoke execute on function public.incident_record(uuid, timestamptz, text, text, text[], text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.incident_record(uuid, timestamptz, text, text, text[], text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- GRANTS: authenticated users can read evidence tables (RLS scoped)
+-- Mutations go through the security-definer RPCs above.
+-- ------------------------------------------------------------
+grant select on public.evidence_items, public.evidence_packages, public.incidents to authenticated;
+
+
+-- ============================================================
+-- 0024_speaker_queue_questions.sql
+-- ============================================================
+-- ============================================================
+-- AGMX V2 — Speaker queue + question moderation
+-- Floor control for AGM Control / AGMX LIVE (Sprint 10-11 reuse).
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Speaker queue: one active entry per member per AGM
+-- ------------------------------------------------------------
+create table if not exists public.speaker_queue (
+  id              uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id          uuid not null references public.agms(id) on delete cascade,
+  member_id       uuid not null references public.members(id) on delete cascade,
+  joined_at       timestamptz not null default now(),
+  left_at         timestamptz,
+  unique (agm_id, member_id)
+);
+
+comment on table public.speaker_queue is 'Live speaker queue for an AGM floor. One active entry per member.';
+create index if not exists idx_speaker_queue_agm on public.speaker_queue(agm_id);
+create index if not exists idx_speaker_queue_member on public.speaker_queue(member_id);
+
+-- ------------------------------------------------------------
+-- Questions: member questions during an AGM, moderated
+-- Original record preserved; no DELETE.
+-- ------------------------------------------------------------
+create table if not exists public.questions (
+  id           uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  agm_id       uuid not null references public.agms(id) on delete cascade,
+  member_id    uuid not null references public.members(id) on delete cascade,
+  member_no    text not null,
+  name         text not null,
+  text         text not null default '',
+  status       text not null default 'submitted', -- submitted | answered | dismissed
+  answered_by  uuid,
+  answered_at  timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+comment on table public.questions is 'Member questions during an AGM, moderated by the presiding officer. Original record preserved; no delete.';
+create index if not exists idx_questions_agm on public.questions(agm_id);
+
+-- ------------------------------------------------------------
+-- RLS
+-- ------------------------------------------------------------
+alter table public.speaker_queue enable row level security;
+alter table public.questions enable row level security;
+
+execute 'drop policy if exists speaker_queue_org on public.speaker_queue';
+execute 'create policy speaker_queue_org on public.speaker_queue for all using (
+  exists (
+    select 1 from public.agms a
+    where a.id = public.speaker_queue.agm_id
+      and a.organization_id = public.current_org_id()
+  )
+)';
+
+execute 'drop policy if exists questions_org on public.questions';
+execute 'create policy questions_org on public.questions for all using (
+  exists (
+    select 1 from public.agms a
+    where a.id = public.questions.agm_id
+      and a.organization_id = public.current_org_id()
+  )
+)';
+
+-- ------------------------------------------------------------
+-- GRANTS
+-- ------------------------------------------------------------
+grant select on public.speaker_queue, public.questions to authenticated;
+
+-- ------------------------------------------------------------
+-- RPC: speaker_join — enqueue a member (one active entry per member)
+-- ------------------------------------------------------------
+create or replace function public.speaker_join(
+  p_agm_id       uuid,
+  p_member_id    uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org     uuid;
+  v_id      uuid;
+  v_joined  timestamptz;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  if not exists (select 1 from public.members where id = p_member_id and organization_id = p_operator_org) then
+    return jsonb_build_object('error', 'Member not found in this organisation');
+  end if;
+
+  -- Retire any existing active entry for this member, then enqueue
+  update public.speaker_queue
+     set left_at = now()
+   where agm_id = p_agm_id
+     and member_id = p_member_id
+     and left_at is null;
+
+  insert into public.speaker_queue (organization_id, agm_id, member_id)
+  values (p_operator_org, p_agm_id, p_member_id)
+  returning id, joined_at into v_id, v_joined;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'speaker_queue.joined', 'speaker_queue', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'member_id', p_member_id)
+  );
+
+  return jsonb_build_object(
+    'queued', true,
+    'speaker_id', v_id,
+    'agm_id', p_agm_id,
+    'member_id', p_member_id,
+    'joined_at', v_joined
+  );
+end;
+$$;
+
+revoke execute on function public.speaker_join(uuid, uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.speaker_join(uuid, uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: speaker_leave — retire a member's active queue entry
+-- ------------------------------------------------------------
+create or replace function public.speaker_leave(
+  p_agm_id       uuid,
+  p_member_id    uuid,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org uuid;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  update public.speaker_queue
+     set left_at = now()
+   where agm_id = p_agm_id
+     and member_id = p_member_id
+     and left_at is null;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'speaker_queue.left', 'speaker_queue', p_agm_id::text,
+    jsonb_build_object('member_id', p_member_id)
+  );
+
+  return jsonb_build_object(
+    'left', true,
+    'agm_id', p_agm_id,
+    'member_id', p_member_id
+  );
+end;
+$$;
+
+revoke execute on function public.speaker_leave(uuid, uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.speaker_leave(uuid, uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: question_submit — a member asks a question
+-- ------------------------------------------------------------
+create or replace function public.question_submit(
+  p_agm_id       uuid,
+  p_member_id    uuid,
+  p_text         text,
+  p_operator_org uuid,
+  p_actor        uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_id    uuid;
+  v_no    text;
+  v_name  text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select organization_id into v_org from public.agms where id = p_agm_id;
+  if not found then
+    return jsonb_build_object('error', 'AGM not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+
+  select member_no, name into v_no, v_name
+  from public.members where id = p_member_id and organization_id = p_operator_org;
+  if not found then
+    return jsonb_build_object('error', 'Member not found in this organisation');
+  end if;
+
+  insert into public.questions
+    (organization_id, agm_id, member_id, member_no, name, text, status)
+  values
+    (p_operator_org, p_agm_id, p_member_id, v_no, v_name, coalesce(p_text, ''), 'submitted')
+  returning id into v_id;
+
+  perform public.log_audit(
+    p_operator_org, p_actor, 'question.submitted', 'question', v_id::text,
+    jsonb_build_object('agm_id', p_agm_id, 'member_id', p_member_id)
+  );
+
+  return jsonb_build_object(
+    'question_id', v_id,
+    'agm_id', p_agm_id,
+    'member_id', p_member_id,
+    'status', 'submitted'
+  );
+end;
+$$;
+
+revoke execute on function public.question_submit(uuid, uuid, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.question_submit(uuid, uuid, text, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: question_answer — presiding officer marks a question answered
+-- ------------------------------------------------------------
+create or replace function public.question_answer(
+  p_question_id  uuid,
+  p_answered_by  uuid,
+  p_operator_org uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select q.organization_id, q.agm_id, q.status
+  into v_org, v_agm_id, v_status
+  from public.questions q where id = p_question_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Question not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status = 'answered' then
+    return jsonb_build_object('answered', false, 'question_id', p_question_id, 'status', 'answered');
+  end if;
+
+  update public.questions
+     set status = 'answered', answered_by = p_answered_by, answered_at = now()
+   where id = p_question_id;
+
+  perform public.log_audit(
+    p_operator_org, p_answered_by, 'question.answered', 'question', p_question_id::text,
+    jsonb_build_object('agm_id', v_agm_id)
+  );
+
+  return jsonb_build_object(
+    'question_id', p_question_id,
+    'agm_id', v_agm_id,
+    'status', 'answered'
+  );
+end;
+$$;
+
+revoke execute on function public.question_answer(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.question_answer(uuid, uuid, uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- RPC: question_dismiss — presiding officer dismisses a question
+-- ------------------------------------------------------------
+create or replace function public.question_dismiss(
+  p_question_id  uuid,
+  p_operator_org uuid
+)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_org   uuid;
+  v_agm_id uuid;
+  v_status text;
+begin
+  if p_operator_org is null then
+    return jsonb_build_object('error', 'Operator organisation required');
+  end if;
+
+  select q.organization_id, q.agm_id, q.status
+  into v_org, v_agm_id, v_status
+  from public.questions q where id = p_question_id;
+
+  if not found then
+    return jsonb_build_object('error', 'Question not found');
+  end if;
+  if v_org is distinct from p_operator_org then
+    return jsonb_build_object('error', 'Forbidden', 'code', 'FORBIDDEN');
+  end if;
+  if v_status = 'dismissed' then
+    return jsonb_build_object('dismissed', false, 'question_id', p_question_id, 'status', 'dismissed');
+  end if;
+
+  update public.questions
+     set status = 'dismissed'
+   where id = p_question_id;
+
+  perform public.log_audit(
+    p_operator_org, null, 'question.dismissed', 'question', p_question_id::text,
+    jsonb_build_object('agm_id', v_agm_id)
+  );
+
+  return jsonb_build_object(
+    'question_id', p_question_id,
+    'agm_id', v_agm_id,
+    'status', 'dismissed'
+  );
+end;
+$$;
+
+revoke execute on function public.question_dismiss(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.question_dismiss(uuid, uuid) to service_role;
 
 
 -- ============================================================

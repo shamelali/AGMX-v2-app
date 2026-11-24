@@ -5,6 +5,8 @@ Source: AGMX Master PRD v2.0 (GOV-14, GOV-15, §5 stage 12, §13 Core Data Model
 ## Objective
 Post-AGM organisation meeting, statutory/reporting tasks, deadlines, evidence and completion; Evidence Vault immutable evidence package after closure.
 
+Phase boundary: Phase 1 requires a minimum immutable evidence export sufficient for an auditable physical AGM. Advanced evidence packages and enterprise vault capabilities are Phase 3.
+
 ## Post-AGM (GOV-14)
 - Board organisation meeting
 - Statutory/reporting tasks

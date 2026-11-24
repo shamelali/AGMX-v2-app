@@ -771,6 +771,575 @@ async function handleRecordDelivery(req: Request, ctx: any) {
   return rpcResult(data)
 }
 
+/* ---- Sprint 7: registration + presence ---- */
+
+async function handleRegistration(req: Request, ctx: any) {
+  const { agmId, memberId, status = "rsvp", channel = "portal" } = await req.json()
+  if (!agmId || !memberId) return err("Missing agmId or memberId")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("register_member", {
+    p_agm_id: agmId,
+    p_member_id: memberId,
+    p_status: status,
+    p_channel: channel,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handlePresence(req: Request, ctx: any) {
+  const { agmId, memberId, method = "portal", channel = "physical" } = await req.json()
+  if (!agmId || !memberId) return err("Missing agmId or memberId")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("check_in_member", {
+    p_agm_id: agmId,
+    p_member_id: memberId,
+    p_method: method,
+    p_channel: channel,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleRegistrationsList(agmId: string, ctx: any) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data: registrations } = await supabase
+    .from("registrations")
+    .select("*, member:members(member_no, name, status, eligible)")
+    .eq("agm_id", agmId)
+    .order("created_at", { ascending: true })
+
+  const { data: quorum } = await supabase
+    .from("quorum_snapshots")
+    .select("*")
+    .eq("agm_id", agmId)
+    .order("captured_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return ok({
+    registrations: registrations || [],
+    count: (registrations || []).length,
+    quorum: quorum || null,
+  })
+}
+
+/* ---- Sprint 8: elections + secret ballot ---- */
+
+async function handleElectionsList(ctx: any) {
+  const { data } = await supabase
+    .from("elections")
+    .select("*, agm:agms(id, title, status, scheduled_at)")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("created_at", { ascending: false })
+  return ok({ elections: data || [] })
+}
+
+async function handleElectionsGet(electionId: string, ctx: any) {
+  const { data: election } = await supabase
+    .from("elections")
+    .select("*")
+    .eq("id", electionId)
+    .eq("organization_id", ctx.profile.organization_id)
+    .single()
+  if (!election) return err("Election not found", 404)
+  return ok({ election })
+}
+
+async function handleElectionsConfigure(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, title, opensAt, closesAt, quorumRequired } = await req.json()
+  if (!agmId || !title) return err("Missing agmId or title")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("election_configure", {
+    p_agm_id: agmId,
+    p_title: title,
+    p_opens_at: opensAt || null,
+    p_closes_at: closesAt || null,
+    p_quorum_required: quorumRequired ?? null,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleElectionsStage(req: Request, ctx: any, verb: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId } = await req.json()
+  if (!agmId) return err("Missing agmId")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const rpc = { open: "election_open", suspend: "election_suspend", close: "election_close" }[verb]
+  const { data, error } = await supabase.rpc(rpc, {
+    p_agm_id: agmId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleCastBallot(req: Request, ctx: any) {
+  const { electionId, choice } = await req.json()
+  if (!electionId || !choice) return err("Missing electionId or choice")
+  if (!["ya", "tidak", "kecuali"].includes(choice)) return err("Choice must be ya, tidak or kecuali")
+
+  const { data: link } = await supabase
+    .from("organization_members")
+    .select("member_id")
+    .eq("user_id", ctx.user.id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .maybeSingle()
+  if (!link?.member_id) return err("No member record linked to your account", 403)
+
+  const { data, error } = await supabase.rpc("cast_ballot", {
+    p_election_id: electionId,
+    p_voter_member_id: link.member_id,
+    p_choice: choice,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleElectionsTally(electionId: string, ctx: any) {
+  const { data: election } = await supabase
+    .from("elections")
+    .select("organization_id")
+    .eq("id", electionId)
+    .single()
+  if (!election || election.organization_id !== ctx.profile.organization_id)
+    return err("Election not found", 404)
+
+  const { data, error } = await supabase.rpc("election_tally", { p_election_id: electionId })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleElectionsAuthorize(req: Request, ctx: any, verb: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId } = await req.json()
+  if (!agmId) return err("Missing agmId")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const rpc = { verify: "election_verify", publish: "election_publish" }[verb]
+  const { data, error } = await supabase.rpc(rpc, {
+    p_agm_id: agmId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+/* ---- Sprint 9-10: nominations ---- */
+
+async function handleNominationsList(ctx: any) {
+  const { data } = await supabase
+    .from("nominations")
+    .select("*, member:members(member_no, name)")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("created_at", { ascending: false })
+  return ok({ nominations: data || [] })
+}
+
+async function handleNominationSubmit(req: Request, ctx: any) {
+  const { agmId, memberId, position, statement } = await req.json()
+  if (!agmId || !memberId || !position) return err("Missing agmId, memberId or position")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("nomination_submit", {
+    p_agm_id: agmId,
+    p_member_id: memberId,
+    p_position: position,
+    p_statement: statement || null,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleNominationReview(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { nominationId, approved, reason } = await req.json()
+  if (!nominationId) return err("Missing nominationId")
+
+  const { data, error } = await supabase.rpc("nomination_review", {
+    p_nomination_id: nominationId,
+    p_approved: approved === true,
+    p_reason: reason || null,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleCandidatesList(agmId: string, ctx: any) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data } = await supabase
+    .from("candidates")
+    .select("*, member:members(member_no, name)")
+    .eq("agm_id", agmId)
+    .order("created_at", { ascending: true })
+  return ok({ candidates: data || [] })
+}
+
+/* ---- Sprint 12: minutes ---- */
+
+async function handleMinutesGet(agmId: string, ctx: any) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data } = await supabase
+    .from("minutes")
+    .select("*")
+    .eq("agm_id", agmId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return ok({ minutes: data || null })
+}
+
+async function handleMinutesCreate(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, title, content } = await req.json()
+  if (!agmId || !title) return err("Missing agmId or title")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("minutes_create", {
+    p_agm_id: agmId,
+    p_title: title,
+    p_content: content || "",
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleMinutesEdit(req: Request, ctx: any, minutesId: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { content } = await req.json()
+  if (content === undefined) return err("Missing content")
+
+  const { data, error } = await supabase.rpc("minutes_edit", {
+    p_minutes_id: minutesId,
+    p_content: content,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleMinutesStage(req: Request, ctx: any, minutesId: string, verb: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const rpc = {
+    submitReview: "minutes_submit_review",
+    verify: "minutes_verify",
+    approve: "minutes_approve",
+    lock: "minutes_lock",
+  }[verb]
+  if (!rpc) return err("Unknown minutes action", 400)
+
+  const { data, error } = await supabase.rpc(rpc, {
+    p_minutes_id: minutesId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+/* ---- Sprint 13: evidence vault + incidents ---- */
+
+async function handleEvidenceList(ctx: any) {
+  const { data } = await supabase
+    .from("evidence_items")
+    .select("*")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("created_at", { ascending: false })
+    .limit(200)
+  return ok({ evidence: data || [] })
+}
+
+async function handleEvidenceRegister(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const {
+    agmId, category, filename, storagePath, mime, sizeBytes, sha256,
+  } = await req.json()
+  if (!agmId || !category || !filename || !storagePath) return err("Missing agmId, category, filename or storagePath")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("evidence_register", {
+    p_agm_id: agmId,
+    p_category: category,
+    p_filename: filename,
+    p_storage_path: storagePath,
+    p_mime: mime || "application/octet-stream",
+    p_size_bytes: sizeBytes ?? null,
+    p_sha256: sha256 || null,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleEvidencePackagesList(ctx: any) {
+  const { data } = await supabase
+    .from("evidence_packages")
+    .select("*")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("created_at", { ascending: false })
+    .limit(200)
+  return ok({ packages: data || [] })
+}
+
+async function handleEvidencePackage(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, action, exportPath, sha256 } = await req.json()
+  if (!agmId) return err("Missing agmId")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  if (action === "close" || exportPath) {
+    const { data, error } = await supabase.rpc("evidence_package_close", {
+      p_agm_id: agmId,
+      p_export_path: exportPath || null,
+      p_sha256: sha256 || null,
+      p_operator_org: ctx.profile.organization_id,
+      p_actor: ctx.user.id,
+    })
+    if (error) return err(error.message, 500)
+    return rpcResult(data)
+  }
+
+  const { data, error } = await supabase.rpc("evidence_package_create", {
+    p_agm_id: agmId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleIncidentsList(ctx: any) {
+  const { data } = await supabase
+    .from("incidents")
+    .select("*")
+    .eq("organization_id", ctx.profile.organization_id)
+    .order("occurred_at", { ascending: false })
+    .limit(200)
+  return ok({ incidents: data || [] })
+}
+
+async function handleIncidentRecord(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const {
+    agmId, occurredAt, actor, description, evidenceRefs, resolution,
+  } = await req.json()
+  if (!agmId || !description) return err("Missing agmId or description")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("incident_record", {
+    p_agm_id: agmId,
+    p_occurred_at: occurredAt || new Date().toISOString(),
+    p_actor: actor || ctx.user.id,
+    p_description: description,
+    p_evidence_refs: Array.isArray(evidenceRefs) ? evidenceRefs : [],
+    p_resolution: resolution || null,
+    p_operator_org: ctx.profile.organization_id,
+    p_recorded_by: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+/* ---- Sprint 10/11: floor control + question moderation ---- */
+
+async function handleSpeakerQueueList(agmId: string, ctx: any) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data } = await supabase
+    .from("speaker_queue")
+    .select("*, member:members(member_no, name)")
+    .eq("agm_id", agmId)
+    .order("joined_at", { ascending: true })
+  return ok({ queue: data || [] })
+}
+
+async function handleSpeakerJoin(req: Request, ctx: any, agmId: string) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data: link } = await supabase
+    .from("organization_members")
+    .select("member_id")
+    .eq("user_id", ctx.user.id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .maybeSingle()
+  if (!link?.member_id) return err("No member record linked to your account", 403)
+
+  const { data, error } = await supabase.rpc("speaker_join", {
+    p_agm_id: agmId,
+    p_member_id: link.member_id,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleSpeakerLeave(req: Request, ctx: any) {
+  const { agmId, memberId } = await req.json()
+  if (!agmId || !memberId) return err("Missing agmId or memberId")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("speaker_leave", {
+    p_agm_id: agmId,
+    p_member_id: memberId,
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleQuestionsList(agmId: string, ctx: any) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data } = await supabase
+    .from("questions")
+    .select("*")
+    .eq("agm_id", agmId)
+    .order("created_at", { ascending: true })
+  return ok({ questions: data || [] })
+}
+
+async function handleQuestionSubmit(req: Request, ctx: any, agmId: string) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { text } = await req.json()
+
+  const { data: link } = await supabase
+    .from("organization_members")
+    .select("member_id")
+    .eq("user_id", ctx.user.id)
+    .eq("organization_id", ctx.profile.organization_id)
+    .maybeSingle()
+  if (!link?.member_id) return err("No member record linked to your account", 403)
+
+  const { data, error } = await supabase.rpc("question_submit", {
+    p_agm_id: agmId,
+    p_member_id: link.member_id,
+    p_text: text || "",
+    p_operator_org: ctx.profile.organization_id,
+    p_actor: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+async function handleQuestionAction(req: Request, ctx: any, questionId: string, verb: string) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const rpc = { answer: "question_answer", dismiss: "question_dismiss" }[verb]
+  if (!rpc) return err("Unknown question action", 400)
+
+  if (verb === "answer") {
+    const { answeredBy } = await req.json()
+    const { data, error } = await supabase.rpc(rpc, {
+      p_question_id: questionId,
+      p_answered_by: answeredBy || ctx.user.id,
+      p_operator_org: ctx.profile.organization_id,
+    })
+    if (error) return err(error.message, 500)
+    return rpcResult(data)
+  }
+
+  const { data, error } = await supabase.rpc(rpc, {
+    p_question_id: questionId,
+    p_operator_org: ctx.profile.organization_id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
+/* ---- Sprint 14: system health + emergency ---- */
+
+async function handleSystemHealth(agmId: string, ctx: any) {
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const [{ data: registrations }, { data: attendance }, { data: election }, { data: minutes }, { data: evidence }] =
+    await Promise.all([
+      supabase.from("registrations").select("status").eq("agm_id", agmId),
+      supabase.from("presence_events").select("member_id").eq("agm_id", agmId),
+      supabase.from("elections").select("status").eq("agm_id", agmId).maybeSingle(),
+      supabase.from("minutes").select("status").eq("agm_id", agmId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("evidence_items").select("id").eq("agm_id", agmId),
+    ])
+
+  const present = new Set((attendance || []).map((a: any) => a.member_id)).size
+  return ok({
+    agmId,
+    status: agm.status,
+    registered: (registrations || []).length,
+    present,
+    election: election?.status || null,
+    minutes: minutes?.status || null,
+    evidenceCount: (evidence || []).length,
+  })
+}
+
+async function handleEmergency(req: Request, ctx: any) {
+  if (!ctx.isOperator) return err("Operator access required", 403)
+  const { agmId, description } = await req.json()
+  if (!agmId || !description) return err("Missing agmId or description")
+  const agm = await loadAgmOrg(agmId, ctx)
+  if (!agm) return err("AGM not found", 404)
+
+  const { data, error } = await supabase.rpc("incident_record", {
+    p_agm_id: agmId,
+    p_occurred_at: new Date().toISOString(),
+    p_actor: "system:emergency",
+    p_description: `EMERGENCY: ${description}`,
+    p_evidence_refs: [],
+    p_resolution: null,
+    p_operator_org: ctx.profile.organization_id,
+    p_recorded_by: ctx.user.id,
+  })
+  if (error) return err(error.message, 500)
+  return rpcResult(data)
+}
+
 /* ---- Router ---- */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
@@ -840,6 +1409,72 @@ serve(async (req) => {
     if (method === "GET" && path === "/electoral-roll") return await handleElectoralRollList(ctx)
     const rollEntryMatch = path.match(/^\/electoral-roll\/([^/]+)\/entries$/)
     if (method === "GET" && rollEntryMatch) return await handleElectoralRollEntries(rollEntryMatch[1], ctx)
+
+    /* ---- Sprint 7: registration + presence ---- */
+    if (method === "POST" && path === "/registration") return await handleRegistration(req, ctx)
+    if (method === "POST" && path === "/presence") return await handlePresence(req, ctx)
+    const regAgmMatch = path.match(/^\/agm\/([^/]+)\/registrations$/)
+    if (method === "GET" && regAgmMatch) return await handleRegistrationsList(regAgmMatch[1], ctx)
+
+    /* ---- Sprint 8: elections + secret ballot ---- */
+    if (method === "GET" && path === "/elections") return await handleElectionsList(ctx)
+    const electionMatch = path.match(/^\/elections\/([^/]+)$/)
+    if (electionMatch) {
+      const electionId = electionMatch[1]
+      if (method === "GET") return await handleElectionsGet(electionId, ctx)
+      const tallyMatch = path.match(/^\/elections\/([^/]+)\/tally$/)
+      if (tallyMatch && method === "GET") return await handleElectionsTally(tallyMatch[1], ctx)
+    }
+    if (method === "POST" && path === "/elections/configure") return await handleElectionsConfigure(req, ctx)
+    const stageMatch = path.match(/^\/elections\/([^/]+)\/(open|suspend|close)$/)
+    if (stageMatch && method === "POST")
+      return await handleElectionsStage(req, ctx, stageMatch[2])
+    if (method === "POST" && path === "/elections/verify") return await handleElectionsAuthorize(req, ctx, "verify")
+    if (method === "POST" && path === "/elections/publish") return await handleElectionsAuthorize(req, ctx, "publish")
+    if (method === "POST" && path === "/ballot") return await handleCastBallot(req, ctx)
+
+    /* ---- Sprint 9-10: nominations ---- */
+    if (method === "GET" && path === "/nominations") return await handleNominationsList(ctx)
+    if (method === "POST" && path === "/nominations") return await handleNominationSubmit(req, ctx)
+    if (method === "POST" && path === "/nominations/review") return await handleNominationReview(req, ctx)
+    const candMatch = path.match(/^\/agm\/([^/]+)\/candidates$/)
+    if (method === "GET" && candMatch) return await handleCandidatesList(candMatch[1], ctx)
+
+    /* ---- Sprint 12: minutes ---- */
+    const minsMatch = path.match(/^\/agm\/([^/]+)\/minutes$/)
+    if (method === "GET" && minsMatch) return await handleMinutesGet(minsMatch[1], ctx)
+    if (method === "POST" && path === "/minutes") return await handleMinutesCreate(req, ctx)
+    const minsEditMatch = path.match(/^\/minutes\/([^/]+)\/edit$/)
+    if (minsEditMatch && method === "POST") return await handleMinutesEdit(req, ctx, minsEditMatch[1])
+    const minsStageMatch = path.match(/^\/minutes\/([^/]+)\/(submit-review|verify|approve|lock)$/)
+    if (minsStageMatch && method === "POST")
+      return await handleMinutesStage(req, ctx, minsStageMatch[1], minsStageMatch[2])
+
+    /* ---- Sprint 13: evidence vault + incidents ---- */
+    if (method === "GET" && path === "/evidence") return await handleEvidenceList(ctx)
+    if (method === "POST" && path === "/evidence") return await handleEvidenceRegister(req, ctx)
+    if (method === "GET" && path === "/evidence-packages") return await handleEvidencePackagesList(ctx)
+    if (method === "POST" && path === "/evidence-package") return await handleEvidencePackage(req, ctx)
+    if (method === "GET" && path === "/incidents") return await handleIncidentsList(ctx)
+    if (method === "POST" && path === "/incidents") return await handleIncidentRecord(req, ctx)
+
+    /* ---- Sprint 10/11: speaker queue + question moderation ---- */
+    const spqMatch = path.match(/^\/agm\/([^/]+)\/speaker-queue$/)
+    if (spqMatch && method === "GET") return await handleSpeakerQueueList(spqMatch[1], ctx)
+    const spqJoinMatch = path.match(/^\/agm\/([^/]+)\/speaker-queue\/join$/)
+    if (spqJoinMatch && method === "POST") return await handleSpeakerJoin(req, ctx, spqJoinMatch[1])
+    if (method === "POST" && path === "/speaker-queue/leave") return await handleSpeakerLeave(req, ctx)
+    const qMatch = path.match(/^\/agm\/([^/]+)\/questions$/)
+    if (qMatch && method === "GET") return await handleQuestionsList(qMatch[1], ctx)
+    const qSubmitMatch = path.match(/^\/agm\/([^/]+)\/questions$/)
+    if (qSubmitMatch && method === "POST") return await handleQuestionSubmit(req, ctx, qSubmitMatch[1])
+    const qActionMatch = path.match(/^\/questions\/([^/]+)\/(answer|dismiss)$/)
+    if (qActionMatch && method === "POST") return await handleQuestionAction(req, ctx, qActionMatch[1], qActionMatch[2])
+
+    /* ---- Sprint 14: system health + emergency ---- */
+    const healthMatch = path.match(/^\/agm\/([^/]+)\/system-health$/)
+    if (healthMatch && method === "GET") return await handleSystemHealth(healthMatch[1], ctx)
+    if (method === "POST" && path === "/emergency") return await handleEmergency(req, ctx)
 
     return err("Not found", 404)
   } catch (e) {

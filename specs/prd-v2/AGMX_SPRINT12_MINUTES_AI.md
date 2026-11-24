@@ -5,6 +5,8 @@ Source: AGMX Master PRD v2.0 (GOV-12, GOV-03, §12 AI Governance Layer, §5 stag
 ## Objective
 Minutes lifecycle: agenda-linked transcript, AI draft, secretary review, verification committee, approval and lock; AI Governance Layer with hard boundaries.
 
+Phase boundary: Phase 1 implements manual minutes, editorial review, human verification, approval, and lock. AI transcription and AI-assisted drafting are Phase 2 and are not Phase 1 acceptance evidence.
+
 ## Minutes (GOV-12)
 - Agenda-linked transcript
 - AI draft

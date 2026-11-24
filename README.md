@@ -64,6 +64,12 @@ Nothing in this repository may claim a capability by showing a screen for it.
 | Digital Vault view, "98/100 governance gauge", Zero Trust matrix (MFA, passkey, device binding, geo blocking, anti-bot, fraud) | Planned | `score: 98` and `aktaChips` are `data.js:148-157` fixtures that no view renders; MFA/passkeys/geo/fraud appear nowhere in `.js`, `.html`, `.ts`, `.css` or `.sql` |
 | `domain-packs.js` | Orphaned | a client-side metadata registry for 7 packs, loaded by no page, with no server counterpart; its own docstring says it makes no legal determinations |
 
+### Commercial target versus current implementation
+
+The live rate card and rolling annual subscriptions are the current implementation. Calendar-year subscriptions, Founding 100 reservations, versioned commercial terms, referral credits, partner commission lifecycles, and usage allowances are target requirements in [`specs/prd-v2/AGMX_COMMERCIAL_REQUIREMENTS.md`](specs/prd-v2/AGMX_COMMERCIAL_REQUIREMENTS.md). They must not be described as live until server, database, UI, and tests implement the corresponding requirement IDs.
+
+Founding 100 validation is defined in [`specs/prd-v2/AGMX_FOUNDING100_VALIDATION.md`](specs/prd-v2/AGMX_FOUNDING100_VALIDATION.md). The playbook is not evidence that the campaign has launched or that any cooperative has paid.
+
 ## Backend
 
 Supabase is the only backend. `supabase/migrations/0001…0007` is the source of

@@ -107,6 +107,13 @@
      notices: "#/notices",
      pack: "#/pack",
      comms: "#/comms",
+     registration: "#/registration",
+     voting: "#/voting",
+     hub: "#/hub",
+     control: "#/control",
+     live: "#/live",
+     minutes: "#/minutes",
+     evidence: "#/evidence",
    };
 
   function setStatus(status, details) {
@@ -144,6 +151,13 @@
       notices: { BM: "Notis", EN: "Notices" },
       pack: { BM: "Paket AGM", EN: "AGM Pack" },
       comms: { BM: "Log Komunikasi", EN: "Communication Log" },
+      registration: { BM: "Daftaran", EN: "Registration" },
+      voting: { BM: "Undian", EN: "Voting" },
+      hub: { BM: "Hub Peserta", EN: "Participant Hub" },
+      control: { BM: "Kawalan", EN: "Control" },
+      live: { BM: "Langsung", EN: "LIVE" },
+      minutes: { BM: "Minit", EN: "Minutes" },
+      evidence: { BM: "Bukti", EN: "Evidence" },
     };
     const lang = (window.state && window.state.lang) || "BM";
     return labels[key]?.[lang] || labels[key]?.BM || key;
@@ -168,7 +182,7 @@
 
    function routeFromHash() {
      const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-     return ["members", "agm", "agmSchedule", "governance", "subscription", "partner", "federation", "distribution", "notices", "pack", "comms"].includes(route) ? route : "dashboard";
+     return ["members", "agm", "agmSchedule", "governance", "subscription", "partner", "federation", "distribution", "notices", "pack", "comms", "registration", "voting", "hub", "control", "live", "minutes", "evidence"].includes(route) ? route : "dashboard";
    }
 
   function routeHref(route) {
@@ -356,6 +370,15 @@
        links.push(navLink("federation", "🏢", "Federation"));
        links.push(navLink("distribution", "⇄", "Partners & Federation"));
      }
+     if (isOperator(data)) {
+       links.push(navLink("control", "⌨️", navLabel("control")));
+       links.push(navLink("registration", "📝", navLabel("registration")));
+       links.push(navLink("voting", "🗳️", navLabel("voting")));
+     } else {
+       links.push(navLink("hub", "🏠", navLabel("hub")));
+       links.push(navLink("registration", "📝", navLabel("registration")));
+       if (isEligibleVoter(data)) links.push(navLink("voting", "🗳️", navLabel("voting")));
+     }
      append(group, links);
      const note = node("div", "agmx-nav-note");
      append(note, [
@@ -378,6 +401,20 @@
    function isOperator(data) {
      const role = String((data && data.currentUser && data.currentUser.role) || "").toLowerCase();
      return isAdmin(data) || role === "secretary" || role.includes("administrator");
+   }
+
+   function currentMember(data) {
+     const user = data && data.currentUser;
+     const members = Array.isArray(data && data.members) ? data.members : [];
+     if (!user || !members.length) return null;
+     const email = String(user.email || "").toLowerCase();
+     return members.find((member) => String(member.email || "").toLowerCase() === email) || null;
+   }
+
+   function isEligibleVoter(data) {
+     const member = currentMember(data);
+     if (!member) return false;
+     return member.eligible === true || member.eligible === undefined;
    }
 
   function navLink(route, icon, label) {
@@ -742,9 +779,24 @@
     const content = root.querySelector(".agmx-shell-content");
     if (!content) return;
     content.replaceChildren();
+    const data = session.data || {};
+    const ctx = {
+      data,
+      source: session.source,
+      isAdmin: isOperator(data),
+      api: (window.AGMX_API || {}).governance,
+      reload: loadLiveDashboard,
+    };
      if (route === "members") renderMembers(content);
      else if (route === "distribution") renderDistribution(content);
      else if (route === "agm" || route === "governance" || route === "notices" || route === "pack" || route === "comms") renderGovernance(content, route);
+     else if (route === "registration") renderView(content, ctx, window.AGMX_REGISTRATION, "renderRegistration", "/registration.html");
+     else if (route === "voting") renderView(content, ctx, window.AGMX_VOTING, "renderVoting", "/elections.html");
+     else if (route === "hub") renderView(content, ctx, window.AGMX_HUB, "renderHub", "/hub.html");
+     else if (route === "control") renderView(content, ctx, window.AGMX_CONTROL, "renderControl", "/control.html");
+     else if (route === "live") renderView(content, ctx, window.AGMX_LIVE, "renderLive", "/live.html");
+     else if (route === "minutes") renderView(content, ctx, window.AGMX_MINUTES, "renderMinutes", "/minutes.html");
+     else if (route === "evidence") renderView(content, ctx, window.AGMX_EVIDENCE, "renderEvidence", "/evidence.html");
      else if (route === "agmSchedule") renderAgmSchedule(content);
      else if (route === "subscription") renderSubscription(content);
      else if (route === "partner") renderPartner(content);
@@ -785,6 +837,19 @@
     Promise.resolve(render(content, ctx)).catch((error) => {
       content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", errorMessage(error, "Could not load."))));
     });
+  }
+
+  // Sprint 7-13 views render inside the shell when their module is loaded, and
+  // fall back to their standalone page when they are not — direct URL access
+  // always lands on a working page either way.
+  function renderView(content, ctx, view, renderName, fallbackUrl) {
+    if (view && typeof view[renderName] === "function") {
+      Promise.resolve(view[renderName](content, ctx)).catch((error) => {
+        content.replaceChildren(node("div", "agmx-card", node("p", "agmx-empty", errorMessage(error, "Could not load."))));
+      });
+      return;
+    }
+    window.location.href = fallbackUrl;
   }
 
   function renderShell(data, source) {
