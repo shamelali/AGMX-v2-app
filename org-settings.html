@@ -384,7 +384,6 @@
         showStatus('Tetapan organisasi telah disimpan.', 'success');
 
         // Refresh preview
-        const updated = await updateResp.json();
         currentOrg = { ...currentOrg, logo_url: logoUrl, primary_color: colorInput.value };
         updatePreview();
 
