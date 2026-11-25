@@ -142,7 +142,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; style-src 'unsafe-inline' 'self' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://esm.sh; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://integrate.api.nvidia.com https://www.billplz-sandbox.com https://api.billplz.com https://api.hitpay.io https://api.hit-pay.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+          "value": "default-src 'self'; style-src 'unsafe-inline' 'self' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://esm.sh https://challenges.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://integrate.api.nvidia.com https://www.billplz-sandbox.com https://api.billplz.com https://api.hitpay.io https://api.hit-pay.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
         }
       ]
     }

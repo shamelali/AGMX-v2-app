@@ -1,0 +1,26 @@
+{
+  "name": "agmx-public-intake",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "SUPABASE_FUNCTION_URL": "",
+    "SMTP_FROM": "",
+    "INTAKE_EMAIL_TO": "",
+    "TURNSTILE_EXPECTED_HOSTNAME": "",
+    "TURNSTILE_EXPECTED_ACTION": "assessment_submit",
+    "INTAKE_ALLOWED_ORIGIN": ""
+  },
+  "secrets": {
+    "required": [
+      "INTAKE_PROXY_SECRET",
+      "TURNSTILE_SECRET_KEY",
+      "INTAKE_INTERNAL_KEY",
+      "RESEND_API_KEY"
+    ]
+  }
+}

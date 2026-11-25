@@ -5,8 +5,17 @@
 -- Status doubles as the 9-stage machine:
 --   planned(Draft) → configuring → published → registration_open → ready → live → closed → post_agm → archived
 -- 'minuted' is a legacy value kept for meetings created before the stage machine.
-alter table public.agms add constraint if not exists agms_stage_check
-  check (status in ('planned','configuring','published','registration_open','ready','live','closed','post_agm','archived','minuted'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname = 'agms_stage_check'
+       and conrelid = 'public.agms'::regclass
+  ) then
+    alter table public.agms add constraint agms_stage_check
+      check (status in ('planned','configuring','published','registration_open','ready','live','closed','post_agm','archived','minuted'));
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- RPC: create an AGM in Draft stage.

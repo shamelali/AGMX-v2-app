@@ -51,11 +51,11 @@ create index if not exists idx_presence_events_member on public.presence_events(
 alter table public.registrations enable row level security;
 alter table public.presence_events enable row level security;
 
-execute 'drop policy if exists registrations_org on public.registrations';
-execute 'create policy registrations_org on public.registrations for all using (organization_id = public.current_org_id())';
+drop policy if exists registrations_org on public.registrations;
+create policy registrations_org on public.registrations for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists presence_events_org on public.presence_events';
-execute 'create policy presence_events_org on public.presence_events for all using (organization_id = public.current_org_id())';
+drop policy if exists presence_events_org on public.presence_events;
+create policy presence_events_org on public.presence_events for all using (organization_id = public.current_org_id());
 
 -- ------------------------------------------------------------
 -- RPC: register_member — register/RSVP a member for an AGM
@@ -64,10 +64,10 @@ execute 'create policy presence_events_org on public.presence_events for all usi
 create or replace function public.register_member(
   p_agm_id       uuid,
   p_member_id    uuid,
-  p_status       text default 'rsvp',
-  p_channel      text default 'portal',
   p_operator_org uuid,
-  p_actor        uuid
+  p_actor        uuid,
+  p_status       text default 'rsvp',
+  p_channel      text default 'portal'
 )
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
@@ -118,8 +118,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.register_member(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
-grant execute on function public.register_member(uuid, uuid, text, text, uuid, uuid) to service_role;
+revoke execute on function public.register_member(uuid, uuid, uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.register_member(uuid, uuid, uuid, uuid, text, text) to service_role;
 
 -- ------------------------------------------------------------
 -- RPC: check_in_member — check a member in at an AGM
@@ -128,10 +128,10 @@ grant execute on function public.register_member(uuid, uuid, text, text, uuid, u
 create or replace function public.check_in_member(
   p_agm_id       uuid,
   p_member_id    uuid,
-  p_method       text default 'portal',
-  p_channel      text default 'physical',
   p_operator_org uuid,
-  p_actor        uuid
+  p_actor        uuid,
+  p_method       text default 'portal',
+  p_channel      text default 'physical'
 )
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
@@ -186,8 +186,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.check_in_member(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
-grant execute on function public.check_in_member(uuid, uuid, text, text, uuid, uuid) to service_role;
+revoke execute on function public.check_in_member(uuid, uuid, uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.check_in_member(uuid, uuid, uuid, uuid, text, text) to service_role;
 
 -- ------------------------------------------------------------
 -- GRANTS: authenticated users can read registration tables (RLS scoped)

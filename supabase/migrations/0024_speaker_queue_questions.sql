@@ -47,23 +47,23 @@ create index if not exists idx_questions_agm on public.questions(agm_id);
 alter table public.speaker_queue enable row level security;
 alter table public.questions enable row level security;
 
-execute 'drop policy if exists speaker_queue_org on public.speaker_queue';
-execute 'create policy speaker_queue_org on public.speaker_queue for all using (
+drop policy if exists speaker_queue_org on public.speaker_queue;
+create policy speaker_queue_org on public.speaker_queue for all using (
   exists (
     select 1 from public.agms a
     where a.id = public.speaker_queue.agm_id
       and a.organization_id = public.current_org_id()
   )
-)';
+);
 
-execute 'drop policy if exists questions_org on public.questions';
-execute 'create policy questions_org on public.questions for all using (
+drop policy if exists questions_org on public.questions;
+create policy questions_org on public.questions for all using (
   exists (
     select 1 from public.agms a
     where a.id = public.questions.agm_id
       and a.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- GRANTS

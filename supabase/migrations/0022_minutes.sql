@@ -57,17 +57,17 @@ create index if not exists idx_minute_versions_minutes on public.minute_versions
 alter table public.minutes enable row level security;
 alter table public.minute_versions enable row level security;
 
-execute 'drop policy if exists minutes_org on public.minutes';
-execute 'create policy minutes_org on public.minutes for all using (organization_id = public.current_org_id())';
+drop policy if exists minutes_org on public.minutes;
+create policy minutes_org on public.minutes for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists minute_versions_org on public.minute_versions';
-execute 'create policy minute_versions_org on public.minute_versions for all using (
+drop policy if exists minute_versions_org on public.minute_versions;
+create policy minute_versions_org on public.minute_versions for all using (
   exists (
     select 1 from public.minutes m
     where m.id = public.minute_versions.minutes_id
       and m.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- Trigger: locked minutes are append-only (no UPDATE/DELETE once locked)

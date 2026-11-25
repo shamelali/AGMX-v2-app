@@ -2,28 +2,32 @@
 
 ## 🎯 Architecture Overview
 
+```text
+Vercel or Cloudflare Pages — static application + same-origin proxy
+  ├── HTML, CSS and browser JavaScript
+  ├── /api/config.js — client-safe runtime configuration
+  └── /api/intake — POST-only proxy (api/intake.js or functions/api/intake.js)
+          │
+          ▼
+Cloudflare Worker (workers/public-intake) — optional protected intake
+  ├── Validate origin, proxy credential and assessment payload
+  ├── Verify Turnstile token (success + hostname + action)
+  ├── Persist through the internal Supabase assessment endpoint
+  └── Send a fixed-template Resend notification to operations
+          │
+          ▼
+Supabase — authoritative system of record
+  ├── Auth, Postgres + RLS, Realtime and Storage
+  ├── Edge Functions — governance, money-flow, knowledge-*
+  ├── Assessment scoring, plan selection, quotes and invoices
+  └── UUID submission id + canonical hash idempotency
+
+External providers: optional LLM API, Billplz/HitPay and Resend.
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Vercel (Hobby) — Static + Edge Functions                       │
-│  ├── index.html, app.html, assessment.html, checkout.html      │
-│  ├── styles.css, app.js, api.js                                 │
-│  └── api/config.js → reads from Vercel env vars                │
-├─────────────────────────────────────────────────────────────────┤
-│  Supabase (Free Tier + $100 credits) — Primary Backend          │
-│  ├── Auth (email/phone/OAuth)                                   │
-│  ├── Postgres (500MB) — schema_final.sql + RLS                 │
-│  ├── Realtime — attendance, quorum_snapshots, motions          │
-│  ├── Storage (1GB) — documents, minutes                        │
-│  ├── Edge Functions — governance, money-flow, knowledge-*      │
-│  └── pgvector — AI Copilot RAG                                  │
-├─────────────────────────────────────────────────────────────────┤
-│  LLM Provider (Choose ONE)                                      │
-│  ├── OpenAI — text-embedding-3-large + gpt-4o-mini             │
-│  └── NVIDIA NIM — nv-embedqa-e5-v5 + llama-3.1-70b-instruct   │
-├─────────────────────────────────────────────────────────────────┤
-│  Billplz / HitPay (Sandbox) — Payment Gateways                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+Without the public-intake flag and a Turnstile site key, the assessment page
+keeps its browser-local demo flow. Supabase remains authoritative for every
+protected production submission; the Worker does not own lead records.
 
 ---
 
@@ -31,9 +35,11 @@
 
 | Service | Account | Free Tier |
 |---------|---------|-----------|
-| GitHub | ✅ Required | Unlimited public repos |
-| Vercel | ✅ Required | Hobby (unlimited personal) |
+| Vercel or Cloudflare Pages | ✅ Required for static hosting | Vercel Hobby / Cloudflare Pages |
 | Supabase | ✅ Required | 500MB DB + $100 credits |
+| Cloudflare Workers + Turnstile | Optional public-intake protection | Workers / Turnstile pricing |
+| Resend | Optional operational notification | Resend pricing |
+| Node.js + Wrangler 4 | Required only to build the intake Worker | — |
 | **LLM Provider** (choose one) | | |
 | OpenAI | Optional | Pay-as-you-go (~$5-10/mo) |
 | **NVIDIA NIM** | Optional | **Free tier available** (build.nvidia.com) |
@@ -62,7 +68,7 @@ without reading the note below.
 **A. Supabase CLI (preferred)** — `supabase/migrations/` is the source of truth:
 ```bash
 supabase link --project-ref YOUR_PROJECT_REF
-supabase db push          # applies migrations/0001…0010 in filename order
+supabase db push          # applies every migration in filename order
 ```
 
 **B. Dashboard SQL editor** — paste `supabase/schema_final.sql` as one script.
@@ -178,7 +184,7 @@ supabase functions deploy knowledge-query
 supabase functions deploy knowledge-ingest
 # Send Email Auth Hook — intercepts auth emails and routes them through
 # your SMTP provider. Requires SEND_EMAIL_HOOK_SECRETS, SMTP_FROM and
-# SMTP_API_KEY secrets (set below).
+# RESEND_API_KEY secrets (set below).
 supabase functions deploy send-email-hook
 ```
 
@@ -187,7 +193,7 @@ supabase functions deploy send-email-hook
 
 | Function | `verify_jwt` | Why |
 | --- | --- | --- |
-| `money-flow` | **false** | Billplz/HitPay webhooks post with the gateway's signature header and no Supabase JWT. Verification on = 401 before the handler runs, so the payment settles at the gateway and stays UNPAID here. Authenticity is the signature check inside the function. |
+| `money-flow` | **false** | Payment webhooks use gateway signatures, not a Supabase JWT. `/assessment` is still internal-only: it requires `INTAKE_INTERNAL_KEY`; all other routes keep their existing authentication and signature checks. |
 | `governance` | **true** | Resolves the tenant from the caller's JWT; unverified calls could name any `organization_id`. |
 | `knowledge-query` / `knowledge-ingest` | **true** | Run as the caller so RLS scopes retrieval and ingest to one organisation. |
 | `send-email-hook` | **false** | The webhook verifies tokens itself via `withOAuthProtectedResource`; gateway pre-verification would reject unauthenticated OAuth discovery requests. |
@@ -201,6 +207,11 @@ explicitly only if a function logs that they are undefined.
 # governance + money-flow (server-only tenant writes)
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...   # already provided by the runtime; pin it if you rotate keys
 supabase secrets set APP_URL=https://your-production-host   # money-flow builds receipt/return URLs from it
+supabase secrets set INTAKE_INTERNAL_KEY=<long-random-server-only-key> # must match the Worker secret
+
+# Public-intake write access is closed by migration 20261124184934:
+# anon/authenticated cannot INSERT/UPDATE/DELETE assessments or execute
+# check_rate_limit. The Edge Function uses the service-role client.
 
 # knowledge-query + knowledge-ingest read SUPABASE_SECRET_KEY and fall back to
 # the runtime's SUPABASE_SERVICE_ROLE_KEY. The Edge Runtime injects only the
@@ -291,6 +302,24 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SECRET_KEY=eyJ...                 # Server-only; the name api/health.js reads
 ```
 
+**Protected public intake (optional, off until every step below is ready):**
+```
+# Proxy → Worker (server-only)
+INTAKE_WORKER_URL=https://your-worker.example.com/api/intake
+INTAKE_PROXY_SECRET=<same-long-random-secret-as-the-Worker>
+
+# Browser-safe, opt-in
+NEXT_PUBLIC_PUBLIC_INTAKE_ENABLED=false
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+
+# Supabase Edge Function secret (must match Worker INTAKE_INTERNAL_KEY)
+INTAKE_INTERNAL_KEY=<long-random-server-only-key>
+```
+
+The proxy URL and shared secret are server-only. The intake flag and Turnstile
+site key are public by design; never put a Turnstile secret, Resend key, internal
+intake key or proxy secret in a `NEXT_PUBLIC_*` variable.
+
 **LLM Provider (choose one):**
 ```
 # Option A: OpenAI
@@ -359,7 +388,50 @@ separate Vercel env for the `api/billplz/*` and `api/hitpay/*` functions — the
 config endpoint reads the Vercel copy, so set both or the checkout will offer a
 method it cannot create.)
 
-### 7. Deploy
+### 7. Public-intake Worker rollout (optional)
+
+The Worker has its own configuration at `workers/public-intake/wrangler.jsonc`;
+the root `wrangler.jsonc` remains the static-assets project. Empty runtime vars
+are intentional: the Worker fails closed until real values are supplied.
+
+```bash
+cd workers/public-intake
+cp .dev.vars.example .dev.vars   # local development only; never commit this file
+npx wrangler types --strict-vars=false
+npx wrangler types --strict-vars=false --check
+npx wrangler deploy --dry-run --outdir /tmp/agmx-intake-worker-dry-run
+```
+
+Required Worker secrets: `INTAKE_PROXY_SECRET`, `TURNSTILE_SECRET_KEY`,
+`INTAKE_INTERNAL_KEY` and `RESEND_API_KEY`. Set them through Wrangler or the
+Cloudflare dashboard during the authorised rollout; never place their values in
+`wrangler.jsonc`, source, email or browser configuration.
+
+Required Worker vars: `SUPABASE_FUNCTION_URL` (HTTPS, ending in
+`/functions/v1/money-flow/assessment`), `SMTP_FROM`, `INTAKE_EMAIL_TO`,
+`TURNSTILE_EXPECTED_HOSTNAME`, `TURNSTILE_EXPECTED_ACTION`
+(`assessment_submit`) and `INTAKE_ALLOWED_ORIGIN` (the exact site origin).
+
+Roll out in this order, keeping `NEXT_PUBLIC_PUBLIC_INTAKE_ENABLED=false` until
+the final step:
+
+1. Apply `20261124184934_public_intake_idempotency.sql` and deploy the updated
+   `money-flow` function. Prove direct unauthenticated `/assessment` returns 401.
+2. Configure and deploy `agmx-public-intake` with matching secrets and runtime
+   vars. Turnstile must allow the expected hostname and use action
+   `assessment_submit`.
+3. Configure `INTAKE_WORKER_URL` and `INTAKE_PROXY_SECRET` in Vercel or Cloudflare
+   Pages. The browser still calls only same-origin `/api/intake`.
+4. Verify an authorised smoke submission, exact replay and conflicting payload.
+   Only then set `NEXT_PUBLIC_PUBLIC_INTAKE_ENABLED=true` and the public site key.
+
+Email is a fixed-template operations notification after persistence. A Resend
+failure does not turn a saved lead into a failed submission, and checkout bearer
+tokens are never included in email. No customer confirmation email or email
+outbox is part of this pilot.
+
+### 8. Deploy static application
+
 ```bash
 vercel --prod --scope=duta-integra
 ```
@@ -390,7 +462,12 @@ pattern: a bare `config.js` also drops `api/config.js` and the app boots unconfi
 
 1. **Landing**: https://www.agmx.my
 2. **Assessment**: https://www.agmx.my/assessment
-   - Answer 12 questions → Get complexity score → Recommended plan
+   - In demo mode, verify the local register and that no network submission is made.
+   - With protected intake enabled, complete Turnstile and submit through `/api/intake`.
+   - Verify the server-confirmed score/plan, checkout link and operational email.
+   - Retry the same unchanged form after a network failure: reuse the same submission id and return `replayed:true`.
+   - Reuse that id with changed content: expect HTTP 409 and no second lead.
+   - Verify direct `POST /functions/v1/money-flow/assessment` without the internal key returns 401.
 3. **Leads** (operator): https://www.agmx.my/leads
    - Sign in with Supabase Auth (create user in Dashboard)
    - See assessment lead, generate quote
@@ -420,6 +497,20 @@ python3 -m http.server 3000
 # 4. Open http://localhost:3000
 ```
 
+For local public-intake validation, use Node.js 22+ and run:
+
+```bash
+npm run test:intake
+python3 tools/build_schema_bundle.py --check
+node tools/test_agm_journey.mjs
+```
+
+`test_agm_journey.mjs` replays the full migration chain in embedded Postgres and
+covers the internal assessment boundary plus governance, billing and permission
+regressions. The deployed-instance smoke test additionally requires
+`INTAKE_INTERNAL_KEY`; it checks unauthenticated assessment rejection before
+making its authorised smoke submission.
+
 For local Supabase:
 ```bash
 supabase start  # Requires Docker
@@ -432,8 +523,10 @@ supabase start  # Requires Docker
 
 | Service | Free Tier | Trial Credits | Est. Paid Cost |
 |---------|-----------|---------------|----------------|
-| Vercel | ✅ Hobby | — | $0 |
+| Vercel or Cloudflare Pages | ✅ Static hosting | — | $0 within plan limits |
 | Supabase | 500MB DB | $100 (6+ mo) | $25/mo Pro |
+| Cloudflare Worker + Turnstile | Usage-based | — | See current Cloudflare pricing |
+| Resend | Usage-based | — | See current Resend pricing |
 | **OpenAI** | — | — | ~$10/mo (demo) |
 | **NVIDIA NIM** | ✅ Free tier on build.nvidia.com | — | **$0 for dev** / Self-hosted |
 | Billplz/HitPay | Sandbox | — | Per transaction |
@@ -446,13 +539,17 @@ supabase start  # Requires Docker
 
 ## 🔐 Security Checklist
 
-- [ ] All secret keys in Vercel/Supabase env vars (not in code)
+- [ ] All secret keys in Vercel/Supabase/Cloudflare env vars or secret stores (not in code)
+- [ ] Public intake remains disabled until migration, Edge Function, Worker and proxy checks pass in order
+- [ ] Direct unauthenticated `/money-flow/assessment` returns 401; anon/authenticated assessment DML is revoked
+- [ ] Turnstile verifies `success`, expected hostname and `assessment_submit` action server-side
+- [ ] Notification email is fixed-template, contains no checkout token and cannot fail a persisted lead
 - [ ] RLS policies enabled on all tables **and** policies created (`schema_final.sql` does both; `schema.sql` enables RLS with no policies, which silently returns zero rows to every read)
 - [ ] CSP headers configured (vercel.json includes NVIDIA NIM domain)
 - [ ] HTTPS only (Vercel default)
 - [ ] Billplz/HitPay webhook signatures verified
 - [ ] Rate limiting on Edge Functions (add if needed)
-- [ ] Every deploy CLI has an ignore file: `.vercelignore` for Vercel, `.wrignore` for `wrangler pages deploy`. Neither reads `.gitignore`, and `wrangler.jsonc` serves the repo root as assets, so `.env.local` / `pb_data/` / `/config.js` go public without it. `tools/check.sh` enforces both.
+- [ ] Every deploy CLI has an ignore file: `.vercelignore` for Vercel, `.wrignore` for `wrangler pages deploy`. Neither reads `.gitignore`, and `wrangler.jsonc` serves the repo root as assets, so `.env.local` / `pb_data/` / `/config.js` / `/workers/` could go public without it. `tools/check.sh` enforces both.
 
 ---
 
@@ -462,14 +559,17 @@ supabase start  # Requires Docker
 AGMX-v2-app/
 ├── supabase/
 │   ├── config.toml             # CLI project config; declares verify_jwt per function
-│   ├── migrations/             # 0001…0010 — the source of truth for the schema
+│   ├── migrations/             # ordered migrations — the source of truth for the schema
 │   ├── schema_final.sql        # GENERATED from migrations/ in order — paste this one, never edit
 │   ├── archive/                # superseded schemas — history only, never apply
 │   └── functions/
 │       ├── governance/         # AGM Hall RPCs (attendance, motions, votes, resolutions, compliance)
-│       ├── money-flow/         # Assessment → Quote → Invoice → Payment
+│       ├── money-flow/         # Internal assessment + Quote → Invoice → Payment
 │       ├── knowledge-query/    # AI Copilot RAG queries
 │       └── knowledge-ingest/   # Document indexing pipeline
+├── workers/public-intake/       # Isolated Wrangler Worker, types and tests
+├── api/intake.js                # Vercel same-origin intake proxy
+├── functions/api/intake.js      # Cloudflare Pages intake proxy
 ├── tools/build_schema_bundle.py # regenerates supabase/schema_final.sql
 ├── supabase/functions/_shared/llm.ts  # Unified LLM client (OpenAI + NVIDIA NIM)
 ├── vercel.json                 # Vercel config (rewrites, headers, CSP)

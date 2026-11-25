@@ -3,7 +3,8 @@
    AGMX — Live smoke test for the Supabase money-flow Edge Function
 
    Walks the prospect checkout path end-to-end against a deployed
-   instance using only the publishable/anon key:
+   instance. Assessment creation is internal-only and requires
+   INTAKE_INTERNAL_KEY; later prospect reads use the publishable/anon key:
      assessment → lead poll → quote → quote fetch → accept →
      invoice → invoice fetch → bank-transfer intent → deal resume → audit
 
@@ -15,6 +16,7 @@
    Usage:
      SUPABASE_URL=https://xxx.supabase.co \
      SUPABASE_ANON_KEY=eyJ... \
+     INTAKE_INTERNAL_KEY=... \
        node tools/smoke_supabase.mjs [--cleanup --project-ref REF]
 
    --cleanup (optional) deletes every row this run created, via the
@@ -29,12 +31,13 @@ const argVal = (name) => {
 
 const URL_BASE = (argVal("--url") || process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const ANON = argVal("--anon") || process.env.SUPABASE_ANON_KEY || "";
+const INTAKE_KEY = process.env.INTAKE_INTERNAL_KEY || "";
 const CLEANUP = args.includes("--cleanup");
 const PROJECT_REF = argVal("--project-ref") || (URL_BASE.match(/https:\/\/([a-z0-9]+)\.supabase\.co/) || [])[1];
 const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || "";
 
-if (!URL_BASE || !ANON) {
-  console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY.");
+if (!URL_BASE || !ANON || !INTAKE_KEY) {
+  console.error("Missing SUPABASE_URL, SUPABASE_ANON_KEY or INTAKE_INTERNAL_KEY.");
   process.exit(2);
 }
 
@@ -58,10 +61,10 @@ function qs(params) {
   return q ? "?" + q : "";
 }
 
-async function req(method, path, body, params) {
+async function req(method, path, body, params, headers = {}) {
   const res = await fetch(FN + path + qs(params), {
     method,
-    headers: { "Content-Type": "application/json", apikey: ANON },
+    headers: { "Content-Type": "application/json", apikey: ANON, ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -74,9 +77,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 console.log("\nAGMX Supabase smoke test\n========================\n  target: " + URL_BASE + "\n");
 
-/* ---------- 1. public assessment ---------- */
-console.log("1. Assessment (public)");
-const assessment = await req("POST", "/assessment", {
+/* ---------- 1. internal-only assessment ---------- */
+console.log("1. Assessment (internal intake)");
+const submissionId = crypto.randomUUID();
+const assessmentBody = {
+  submissionId,
   coopName: "SMOKE TEST — jangan hubungi",
   coopReg: "SMOKE-" + Date.now(),
   state: "Selangor",
@@ -90,6 +95,11 @@ const assessment = await req("POST", "/assessment", {
   contactName: "Smoke Test",
   contactPhone: "0120000000",
   contactEmail: "smoke@example.com",
+};
+const publicAttempt = await req("POST", "/assessment", { submissionId, assessment: assessmentBody });
+eq(publicAttempt.status, 401, "POST /assessment without the internal key → 401");
+const assessment = await req("POST", "/assessment", { submissionId, assessment: assessmentBody }, null, {
+  "x-agmx-intake-key": INTAKE_KEY,
 });
 ok(assessment.status === 201, "POST /assessment → 201 (got " + assessment.status + ")");
 const a = assessment.data || {};

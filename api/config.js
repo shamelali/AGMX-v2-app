@@ -93,6 +93,8 @@ export default async function handler(req, res) {
     // Requires both the operator's opt-in and a provider key this platform can see.
     knowledgeRagEnabled: optIn(process.env.NEXT_PUBLIC_KNOWLEDGE_RAG) && ragReady,
     realtimeEnabled: optIn(process.env.NEXT_PUBLIC_REALTIME),
+    publicIntakeEnabled: optIn(process.env.NEXT_PUBLIC_PUBLIC_INTAKE_ENABLED),
+    turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '',
 
   }
 

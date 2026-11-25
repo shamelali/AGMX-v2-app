@@ -3,7 +3,7 @@
  * Replaces PocketBase pb_hooks/money_flow.pb.js
  *
  * Endpoints:
- *   POST /functions/v1/money-flow/assessment       - Submit assessment → create lead (public, rate-limited)
+ *   POST /functions/v1/money-flow/assessment       - Submit assessment → create lead (internal intake only)
  *   POST /functions/v1/money-flow/quote            - Generate quote from assessment
  *   POST /functions/v1/money-flow/quote/accept     - Accept a quote
  *   POST /functions/v1/money-flow/invoice          - Create invoice from accepted quote
@@ -37,6 +37,7 @@ const HITPAY_API_KEY = Deno.env.get("HITPAY_API_KEY") || ""
 const HITPAY_SALT = Deno.env.get("HITPAY_SALT") || ""
 const HITPAY_API_URL = Deno.env.get("HITPAY_API_URL") || "https://api.sandbox.hit-pay.com"
 const APP_URL = Deno.env.get("APP_URL") || "https://www.agmx.my"
+const INTAKE_INTERNAL_KEY = Deno.env.get("INTAKE_INTERNAL_KEY") || ""
 
 // Use service_role key (auto-injected by Supabase Edge Functions runtime)
 const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
@@ -44,19 +45,19 @@ const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_
 // ---- Types ----
 interface AssessmentInput {
   coopName: string
-  coopReg?: string
-  state?: string
+  coopReg?: string | null
+  state?: string | null
   members: number
-  agmDate?: string
+  agmDate?: string | null
   mode: "physical" | "online" | "hybrid"
-  expectedAttendance?: number
+  expectedAttendance?: number | null
   candidates: number
   motions: number
-  currentProcess: "manual" | "partial" | "digital"
+  currentProcess: "manual" | "mixed" | "partial" | "digital"
   needsManaged: boolean
   contactName: string
   contactPhone: string
-  contactEmail?: string
+  contactEmail?: string | null
 }
 
 interface QuoteInput {
@@ -341,7 +342,8 @@ async function auditLog(orgId: string, actorId: string, action: string, entityTy
 
 // ---- Rate Limiting with fail-closed behavior ----
 async function checkRateLimit(req: Request): Promise<boolean> {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+  const ip = req.headers.get("x-agmx-client-ip")?.split(",")[0]?.trim() ||
+             req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
              req.headers.get("x-real-ip") || 
              "unknown"
   
@@ -364,33 +366,275 @@ async function checkRateLimit(req: Request): Promise<boolean> {
 
 // ---- Handlers ----
 
+interface IntakePayload {
+  submissionId: string
+  assessment: AssessmentInput
+}
+
+const INTAKE_TOP_LEVEL_FIELDS = new Set(["submissionId", "assessment"])
+const INTAKE_ASSESSMENT_FIELDS = new Set([
+  "coopName", "coopReg", "state", "members", "agmDate", "mode", "expectedAttendance",
+  "candidates", "motions", "currentProcess", "needsManaged", "contactName", "contactPhone", "contactEmail",
+])
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const INTAKE_STATES = new Set([
+  "Johor", "Kedah", "Kelantan", "Kuala Lumpur", "Melaka", "Negeri Sembilan",
+  "Pahang", "Perak", "Perlis", "Pulau Pinang", "Sabah", "Sarawak", "Selangor", "Terengganu",
+])
+
+function intakeError(code: string, message: string, status = 400, fields?: Record<string, string>) {
+  return new Response(JSON.stringify({ ok: false, error: { code, message, ...(fields ? { fields } : {}) } }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+  })
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+async function secretMatches(provided: string | null, expected: string): Promise<boolean> {
+  if (!provided || !expected) return false
+  const encode = (value: string) => new TextEncoder().encode(value)
+  const [actualDigest, expectedDigest] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encode(provided)),
+    crypto.subtle.digest("SHA-256", encode(expected)),
+  ])
+  const actual = new Uint8Array(actualDigest)
+  const wanted = new Uint8Array(expectedDigest)
+  const subtle = crypto.subtle as SubtleCrypto & {
+    timingSafeEqual?: (left: Uint8Array, right: Uint8Array) => boolean
+  }
+  if (typeof subtle.timingSafeEqual === "function") {
+    return subtle.timingSafeEqual(actual, wanted)
+  }
+  let difference = 0
+  for (let index = 0; index < actual.length; index += 1) difference |= actual[index] ^ wanted[index]
+  return difference === 0
+}
+
+async function readLimitedJson(req: Request): Promise<unknown> {
+  const declared = Number(req.headers.get("content-length"))
+  if (Number.isSafeInteger(declared) && declared >= 0 && declared > 16 * 1024) {
+    throw new Error("PAYLOAD_TOO_LARGE")
+  }
+  if (!req.body) throw new Error("INVALID_JSON")
+  const reader = req.body.getReader()
+  const decoder = new TextDecoder("utf-8", { fatal: true })
+  let text = ""
+  let size = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > 16 * 1024) throw new Error("PAYLOAD_TOO_LARGE")
+      text += decoder.decode(value, { stream: true })
+    }
+    text += decoder.decode()
+  } finally {
+    reader.releaseLock()
+  }
+  return JSON.parse(text)
+}
+
+function validateIntakePayload(payload: unknown): { value?: IntakePayload; fields: Record<string, string> } {
+  const fields: Record<string, string> = {}
+  if (!isRecord(payload)) return { fields: { _form: "Must be an object" } }
+  for (const key of Object.keys(payload)) {
+    if (!INTAKE_TOP_LEVEL_FIELDS.has(key)) fields[key] = "Unknown field"
+  }
+  const submissionId = typeof payload.submissionId === "string" ? payload.submissionId.toLowerCase() : ""
+  if (!UUID_V4.test(submissionId)) fields.submissionId = "Must be a UUID v4"
+  if (!isRecord(payload.assessment)) {
+    fields.assessment = "Must be an object"
+    return { fields }
+  }
+  const source = payload.assessment
+  for (const key of Object.keys(source)) {
+    if (!INTAKE_ASSESSMENT_FIELDS.has(key)) fields[key] = "Unknown field"
+  }
+
+  const textField = (key: string, max: number, required = true): string | null => {
+    const raw = source[key]
+    if (raw === undefined || raw === null || raw === "") {
+      if (required) fields[key] = "Required"
+      return null
+    }
+    if (typeof raw !== "string") {
+      fields[key] = "Must be text"
+      return null
+    }
+    const value = raw.trim()
+    if (!value && required) fields[key] = "Required"
+    if (value.length > max) fields[key] = `Must be at most ${max} characters`
+    return value || null
+  }
+  const integerField = (key: string, min: number, max: number, required = true): number | null => {
+    const value = source[key]
+    if (value === undefined || value === null) {
+      if (required) fields[key] = "Required"
+      return null
+    }
+    if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) {
+      fields[key] = `Must be an integer from ${min} to ${max}`
+      return null
+    }
+    return value as number
+  }
+
+  const coopName = textField("coopName", 200)
+  const coopReg = textField("coopReg", 100, false)
+  const state = textField("state", 100)
+  if (state && !INTAKE_STATES.has(state)) fields.state = "Unsupported state"
+  const members = integerField("members", 1, 1_000_000)
+  const agmDate = textField("agmDate", 10, false)
+  if (agmDate && !/^\d{4}-\d{2}-\d{2}$/.test(agmDate)) fields.agmDate = "Must be a valid YYYY-MM-DD date"
+  const mode = textField("mode", 20)
+  if (mode && !["physical", "online", "hybrid"].includes(mode)) fields.mode = "Unsupported AGM mode"
+  const expectedAttendance = integerField("expectedAttendance", 1, 1_000_000)
+  if (members !== null && expectedAttendance !== null && expectedAttendance > members) {
+    fields.expectedAttendance = "Must not exceed members"
+  }
+  const candidates = integerField("candidates", 0, 10_000)
+  const motions = integerField("motions", 0, 10_000)
+  const currentProcess = textField("currentProcess", 20)
+  if (currentProcess && !["manual", "mixed", "partial", "digital"].includes(currentProcess)) {
+    fields.currentProcess = "Unsupported process"
+  }
+  if (typeof source.needsManaged !== "boolean") fields.needsManaged = "Must be true or false"
+  const contactName = textField("contactName", 200)
+  const contactPhone = textField("contactPhone", 32)
+  if (contactPhone && !/^\+?\d{8,15}$/.test(contactPhone.replace(/[\s()-]/g, ""))) {
+    fields.contactPhone = "Must be a valid phone number"
+  }
+  const contactEmail = textField("contactEmail", 254, false)
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    fields.contactEmail = "Must be a valid email"
+  }
+  if (Object.keys(fields).length) return { fields }
+
+  return {
+    fields,
+    value: {
+      submissionId,
+      assessment: {
+        coopName: coopName!,
+        coopReg,
+        state,
+        members: members!,
+        agmDate,
+        mode: mode as AssessmentInput["mode"],
+        expectedAttendance,
+        candidates: candidates!,
+        motions: motions!,
+        currentProcess: currentProcess as AssessmentInput["currentProcess"],
+        needsManaged: source.needsManaged as boolean,
+        contactName: contactName!,
+        contactPhone: contactPhone!.replace(/[\s()-]/g, ""),
+        contactEmail,
+      },
+    },
+  }
+}
+
+function canonicalAssessment(input: AssessmentInput): AssessmentInput {
+  return {
+    coopName: input.coopName.trim(),
+    coopReg: input.coopReg?.trim() || null,
+    state: input.state?.trim() || null,
+    members: input.members,
+    agmDate: input.agmDate?.trim() || null,
+    mode: input.mode,
+    expectedAttendance: input.expectedAttendance ?? null,
+    candidates: input.candidates,
+    motions: input.motions,
+    currentProcess: input.currentProcess === "mixed" ? "partial" : input.currentProcess,
+    needsManaged: input.needsManaged,
+    contactName: input.contactName.trim(),
+    contactPhone: input.contactPhone.replace(/[\s()-]/g, ""),
+    contactEmail: input.contactEmail?.trim() || null,
+  }
+}
+
+async function assessmentSubmissionHash(input: AssessmentInput): Promise<string> {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(canonicalAssessment(input))))
+  return Array.from(new Uint8Array(bytes)).map((byte) => byte.toString(16).padStart(2, "0")).join("")
+}
+
+async function replayAssessment(row: any) {
+  const { data: plan } = await supabase
+    .from("plans")
+    .select("code")
+    .eq("id", row.recommended_plan)
+    .maybeSingle()
+  const recommendedPlan = plan?.code || recommendPlan(row.complexity_score)
+  return successResponse({
+    ok: true,
+    submissionId: row.submission_id,
+    assessmentId: row.id,
+    reference: row.reference,
+    token: row.token,
+    complexityScore: row.complexity_score,
+    recommendedPlan,
+    quoteUrl: `${APP_URL}/checkout.html?ref=${row.reference}&t=${row.token}`,
+    replayed: true,
+  }, 200)
+}
+
+async function resolveSubmissionReplay(submissionId: string, submissionHash: string) {
+  const { data, error } = await supabase
+    .from("agm_assessments")
+    .select("*")
+    .eq("submission_id", submissionId)
+    .maybeSingle()
+  if (error || !data) return null
+  if (data.submission_hash !== submissionHash) {
+    return intakeError("SUBMISSION_CONFLICT", "Submission id was already used with different content", 409)
+  }
+  return replayAssessment(data)
+}
+
 async function handleAssessment(req: Request) {
-  // Rate limiting
-  if (!(await checkRateLimit(req))) {
-    return errorResponse("Rate limit exceeded", 429)
+  if (!(await secretMatches(req.headers.get("x-agmx-intake-key"), INTAKE_INTERNAL_KEY))) {
+    return intakeError("INTAKE_UNAUTHORIZED", "Unauthorized", 401)
+  }
+  if (String(req.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase() !== "application/json") {
+    return intakeError("UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json", 415)
   }
 
-  const input: AssessmentInput = await req.json()
-  
-  if (!input.coopName || !input.contactName || !input.contactPhone) {
-    return errorResponse("Missing required fields: coopName, contactName, contactPhone")
+  let payload: unknown
+  try {
+    payload = await readLimitedJson(req)
+  } catch (error) {
+    if (error instanceof Error && error.message === "PAYLOAD_TOO_LARGE") {
+      return intakeError("PAYLOAD_TOO_LARGE", "Request body exceeds 16 KiB", 413)
+    }
+    return intakeError("INVALID_JSON", "Request body must be valid JSON")
   }
-  if (input.members < 1) {
-    return errorResponse("Members must be at least 1")
-  }
+  const validated = validateIntakePayload(payload)
+  if (!validated.value) return intakeError("INVALID_INPUT", "Invalid submission", 400, validated.fields)
 
+  const { submissionId, assessment } = validated.value
+  const submissionHash = await assessmentSubmissionHash(assessment)
+  const existing = await resolveSubmissionReplay(submissionId, submissionHash)
+  if (existing) return existing
+
+  const input = canonicalAssessment(assessment)
   const complexityScore = computeComplexityScore(input)
   const recommendedPlanCode = recommendPlan(complexityScore)
-
   const { data: plan } = await supabase
     .from("plans")
     .select("id")
     .eq("code", recommendedPlanCode)
     .single()
+  if (!plan?.id) return intakeError("PERSISTENCE_FAILED", "Assessment could not be persisted", 500)
 
-  const { data: assessment, error } = await supabase
+  const { data: created, error } = await supabase
     .from("agm_assessments")
     .insert({
+      submission_id: submissionId,
+      submission_hash: submissionHash,
       coop_name: input.coopName,
       coop_reg: input.coopReg,
       state: input.state,
@@ -406,7 +650,7 @@ async function handleAssessment(req: Request) {
       contact_phone: input.contactPhone,
       contact_email: input.contactEmail,
       complexity_score: complexityScore,
-      recommended_plan: plan?.id,
+      recommended_plan: plan.id,
       status: "lead",
       reference: generateRef("LD"),
       token: crypto.randomUUID(),
@@ -414,24 +658,34 @@ async function handleAssessment(req: Request) {
     .select()
     .single()
 
-  if (error) return errorResponse(error.message, 500)
+  if (error) {
+    if (error.code === "23505") {
+      const raced = await resolveSubmissionReplay(submissionId, submissionHash)
+      if (raced) return raced
+    }
+    console.error("Assessment persistence failed")
+    return intakeError("PERSISTENCE_FAILED", "Assessment could not be persisted", 500)
+  }
 
   await auditLog(
     "00000000-0000-0000-0000-000000000000",
     "00000000-0000-0000-0000-000000000000",
     "assessment.submitted",
     "agm_assessment",
-    assessment.id,
-    { complexityScore, recommendedPlanCode }
+    created.id,
+    { submissionId, complexityScore, recommendedPlanCode }
   )
 
   return successResponse({
-    assessmentId: assessment.id,
-    reference: assessment.reference,
-    token: assessment.token,
+    ok: true,
+    submissionId,
+    assessmentId: created.id,
+    reference: created.reference,
+    token: created.token,
     complexityScore,
     recommendedPlan: recommendedPlanCode,
-    quoteUrl: `${APP_URL}/checkout.html?ref=${assessment.reference}&t=${assessment.token}`,
+    quoteUrl: `${APP_URL}/checkout.html?ref=${created.reference}&t=${created.token}`,
+    replayed: false,
   }, 201)
 }
 

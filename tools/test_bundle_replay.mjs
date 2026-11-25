@@ -27,6 +27,7 @@
 
    No credentials, no network. Usage:  node tools/test_bundle_replay.mjs
    ============================================================ */
+import { randomUUID } from "node:crypto";
 import { applyBundle, bootDatabase, makeRestClient, seedUser } from "./agmx_db.mjs";
 
 const failures = [];
@@ -46,7 +47,7 @@ const rest = makeRestClient(db);
 
 /* A cooperative, its secretary, and an AGM — enough state that "nothing
    changed on the second paste" is about real rows, not an empty schema. */
-const secretary = crypto.randomUUID();
+const secretary = randomUUID();
 const org = (await rest.from("organizations")
   .insert({ name: "Koperasi Pasteran Test", slug: "koperasi-pasteran-test" }).select("id").single()).data;
 await seedUser(db, { id: secretary, email: "setiausaha@pasteran.test" });

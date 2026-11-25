@@ -27,30 +27,30 @@
       <p class="lg-meta">Draf untuk semakan undang-undang · Berkuat kuasa: 2026-10-23 · AGMX (Duta Integra)</p>
 
       <h2>1. Data yang dikumpul</h2>
-      <p>Apabila anda menghantar Penilaian AGM atau borang sebut harga, kami menyimpan: nama koperasi, no. pendaftaran, negeri, bilangan ahli, butiran AGM, nama, telefon/WhatsApp dan e-mel perhubungan. Laman ini tidak menggunakan kuki penjejakan pihak ketiga.</p>
+      <p>Apabila anda menghantar Penilaian AGM atau borang sebut harga, kami menyimpan: nama koperasi, no. pendaftaran, negeri, bilangan ahli, butiran AGM, nama, telefon/WhatsApp dan e-mel perhubungan. Untuk perlindungan penyalahgunaan, alamat IP mungkin digunakan semasa semakan bot dan had kadar permohonan. Laman ini tidak menggunakan kuki penjejakan analitik pihak ketiga.</p>
 
       <h2>2. Tujuan pemprosesan</h2>
       <ul>
         <li>Mengira skor kerumitan dan menyediakan sebut harga;</li>
         <li>Menghubungi anda berkenaan pertanyaan atau tempahan AGM;</li>
-        <li>Pengehosan, pengendalian risiko dan rekod perakaunan mengikut keperluan undang-undang.</li>
+        <li>Pengehosan, keselamatan, pengendalian risiko dan rekod perakaunan mengikut keperluan undang-undang.</li>
       </ul>
 
       <h2>3. Penerima & pemindahan</h2>
-      <p>Paparan dihos pada Vercel. Data operasi — akaun, ahli, undi, had kuorum, minit, sebut harga, invois dan langganan — disimpan di pangkalan data Supabase (Singapura) dan diakses melalui Edge Function milik projek ini. Dalam mod demo, data hanya disimpan pada pelayar anda dan tidak dihantar ke mana-mana pelayan. Enquiry laman utama Duta Integra dihantar melalui fungsi e-melnya sendiri (Brevo). Tiada data dijual kepada pihak ketiga.</p>
+      <p>Paparan dihos pada Vercel atau Cloudflare Pages. Permohonan penilaian awam melalui laluan sama-origin, Cloudflare Worker dan Supabase Edge Function projek ini. Cloudflare Turnstile memproses semakan bot, dan Resend menghantar notifikasi operasi berformat tetap kepada pasukan AGMX selepas permohonan berjaya disimpan. Data operasi — akaun, ahli, undi, had kuorum, minit, sebut harga, invois dan langganan — disimpan di pangkalan data Supabase (Singapura). Dalam mod demo, data hanya disimpan pada pelayar anda dan tidak dihantar ke mana-mana pelayan. Enquiry laman utama Duta Integra dihantar melalui fungsi e-melnya sendiri (Brevo). Tiada data dijual kepada pihak ketiga.</p>
 
       <h2>4. Hak anda (PDPA 2010)</h2>
       <p>Anda boleh meminta akses, pembetulan atau penarikan balik kebenaran dengan menghubungi kami. Kami membalas dalam tempoh yang munasabah mengikut Akta Perlindungan Data Peribadi 2010.</p>
 
       <h2>5. Kuki & storan setempat</h2>
-      <p>Laman ini menyimpan keutamaan bahasa dan tema pada penyimpanan setempat pelayar anda (localStorage). Data demo penilaian dalam mod demo juga disimpan setempat dan tidak dihantar ke pelayan.</p>
+      <p>Laman ini menyimpan keutamaan bahasa dan tema pada penyimpanan setempat pelayar anda (localStorage). Data demo penilaian dalam mod demo juga disimpan setempat dan tidak dihantar ke pelayan. Turnstile mungkin menggunakan storan pelayar yang diperlukan untuk mencabar bot; ia bukan kuki penjejakan analitik.</p>
 
       <h2>6. Hubungi kami</h2>
       <p>WhatsApp: <a href="https://wa.me/601154034051">+60 11-1540 34051</a> · Laman: <a href="https://dutaintegra.my">dutaintegra.my</a></p>
 
       <div class="lg-en">
         <h2>Privacy Notice (English summary)</h2>
-        <p>When you submit an AGM assessment or quote request we store your cooperative details and contact information to prepare your quote and contact you. We do not sell personal data. The interface is hosted on Vercel. Operational data — accounts, members, votes, quorum, minutes, quotes, invoices and subscriptions — is stored in this project's Supabase database (Singapore) and reached through its Edge Functions. In demo mode nothing leaves your browser. For Duta Integra website enquiries, contact details are forwarded via that site's own email function (Brevo). You may request access, correction or withdrawal of consent under Malaysia's Personal Data Protection Act 2010. Language preferences are stored in your browser's local storage only.</p>
+        <p>When you submit an AGM assessment or quote request we store your cooperative details and contact information to prepare your quote and contact you. An IP address may be used for bot verification and request-rate protection. We do not sell personal data or use third-party analytics tracking cookies. The interface is hosted on Vercel or Cloudflare Pages. Public assessment requests pass through a same-origin proxy, a Cloudflare Worker and this project's Supabase Edge Function. Cloudflare Turnstile processes bot verification, and Resend delivers a fixed-template operational notification to the AGMX team after successful submission. Operational data — accounts, members, votes, quorum, minutes, quotes, invoices and subscriptions — is stored in this project's Supabase database (Singapore). In demo mode nothing leaves your browser. For Duta Integra website enquiries, contact details are forwarded via that site's own email function (Brevo). Turnstile may use browser storage necessary for its bot challenge; this is not analytics tracking. You may request access, correction or withdrawal of consent under Malaysia's Personal Data Protection Act 2010. Language preferences are stored in your browser's local storage only.</p>
       </div>
 
       <p style="margin-top:26px"><a href="/" class="btn btn-ghost btn-sm">← Kembali ke Laman Utama / Back to Home</a></p>

@@ -27,9 +27,9 @@
 --   0012_documents_bucket.sql  (64 lines)
 --   0013_documents_bucket_write_policies.sql  (83 lines)
 --   0014_atomic_settlement.sql  (148 lines)
---   0015_agm_lifecycle.sql  (163 lines)
+--   0015_agm_lifecycle.sql  (172 lines)
 --   0016_members_electoral_roll.sql  (242 lines)
---   0017_notice_pack_comms.sql  (682 lines)
+--   0017_notice_pack_comms.sql  (683 lines)
 --   0018_federation_member_read.sql  (17 lines)
 --   0019_registration_presence.sql  (196 lines)
 --   0020_elections_ballots.sql  (676 lines)
@@ -40,6 +40,7 @@
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (119 lines)
 --   20261119151200_restrict_ballot_writes.sql  (6 lines)
+--   20261124184934_public_intake_idempotency.sql  (22 lines)
 -- ============================================================
 
 
@@ -2748,8 +2749,17 @@ grant execute on function public.atomic_settlement(uuid, uuid, uuid, timestamptz
 -- Status doubles as the 9-stage machine:
 --   planned(Draft) → configuring → published → registration_open → ready → live → closed → post_agm → archived
 -- 'minuted' is a legacy value kept for meetings created before the stage machine.
-alter table public.agms add constraint if not exists agms_stage_check
-  check (status in ('planned','configuring','published','registration_open','ready','live','closed','post_agm','archived','minuted'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname = 'agms_stage_check'
+       and conrelid = 'public.agms'::regclass
+  ) then
+    alter table public.agms add constraint agms_stage_check
+      check (status in ('planned','configuring','published','registration_open','ready','live','closed','post_agm','archived','minuted'));
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- RPC: create an AGM in Draft stage.
@@ -2972,17 +2982,17 @@ create index if not exists idx_electoral_rolls_org_agm
 alter table public.electoral_rolls enable row level security;
 alter table public.electoral_roll_entries enable row level security;
 
-execute 'drop policy if exists electoral_rolls_org on public.electoral_rolls';
-execute 'create policy electoral_rolls_org on public.electoral_rolls for all using (organization_id = public.current_org_id())';
+drop policy if exists electoral_rolls_org on public.electoral_rolls;
+create policy electoral_rolls_org on public.electoral_rolls for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists electoral_roll_entries_org on public.electoral_roll_entries';
-execute 'create policy electoral_roll_entries_org on public.electoral_roll_entries for all using (
+drop policy if exists electoral_roll_entries_org on public.electoral_roll_entries;
+create policy electoral_roll_entries_org on public.electoral_roll_entries for all using (
   exists (
     select 1 from public.electoral_rolls er
     where er.id = public.electoral_roll_entries.electoral_roll_id
       and er.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- RPC: import / sync members (bulk, deduplicated by member_no)
@@ -3343,7 +3353,7 @@ create or replace function public.compose_notice(
   p_subject      text,
   p_body         text,
   p_source       text default 'manual',
-  p_due_at       timestamptz,
+  p_due_at       timestamptz default null,
   p_ack_required boolean default false
 )
 returns jsonb
@@ -3447,6 +3457,7 @@ declare
   v_body     text;
   v_comm_id  uuid;
   v_count    int;
+  v_member   uuid;
 begin
   if p_operator_org is null then
     return jsonb_build_object('error', 'Operator organisation required');
@@ -3563,7 +3574,7 @@ begin
     'notice_id', p_notice_id,
     'member_id', p_member_id,
     'all_acknowledged', v_all,
-    'status', v_all ? 'acknowledged' : 'delivered'
+    'status', case when v_all then 'acknowledged' else 'delivered' end
   );
 end;
 $$;
@@ -3701,7 +3712,7 @@ create or replace function public.log_document_access(
   p_operator_org  uuid,
   p_member_id     uuid,
   p_action        text default 'view',
-  p_ip            text
+  p_ip            text default null
 )
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
@@ -3735,10 +3746,10 @@ create or replace function public.send_communication(
   p_organization_id uuid,
   p_actor           uuid,
   p_agm_id          uuid,
-  p_type            text default 'notice',
-  p_channel         text default 'email',
   p_subject         text,
   p_body            text,
+  p_type            text default 'notice',
+  p_channel         text default 'email',
   p_member_ids      uuid[] default '{}'::uuid[]
 )
 returns jsonb
@@ -3918,11 +3929,11 @@ create index if not exists idx_presence_events_member on public.presence_events(
 alter table public.registrations enable row level security;
 alter table public.presence_events enable row level security;
 
-execute 'drop policy if exists registrations_org on public.registrations';
-execute 'create policy registrations_org on public.registrations for all using (organization_id = public.current_org_id())';
+drop policy if exists registrations_org on public.registrations;
+create policy registrations_org on public.registrations for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists presence_events_org on public.presence_events';
-execute 'create policy presence_events_org on public.presence_events for all using (organization_id = public.current_org_id())';
+drop policy if exists presence_events_org on public.presence_events;
+create policy presence_events_org on public.presence_events for all using (organization_id = public.current_org_id());
 
 -- ------------------------------------------------------------
 -- RPC: register_member — register/RSVP a member for an AGM
@@ -3931,10 +3942,10 @@ execute 'create policy presence_events_org on public.presence_events for all usi
 create or replace function public.register_member(
   p_agm_id       uuid,
   p_member_id    uuid,
-  p_status       text default 'rsvp',
-  p_channel      text default 'portal',
   p_operator_org uuid,
-  p_actor        uuid
+  p_actor        uuid,
+  p_status       text default 'rsvp',
+  p_channel      text default 'portal'
 )
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
@@ -3985,8 +3996,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.register_member(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
-grant execute on function public.register_member(uuid, uuid, text, text, uuid, uuid) to service_role;
+revoke execute on function public.register_member(uuid, uuid, uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.register_member(uuid, uuid, uuid, uuid, text, text) to service_role;
 
 -- ------------------------------------------------------------
 -- RPC: check_in_member — check a member in at an AGM
@@ -3995,10 +4006,10 @@ grant execute on function public.register_member(uuid, uuid, text, text, uuid, u
 create or replace function public.check_in_member(
   p_agm_id       uuid,
   p_member_id    uuid,
-  p_method       text default 'portal',
-  p_channel      text default 'physical',
   p_operator_org uuid,
-  p_actor        uuid
+  p_actor        uuid,
+  p_method       text default 'portal',
+  p_channel      text default 'physical'
 )
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
@@ -4053,8 +4064,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.check_in_member(uuid, uuid, text, text, uuid, uuid) from public, anon, authenticated;
-grant execute on function public.check_in_member(uuid, uuid, text, text, uuid, uuid) to service_role;
+revoke execute on function public.check_in_member(uuid, uuid, uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.check_in_member(uuid, uuid, uuid, uuid, text, text) to service_role;
 
 -- ------------------------------------------------------------
 -- GRANTS: authenticated users can read registration tables (RLS scoped)
@@ -4142,27 +4153,27 @@ alter table public.elections enable row level security;
 alter table public.ballots enable row level security;
 alter table public.ballot_selections enable row level security;
 
-execute 'drop policy if exists elections_org on public.elections';
-execute 'create policy elections_org on public.elections for all using (organization_id = public.current_org_id())';
+drop policy if exists elections_org on public.elections;
+create policy elections_org on public.elections for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists ballots_org on public.ballots';
-execute 'create policy ballots_org on public.ballots for all using (
+drop policy if exists ballots_org on public.ballots;
+create policy ballots_org on public.ballots for all using (
   exists (
     select 1 from public.elections e
     where e.id = public.ballots.election_id
       and e.organization_id = public.current_org_id()
   )
-)';
+);
 
-execute 'drop policy if exists ballot_selections_org on public.ballot_selections';
-execute 'create policy ballot_selections_org on public.ballot_selections for all using (
+drop policy if exists ballot_selections_org on public.ballot_selections;
+create policy ballot_selections_org on public.ballot_selections for all using (
   exists (
     select 1 from public.ballots b
     join public.elections e on e.id = b.election_id
     where e.id = public.ballot_selections.ballot_id
       and e.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- Append-only triggers: ballots and selections are immutable once cast
@@ -4802,11 +4813,11 @@ create index if not exists idx_candidates_agm on public.candidates(agm_id);
 alter table public.nominations enable row level security;
 alter table public.candidates enable row level security;
 
-execute 'drop policy if exists nominations_org on public.nominations';
-execute 'create policy nominations_org on public.nominations for all using (organization_id = public.current_org_id())';
+drop policy if exists nominations_org on public.nominations;
+create policy nominations_org on public.nominations for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists candidates_org on public.candidates';
-execute 'create policy candidates_org on public.candidates for all using (organization_id = public.current_org_id())';
+drop policy if exists candidates_org on public.candidates;
+create policy candidates_org on public.candidates for all using (organization_id = public.current_org_id());
 
 -- ------------------------------------------------------------
 -- RPC: nomination_submit — a member applies for a position
@@ -5072,17 +5083,17 @@ create index if not exists idx_minute_versions_minutes on public.minute_versions
 alter table public.minutes enable row level security;
 alter table public.minute_versions enable row level security;
 
-execute 'drop policy if exists minutes_org on public.minutes';
-execute 'create policy minutes_org on public.minutes for all using (organization_id = public.current_org_id())';
+drop policy if exists minutes_org on public.minutes;
+create policy minutes_org on public.minutes for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists minute_versions_org on public.minute_versions';
-execute 'create policy minute_versions_org on public.minute_versions for all using (
+drop policy if exists minute_versions_org on public.minute_versions;
+create policy minute_versions_org on public.minute_versions for all using (
   exists (
     select 1 from public.minutes m
     where m.id = public.minute_versions.minutes_id
       and m.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- Trigger: locked minutes are append-only (no UPDATE/DELETE once locked)
@@ -5546,14 +5557,14 @@ alter table public.evidence_items enable row level security;
 alter table public.evidence_packages enable row level security;
 alter table public.incidents enable row level security;
 
-execute 'drop policy if exists evidence_items_org on public.evidence_items';
-execute 'create policy evidence_items_org on public.evidence_items for all using (organization_id = public.current_org_id())';
+drop policy if exists evidence_items_org on public.evidence_items;
+create policy evidence_items_org on public.evidence_items for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists evidence_packages_org on public.evidence_packages';
-execute 'create policy evidence_packages_org on public.evidence_packages for all using (organization_id = public.current_org_id())';
+drop policy if exists evidence_packages_org on public.evidence_packages;
+create policy evidence_packages_org on public.evidence_packages for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists incidents_org on public.incidents';
-execute 'create policy incidents_org on public.incidents for all using (organization_id = public.current_org_id())';
+drop policy if exists incidents_org on public.incidents;
+create policy incidents_org on public.incidents for all using (organization_id = public.current_org_id());
 
 -- ------------------------------------------------------------
 -- Append-only triggers: evidence items and incidents are immutable;
@@ -5860,23 +5871,23 @@ create index if not exists idx_questions_agm on public.questions(agm_id);
 alter table public.speaker_queue enable row level security;
 alter table public.questions enable row level security;
 
-execute 'drop policy if exists speaker_queue_org on public.speaker_queue';
-execute 'create policy speaker_queue_org on public.speaker_queue for all using (
+drop policy if exists speaker_queue_org on public.speaker_queue;
+create policy speaker_queue_org on public.speaker_queue for all using (
   exists (
     select 1 from public.agms a
     where a.id = public.speaker_queue.agm_id
       and a.organization_id = public.current_org_id()
   )
-)';
+);
 
-execute 'drop policy if exists questions_org on public.questions';
-execute 'create policy questions_org on public.questions for all using (
+drop policy if exists questions_org on public.questions;
+create policy questions_org on public.questions for all using (
   exists (
     select 1 from public.agms a
     where a.id = public.questions.agm_id
       and a.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- GRANTS
@@ -6350,3 +6361,30 @@ drop policy if exists votes_insert on public.votes;
 create policy votes_insert on public.votes as restrictive for insert with check (false);
 revoke insert on table public.votes from public, anon, authenticated;
 revoke execute on function public.cast_vote(uuid, uuid, text) from public, anon, authenticated;
+
+
+-- ============================================================
+-- 20261124184934_public_intake_idempotency.sql
+-- ============================================================
+alter table public.agm_assessments
+  add column if not exists submission_id uuid,
+  add column if not exists submission_hash text;
+
+create unique index if not exists agm_assessments_submission_id_unique
+  on public.agm_assessments (submission_id)
+  where submission_id is not null;
+
+alter table public.agm_assessments
+  drop constraint if exists agm_assessments_submission_hash_format;
+
+alter table public.agm_assessments
+  add constraint agm_assessments_submission_hash_format
+  check (submission_hash is null or submission_hash ~ '^[a-f0-9]{64}$');
+
+drop policy if exists assessments_lead_insert on public.agm_assessments;
+drop policy if exists assessments_update on public.agm_assessments;
+
+revoke insert, update, delete on public.agm_assessments from anon, authenticated;
+
+revoke all on function public.check_rate_limit(text, integer, interval) from public, anon, authenticated;
+grant execute on function public.check_rate_limit(text, integer, interval) to service_role;

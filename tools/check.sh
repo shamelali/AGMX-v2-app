@@ -26,7 +26,9 @@ head_() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 # ----------------------------------------------------------------
 head_ "1. JavaScript syntax"
 # ----------------------------------------------------------------
-# Check every top-level .js file, excluding vendored/minified output.
+# Check every top-level .js file, excluding vendored/minified output and
+# browser-only ES modules (supabase-client.js, superpowers-plugin.js), which
+# bare node loads as CommonJS and cannot --check.
 while IFS= read -r f; do
   if node --check "$f" 2>/dev/null; then ok "$f"; else
     bad "$f"
@@ -38,7 +40,7 @@ while IFS= read -r f; do
   while IFS= read -r hit; do
     bad "$f:${hit} — a comment swallows the code after it"
   done < <(grep -nE '^[[:space:]]*//.*\{[[:space:]]*$' "$f" | cut -d: -f1)
-done < <(find . -maxdepth 1 -name '*.js' -not -name '*.min.js' | sort)
+done < <(find . -maxdepth 1 -name '*.js' -not -name '*.min.js' -not -name 'supabase-client.js' -not -name 'superpowers-plugin.js' | sort)
 
 # PocketBase JSVM hooks (routerAdd/$app globals are runtime-injected;
 # node --check only parses, which is exactly what we want here).
@@ -647,6 +649,51 @@ if [ -f tools/test_assessment_scoring.js ]; then
   fi
 else
   warn "tools/test_assessment_scoring.js not found"
+fi
+
+if [ -f workers/public-intake/test/worker.test.mjs ]; then
+  if OUT=$(node --test workers/public-intake/test/worker.test.mjs 2>&1); then
+    ok "workers/public-intake/test/worker.test.mjs (validation, Turnstile, persistence, email)"
+  else
+    bad "public-intake Worker contract failed"
+    printf '%s\n' "$OUT" | grep -E '^not ok|^# fail|AssertionError' | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "workers/public-intake/test/worker.test.mjs not found"
+fi
+
+if [ -f tools/test_intake_proxy.mjs ]; then
+  if OUT=$(node --test tools/test_intake_proxy.mjs 2>&1); then
+    ok "tools/test_intake_proxy.mjs (Vercel + Pages same-origin proxy)"
+  else
+    bad "public-intake proxy contract failed"
+    printf '%s\n' "$OUT" | grep -E '^not ok|^# fail|AssertionError' | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_intake_proxy.mjs not found"
+fi
+
+if [ -f tools/test_intake_frontend.mjs ]; then
+  if OUT=$(node --test tools/test_intake_frontend.mjs 2>&1); then
+    ok "tools/test_intake_frontend.mjs (widget, retry id, protected endpoint)"
+  else
+    bad "public-intake frontend contract failed"
+    printf '%s\n' "$OUT" | grep -E '^not ok|^# fail|AssertionError' | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_intake_frontend.mjs not found"
+fi
+
+if [ -f tools/test_intake_edge.mjs ]; then
+  if OUT=$(node tools/test_intake_edge.mjs 2>&1); then
+    COUNT=$(printf '%s' "$OUT" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+')
+    ok "tools/test_intake_edge.mjs (${COUNT:-?} assertions)"
+  else
+    bad "tools/test_intake_edge.mjs failed — the internal assessment boundary is not holding"
+    printf '%s\n' "$OUT" | grep -E '^  ✗|AssertionError|Error:' | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_intake_edge.mjs not found"
 fi
 
 # ----------------------------------------------------------------
@@ -1516,6 +1563,16 @@ for f in DEPLOY_PAIR:
             if cm:
                 cols.add(cm.group(1).lower())
         tables[m.group(1).lower()] = (f, cols)
+    for m in re.finditer(
+            r'alter\s+table\s+(?:public\.)?"?([A-Za-z0-9_]+)"?\s+([^;]+);',
+            text, re.I):
+        table = m.group(1).lower()
+        if table not in tables:
+            continue
+        for cm in re.finditer(
+                r'add\s+column\s+(?:if\s+not\s+exists\s+)?"?([A-Za-z0-9_]+)"?',
+                m.group(2), re.I):
+            tables[table][1].add(cm.group(1).lower())
 
 sites = [pathlib.Path("supabase-client.js")]
 sites += [p for p in pathlib.Path("supabase/functions").rglob("*.ts")]
