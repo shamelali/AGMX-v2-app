@@ -61,17 +61,17 @@ create index if not exists idx_electoral_rolls_org_agm
 alter table public.electoral_rolls enable row level security;
 alter table public.electoral_roll_entries enable row level security;
 
-execute 'drop policy if exists electoral_rolls_org on public.electoral_rolls';
-execute 'create policy electoral_rolls_org on public.electoral_rolls for all using (organization_id = public.current_org_id())';
+drop policy if exists electoral_rolls_org on public.electoral_rolls;
+create policy electoral_rolls_org on public.electoral_rolls for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists electoral_roll_entries_org on public.electoral_roll_entries';
-execute 'create policy electoral_roll_entries_org on public.electoral_roll_entries for all using (
+drop policy if exists electoral_roll_entries_org on public.electoral_roll_entries;
+create policy electoral_roll_entries_org on public.electoral_roll_entries for all using (
   exists (
     select 1 from public.electoral_rolls er
     where er.id = public.electoral_roll_entries.electoral_roll_id
       and er.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- RPC: import / sync members (bulk, deduplicated by member_no)

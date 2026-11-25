@@ -2,6 +2,10 @@
 
 const assert = require("node:assert/strict");
 const health = require("../api/health");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 const SUPABASE_ENV = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -41,6 +45,16 @@ function response() {
     setHeader(name, value) { this.headers[name] = value; },
     end(body) { this.body = body; },
   };
+}
+
+// The Cloudflare port is an ES module, but this harness is CommonJS (repo has no
+// "type": "module") and node loads .js as CommonJS. Load it from a temp .mjs copy.
+function loadEsModule(relativePath) {
+  const src = fs.readFileSync(path.resolve(__dirname, relativePath), "utf8");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agmx-health-"));
+  const file = path.join(dir, "loaded.mjs");
+  fs.writeFileSync(file, src);
+  return import(pathToFileURL(file).href);
 }
 
 async function run() {
@@ -255,7 +269,7 @@ async function run() {
     // compares them — and a bug in one is invisible in the other.
     let cf = null;
     try {
-      cf = await import("../functions/api/health.js");
+      cf = await loadEsModule("../functions/api/health.js");
     } catch (error) {
       assert.fail(`the Cloudflare health port cannot be loaded for comparison: ${error.message}`);
     }

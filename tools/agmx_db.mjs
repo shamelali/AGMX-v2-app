@@ -171,7 +171,7 @@ export function splitStatements(sql) {
 /* The generated bundle marks each source file with a banner comment. Splitting
    on it lets a failure name the migration it came from. */
 export function splitSections(text) {
-  const banner = /^-- (\d{4}_[A-Za-z0-9_]+\.sql)$/gm;
+  const banner = /^-- (\d+_[A-Za-z0-9_]+\.sql)$/gm;
   const marks = [];
   const seen = new Set();
   let m;
@@ -256,7 +256,7 @@ export async function applyBundle(db, { log = null } = {}) {
     /* Only objects this section will actually create: claiming the skipped
        knowledge-store tables would demand things PGlite cannot have. */
     const sectionClaims = claimsOf(section.text);
-    for (const key of Object.keys(claims)) {
+    for (const key of ["tables", "functions"]) {
       for (const name of sectionClaims[key]) claims[key].add(name);
     }
     for (const stmt of splitStatements(section.text)) {
@@ -268,6 +268,10 @@ export async function applyBundle(db, { log = null } = {}) {
       try {
         await db.exec(stmt);
         stats.statements++;
+        for (const match of stmt.matchAll(/(create policy\s+([a-z_][a-z_0-9]*)\s+on\s+(?:table\s+)?public\.)|(drop policy if exists\s+([a-z_][a-z_0-9]*)\s+on\s+(?:table\s+)?public\.)/gi)) {
+          if (match[2]) claims.policies.add(match[2]);
+          if (match[4]) claims.policies.delete(match[4]);
+        }
       } catch (err) {
         throw new Error(
           `${section.name}: statement failed\n  ${clip(stmt)}\n  ${err.message}\n\n` +

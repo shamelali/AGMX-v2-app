@@ -63,6 +63,8 @@ export async function onRequest(context) {
     paymentsMode,
     knowledgeRagEnabled: optIn(env.NEXT_PUBLIC_KNOWLEDGE_RAG) && ragReady,
     realtimeEnabled: optIn(env.NEXT_PUBLIC_REALTIME),
+    publicIntakeEnabled: optIn(env.NEXT_PUBLIC_PUBLIC_INTAKE_ENABLED),
+    turnstileSiteKey: env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "",
 
     pocketbaseUrl: env.NEXT_PUBLIC_POCKETBASE_URL || "",
     pocketbaseRealtimeOnly: true,

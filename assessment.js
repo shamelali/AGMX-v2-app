@@ -1,11 +1,9 @@
 /* ============================================================
    AGMX — AGM Assessment Engine (Revenue Engine v1)
    Public: assessment.html
-   Demo: pure client-side. With a configured backend the submission
-   goes through api.js to money-flow, which recomputes the score
-   server-side and returns the LD-xxxx reference + checkout token that
-   checkout.html needs. The archived PocketBase hooks this file used to
-   name are retired; archive/pocketbase-v1/ is history, not a target.
+   Demo: pure client-side. Protected production intake uses the
+   same-origin /api/intake boundary, which verifies Turnstile and
+   delegates authoritative scoring and idempotency to Supabase.
    ============================================================ */
 (function () {
   "use strict";
@@ -151,16 +149,119 @@
      window.AGMX_API was the retired PocketBase dashboard client; the
      commerce facade is api.js and deliberately carries its own name. */
   const API = window.AGMX_COMMERCE || null;
+  const CONFIG = window.AGMX_CONFIG || {};
+  const PUBLIC_INTAKE_REQUESTED = CONFIG.publicIntakeEnabled === true;
+  const TURNSTILE_SITE_KEY = String(CONFIG.turnstileSiteKey || "").trim();
+  const PUBLIC_INTAKE_ENABLED = PUBLIC_INTAKE_REQUESTED && !!TURNSTILE_SITE_KEY;
+  const BACKEND_CONFIGURED = !!API && CONFIG.mode === "supabase";
   const LEAD_KEY = "agmx_leads_v1";
+  let turnstileToken = null;
+  let turnstileWidgetId = null;
+  let submissionId = null;
+  let submitting = false;
+
+  function newSubmissionId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  function setTurnstileError(message) {
+    const element = $("turnstile-error");
+    if (!element) return;
+    element.textContent = message || "";
+    element.hidden = !message;
+  }
+
+  function resetTurnstile() {
+    turnstileToken = null;
+    if (turnstileWidgetId !== null && window.turnstile) {
+      window.turnstile.reset(turnstileWidgetId);
+    }
+  }
+
+  function setupTurnstile() {
+    if (!PUBLIC_INTAKE_REQUESTED) return;
+    if (!PUBLIC_INTAKE_ENABLED) {
+      setTurnstileError(T("Pengesahan bot belum dikonfigurasi.", "Bot verification is not configured."));
+      return;
+    }
+    if (!window.turnstile) {
+      setTurnstileError(T("Pengesahan bot tidak dapat dimuatkan.", "Bot verification could not be loaded."));
+      return;
+    }
+    turnstileWidgetId = window.turnstile.render("turnstile-widget", {
+      sitekey: TURNSTILE_SITE_KEY,
+      action: "assessment_submit",
+      callback: (token) => {
+        turnstileToken = token;
+        setTurnstileError("");
+      },
+      "error-callback": () => {
+        turnstileToken = null;
+        setTurnstileError(T("Pengesahan bot gagal. Sila cuba lagi.", "Bot verification failed. Please try again."));
+      },
+      "expired-callback": () => {
+        turnstileToken = null;
+        setTurnstileError(T("Pengesahan bot telah tamat tempoh. Sila cuba lagi.", "Bot verification expired. Please try again."));
+      },
+    });
+  }
+
+  async function submitProtectedIntake(data) {
+    if (!turnstileToken) {
+      const message = T("Sila lengkapkan pengesahan bot.", "Please complete bot verification.");
+      setTurnstileError(message);
+      throw new Error(message);
+    }
+    if (!submissionId) submissionId = newSubmissionId();
+    const response = await fetch("/api/intake", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        submissionId,
+        turnstileToken,
+        assessment: {
+          coopName: data.coopName,
+          coopReg: data.coopReg,
+          state: data.state,
+          members: data.members,
+          agmDate: data.agmDate,
+          mode: data.mode,
+          expectedAttendance: data.attendance,
+          candidates: data.candidates,
+          motions: data.motions,
+          currentProcess: data.process,
+          needsManaged: data.managed,
+          contactName: data.contactName,
+          contactPhone: data.contactPhone,
+          contactEmail: data.contactEmail,
+        },
+      }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) {
+      if (response.status === 409) submissionId = null;
+      const message = result?.error?.message || T("Penilaian tidak dapat dihantar.", "The assessment could not be submitted.");
+      throw new Error(message);
+    }
+    submissionId = null;
+    return {
+      id: result.reference,
+      checkoutToken: result.token,
+      complexityScore: result.complexityScore,
+      recommendedPlan: result.recommendedPlan,
+      replayed: result.replayed,
+      emailStatus: result.email?.status || "failed",
+    };
+  }
 
   async function saveLead(lead) {
-    if (API) {
-      const stored = await API.submitAssessment(lead);
-      renderBackendChip();
-      return stored;
-    }
-    /* legacy path (no api.js) */
-    const leads = loadLeads();
+    const leads = loadLocalLeads();
     lead.id = "LD-" + String(1000 + leads.length + 1).slice(1);
     lead.createdAt = new Date().toISOString();
     lead.stage = "Assessment Diterima";
@@ -169,9 +270,13 @@
     return lead;
   }
 
+  function loadLocalLeads() {
+    try { return JSON.parse(localStorage.getItem(LEAD_KEY)) || []; } catch { return []; }
+  }
+
   async function loadLeads() {
     if (API) return API.listAssessments();
-    try { return JSON.parse(localStorage.getItem(LEAD_KEY)) || []; } catch { return []; }
+    return loadLocalLeads();
   }
 
   async function renderBackendChip() {
@@ -210,8 +315,7 @@
   }
 
   /* ---------- Main evaluation ---------- */
-  async function evaluate(ev) {
-    ev.preventDefault();
+  async function evaluateSubmission() {
 
     const data = {
       coopName: $("coop-name").value.trim(),
@@ -236,7 +340,7 @@
       return;
     }
 
-    const score = computeScore({
+    let score = computeScore({
       members: data.members,
       mode: data.mode,
       attendance: data.attendance / Math.max(1, data.members),
@@ -246,9 +350,32 @@
       managed: data.managed,
     });
 
-    const pkg = pickAgmPackage(score.total, data.members);
-    const annual = pickAnnualPlan(data.members);
-    const badge = scoreBadge(score.total);
+    let pkg = pickAgmPackage(score.total, data.members);
+    let annual = pickAnnualPlan(data.members);
+    let badge = scoreBadge(score.total);
+    let lead = null;
+    const usedProtectedIntake = PUBLIC_INTAKE_ENABLED;
+
+    if (PUBLIC_INTAKE_REQUESTED && !PUBLIC_INTAKE_ENABLED) {
+      showToast(T("Pengesahan bot belum dikonfigurasi.", "Bot verification is not configured."));
+      return;
+    }
+    if (!PUBLIC_INTAKE_ENABLED && BACKEND_CONFIGURED) {
+      showToast(T("Saluran penilaian terlindung belum diaktifkan.", "Protected assessment intake is not enabled."));
+      return;
+    }
+    if (PUBLIC_INTAKE_ENABLED) {
+      try {
+        lead = await submitProtectedIntake(data);
+      } catch (error) {
+        showToast(error.message || T("Penilaian tidak dapat dihantar.", "The assessment could not be submitted."));
+        return;
+      }
+      score.total = lead.complexityScore;
+      pkg = AGM_PACKAGES.find((item) => item.code === lead.recommendedPlan) || pkg;
+      annual = pickAnnualPlan(data.members);
+      badge = scoreBadge(score.total);
+    }
 
     /* --- fill result card --- */
     $("result-coop").textContent = data.coopName;
@@ -276,7 +403,9 @@
     bl.className = "badge " + badge.cls;
 
     // Factor breakdown
-    $("factor-list").innerHTML = score.factors.map((f) =>
+    $("factor-list").innerHTML = usedProtectedIntake
+      ? `<p style="font-size:12.5px;color:var(--c-text-3)">${T("Skor dan pakej disahkan oleh pelayan AGMX.", "Score and package are verified by the AGMX server.")}</p>`
+      : score.factors.map((f) =>
       `<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
           <span>${f.label}</span><span style="font-weight:700;color:var(--c-primary)">${f.points}/${f.max}</span>
@@ -311,28 +440,29 @@
     $("result-card").classList.remove("result-hidden");
     $("result-card").scrollIntoView({ behavior: "smooth", block: "start" });
 
-    // Store lead (AGMX_COMMERCE → local demo, or money-flow under Supabase)
-    let lead;
-    try {
-      lead = await saveLead({
-      coopName: data.coopName, coopReg: data.coopReg, state: data.state,
-      members: data.members, agmDate: data.agmDate, mode: data.mode,
-      attendance: data.attendance, candidates: data.candidates, motions: data.motions,
-      process: data.process, managed: data.managed,
-      score: score.total, factors: score.factors,
-      pkgKey: pkg.key, pkgName: pkg.name, pkgPrice: pkg.price, quote: pkg.price,
-      contactName: data.contactName, contactPhone: data.contactPhone, contactEmail: data.contactEmail,
-      });
-    } catch (e) {
-      showToast(T("Ralat menyimpan lead: ", "Error saving lead: ") + e.message);
-      return;
+    // Store local demo lead, or use the server-confirmed protected intake lead.
+    if (!usedProtectedIntake) {
+      try {
+        lead = await saveLead({
+          coopName: data.coopName, coopReg: data.coopReg, state: data.state,
+          members: data.members, agmDate: data.agmDate, mode: data.mode,
+          attendance: data.attendance, candidates: data.candidates, motions: data.motions,
+          process: data.process, managed: data.managed,
+          score: score.total, factors: score.factors,
+          pkgKey: pkg.key, pkgName: pkg.name, pkgPrice: pkg.price, quote: pkg.price,
+          contactName: data.contactName, contactPhone: data.contactPhone, contactEmail: data.contactEmail,
+        });
+      } catch (error) {
+        showToast(T("Ralat menyimpan lead: ", "Error saving lead: ") + error.message);
+        return;
+      }
     }
 
     /* Forward the same lead to Duta Integra's /api/send-email so it lands
        in Brevo + KV alongside website enquiries. Fail-open: a forward error
        never blocks the AGMX flow. */
     try {
-      if (API && API.forwardLeadToDutaIntegra) {
+      if (!usedProtectedIntake && API && API.forwardLeadToDutaIntegra) {
         const fwd = await API.forwardLeadToDutaIntegra(lead);
         if (!fwd.ok) {
           showToast(T("Lead disimpan. Pameran Duta Integra ditangguhkan (", "Lead saved. Duta Integra forward postponed (") + (fwd.reason || fwd.error || T("tidak diketahui", "unknown")) + ").");
@@ -369,9 +499,31 @@
     showToast(T(`Penilaian disimpan · Rujukan ${lead.id} · Pakej disarankan: ${pkg.name}`, `Assessment saved · Ref ${lead.id} · Recommended: ${pkg.name}`));
   }
 
+  async function evaluate(ev) {
+    ev.preventDefault();
+    if (submitting) return;
+    submitting = true;
+    const button = $("assessment-form").querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      await evaluateSubmission();
+    } finally {
+      submitting = false;
+      button.disabled = false;
+      if (PUBLIC_INTAKE_ENABLED) resetTurnstile();
+    }
+  }
+
   /* ---------- Boot ---------- */
   document.addEventListener("DOMContentLoaded", () => {
-    $("assessment-form").addEventListener("submit", evaluate);
+    const form = $("assessment-form");
+    form.addEventListener("submit", evaluate);
+    const resetAttempt = () => {
+      if (!submitting) submissionId = null;
+    };
+    form.addEventListener("input", resetAttempt);
+    form.addEventListener("change", resetAttempt);
+    setupTurnstile();
     renderBackendChip();
     renderLeadTable();
   });

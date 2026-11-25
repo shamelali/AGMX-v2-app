@@ -53,11 +53,11 @@ create index if not exists idx_candidates_agm on public.candidates(agm_id);
 alter table public.nominations enable row level security;
 alter table public.candidates enable row level security;
 
-execute 'drop policy if exists nominations_org on public.nominations';
-execute 'create policy nominations_org on public.nominations for all using (organization_id = public.current_org_id())';
+drop policy if exists nominations_org on public.nominations;
+create policy nominations_org on public.nominations for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists candidates_org on public.candidates';
-execute 'create policy candidates_org on public.candidates for all using (organization_id = public.current_org_id())';
+drop policy if exists candidates_org on public.candidates;
+create policy candidates_org on public.candidates for all using (organization_id = public.current_org_id());
 
 -- ------------------------------------------------------------
 -- RPC: nomination_submit — a member applies for a position

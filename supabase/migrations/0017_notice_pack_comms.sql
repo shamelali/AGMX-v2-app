@@ -185,7 +185,7 @@ create or replace function public.compose_notice(
   p_subject      text,
   p_body         text,
   p_source       text default 'manual',
-  p_due_at       timestamptz,
+  p_due_at       timestamptz default null,
   p_ack_required boolean default false
 )
 returns jsonb
@@ -289,6 +289,7 @@ declare
   v_body     text;
   v_comm_id  uuid;
   v_count    int;
+  v_member   uuid;
 begin
   if p_operator_org is null then
     return jsonb_build_object('error', 'Operator organisation required');
@@ -405,7 +406,7 @@ begin
     'notice_id', p_notice_id,
     'member_id', p_member_id,
     'all_acknowledged', v_all,
-    'status', v_all ? 'acknowledged' : 'delivered'
+    'status', case when v_all then 'acknowledged' else 'delivered' end
   );
 end;
 $$;
@@ -543,7 +544,7 @@ create or replace function public.log_document_access(
   p_operator_org  uuid,
   p_member_id     uuid,
   p_action        text default 'view',
-  p_ip            text
+  p_ip            text default null
 )
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
@@ -577,10 +578,10 @@ create or replace function public.send_communication(
   p_organization_id uuid,
   p_actor           uuid,
   p_agm_id          uuid,
-  p_type            text default 'notice',
-  p_channel         text default 'email',
   p_subject         text,
   p_body            text,
+  p_type            text default 'notice',
+  p_channel         text default 'email',
   p_member_ids      uuid[] default '{}'::uuid[]
 )
 returns jsonb

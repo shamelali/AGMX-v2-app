@@ -10,7 +10,14 @@
     "check": "bash tools/check.sh",
     "check:phase1-contract": "node tools/check_phase1_contract.mjs",
     "check:commercial-requirements": "node tools/check_commercial_requirements.mjs",
-    "check:founding100-program": "node tools/check_founding100_program.mjs"
+    "check:founding100-program": "node tools/check_founding100_program.mjs",
+    "test:intake:worker": "node --test workers/public-intake/test/worker.test.mjs",
+    "test:intake:proxy": "node --test tools/test_intake_proxy.mjs",
+    "test:intake:frontend": "node --test tools/test_intake_frontend.mjs",
+    "test:intake:edge": "node tools/test_intake_edge.mjs",
+    "test:intake": "node --test workers/public-intake/test/worker.test.mjs tools/test_intake_proxy.mjs tools/test_intake_frontend.mjs && node tools/test_intake_edge.mjs",
+    "check:schema": "python3 tools/build_schema_bundle.py --check",
+    "schema:build": "python3 tools/build_schema_bundle.py"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

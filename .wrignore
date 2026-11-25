@@ -39,6 +39,7 @@ pb_migrations/
 
 # Server-side / tooling — never part of the static bundle
 supabase/
+workers/
 scripts/
 src/
 tools/

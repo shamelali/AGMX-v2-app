@@ -74,27 +74,27 @@ alter table public.elections enable row level security;
 alter table public.ballots enable row level security;
 alter table public.ballot_selections enable row level security;
 
-execute 'drop policy if exists elections_org on public.elections';
-execute 'create policy elections_org on public.elections for all using (organization_id = public.current_org_id())';
+drop policy if exists elections_org on public.elections;
+create policy elections_org on public.elections for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists ballots_org on public.ballots';
-execute 'create policy ballots_org on public.ballots for all using (
+drop policy if exists ballots_org on public.ballots;
+create policy ballots_org on public.ballots for all using (
   exists (
     select 1 from public.elections e
     where e.id = public.ballots.election_id
       and e.organization_id = public.current_org_id()
   )
-)';
+);
 
-execute 'drop policy if exists ballot_selections_org on public.ballot_selections';
-execute 'create policy ballot_selections_org on public.ballot_selections for all using (
+drop policy if exists ballot_selections_org on public.ballot_selections;
+create policy ballot_selections_org on public.ballot_selections for all using (
   exists (
     select 1 from public.ballots b
     join public.elections e on e.id = b.election_id
     where e.id = public.ballot_selections.ballot_id
       and e.organization_id = public.current_org_id()
   )
-)';
+);
 
 -- ------------------------------------------------------------
 -- Append-only triggers: ballots and selections are immutable once cast

@@ -74,14 +74,14 @@ alter table public.evidence_items enable row level security;
 alter table public.evidence_packages enable row level security;
 alter table public.incidents enable row level security;
 
-execute 'drop policy if exists evidence_items_org on public.evidence_items';
-execute 'create policy evidence_items_org on public.evidence_items for all using (organization_id = public.current_org_id())';
+drop policy if exists evidence_items_org on public.evidence_items;
+create policy evidence_items_org on public.evidence_items for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists evidence_packages_org on public.evidence_packages';
-execute 'create policy evidence_packages_org on public.evidence_packages for all using (organization_id = public.current_org_id())';
+drop policy if exists evidence_packages_org on public.evidence_packages;
+create policy evidence_packages_org on public.evidence_packages for all using (organization_id = public.current_org_id());
 
-execute 'drop policy if exists incidents_org on public.incidents';
-execute 'create policy incidents_org on public.incidents for all using (organization_id = public.current_org_id())';
+drop policy if exists incidents_org on public.incidents;
+create policy incidents_org on public.incidents for all using (organization_id = public.current_org_id());
 
 -- ------------------------------------------------------------
 -- Append-only triggers: evidence items and incidents are immutable;

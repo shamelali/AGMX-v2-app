@@ -1,0 +1,16 @@
+# AGMX public-intake Worker — copy to workers/public-intake/.dev.vars
+# Placeholders only. Never commit the copied file or real credentials.
+
+# Server-to-server secrets
+INTAKE_PROXY_SECRET=replace-with-a-long-random-proxy-secret
+TURNSTILE_SECRET_KEY=replace-with-a-turnstile-secret
+INTAKE_INTERNAL_KEY=replace-with-a-different-long-random-internal-key
+RESEND_API_KEY=re_replace_with_a_resend_key
+
+# Non-secret runtime settings
+SUPABASE_FUNCTION_URL=https://your-project.supabase.co/functions/v1/money-flow/assessment
+SMTP_FROM=AGMX <noreply@example.com>
+INTAKE_EMAIL_TO=ops@example.com
+TURNSTILE_EXPECTED_HOSTNAME=localhost
+TURNSTILE_EXPECTED_ACTION=assessment_submit
+INTAKE_ALLOWED_ORIGIN=https://localhost:8788
