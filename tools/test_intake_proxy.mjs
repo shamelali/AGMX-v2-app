@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { webcrypto } from "node:crypto";
 
 // Node 18 has no global crypto; the intake Worker validates secrets via subtle.digest.
-globalThis.crypto = webcrypto;
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 

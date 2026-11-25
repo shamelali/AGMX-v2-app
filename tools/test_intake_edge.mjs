@@ -349,7 +349,7 @@ globalThis.__intakeEnv = new Map([
 globalThis.__intakeClient = makeClient();
 globalThis.__intakeInsertError = null;
 globalThis.__intakeRateLimited = false;
-globalThis.crypto = webcrypto;
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 await import(pathToFileURL(prepare()).href);
 const handler = globalThis.__intakeHandler;
 assert.equal(typeof handler, "function", "money-flow registered a request handler");

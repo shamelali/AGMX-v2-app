@@ -459,7 +459,7 @@ globalThis.__mfEnv = new Map([
 
 const client = makeClient(seedTables());
 globalThis.__mfClient = client;
-globalThis.crypto = webcrypto;
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 await import(pathToFileURL(prepare()).href);
 const handler = globalThis.__mfHandler;
 if (typeof handler !== "function") throw new Error("serve() handler was never registered");
