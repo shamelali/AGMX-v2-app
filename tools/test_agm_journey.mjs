@@ -138,7 +138,7 @@ globalThis.__agmxEnv = new Map([
   ["HITPAY_SALT", HITPAY_SALT],
 ]);
 
-globalThis.crypto = webcrypto;
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
 /* ---------- TypeScript erasure ---------- */
 // The Edge Function sources are .ts: interfaces, parameter/return type
