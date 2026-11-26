@@ -3021,8 +3021,8 @@ for path in tracked:
             for n, line in enumerate(fh, 1):
                 if MARKER.match(line):
                     found.append("%s:%d" % (path, n))
-    except (UnicodeDecodeError, IsADirectoryError):
-        continue  # binary or a submodule entry — no conflict marker in it
+    except (UnicodeDecodeError, IsADirectoryError, FileNotFoundError):
+        continue  # binary, submodule, or missing tracked file — no conflict marker
     except OSError as err:
         emit("BAD", "%s could not be read: %s" % (path, err))
 
