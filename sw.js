@@ -175,7 +175,7 @@
 // Communication Log screens (Sprint 4), and index.html restates the bundle's
 // published counts as 46 tables holding 63 policies — installed clients
 // serving the old copy would miss the new routes and advertise stale numbers.
-const CACHE = "agmx-www-agmx-my-v24";
+const CACHE = "agmx-www-agmx-my-v25";
 const PRECACHE = [
   "/",
   "/index.html",

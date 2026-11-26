@@ -58,10 +58,6 @@ jobs:
       - name: Run money flow tests
         run: node tools/test_money_flow.mjs
 
-      - name: Run PocketBase tests
-        if: env.PB_URL != ''
-        run: node tools/test_money_flow_pb.mjs --url "$PB_URL" --email "$PB_EMAIL" --password "$PB_PASSWORD"
-
       - name: Run check.sh
         run: AGMX_SKIP_NET=1 bash tools/check.sh
 

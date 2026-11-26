@@ -11,14 +11,9 @@ window.AGMX_CONFIG = {
   supabaseAnonKey: "",       // anon public key (client-safe; RLS enforces access)
   // SUPABASE_SERVICE_ROLE_KEY is server-only (Vercel env / Supabase Edge Functions)
 
-  // --- Legacy PocketBase (Auth + Realtime bridge; optional) ---
-  url: "http://127.0.0.1:8090",           // PocketBase instance
-  googleClientId: "",       // Google OAuth2 client ID (see archive/docs/GOOGLE_AUTH_SETUP.md)
-  pocketbaseRealtimeOnly: true,  // If true, skip PB auth, use only for SSE/realtime
-
   // --- Backend / Diagnostics ---
   appName: "AGMX",
-  backend: "pocketbase-bridge",
+  backend: "supabase",
   healthUrl: "/api/health",
   requestTimeoutMs: 10000,
   knowledgeTimeoutMs: 90000,  // GraphRAG retrieval + generation; allow longer than CRUD calls.
