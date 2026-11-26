@@ -175,7 +175,7 @@
 // Communication Log screens (Sprint 4), and index.html restates the bundle's
 // published counts as 46 tables holding 63 policies — installed clients
 // serving the old copy would miss the new routes and advertise stale numbers.
-const CACHE = "agmx-www-agmx-my-v22";
+const CACHE = "agmx-www-agmx-my-v23";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -201,6 +201,13 @@ const PRECACHE = [
   "/api.js",
   "/supabase-client.js",
   "/login.js",
+  "/control-ui.js",
+  "/elections-ui.js",
+  "/evidence-ui.js",
+  "/hub-ui.js",
+  "/live-ui.js",
+  "/minutes-ui.js",
+  "/registration-ui.js",
   "/callback.html",
   "/404.html",
   "/offline.html",
