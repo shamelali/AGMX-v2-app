@@ -132,11 +132,11 @@ database or a deployed Edge Function.
 7. **`handleAgmCreate` does not validate `quorum_pct`.** It passes
    `Number(input.quorumPct ?? 25)` straight into the INSERT, so a caller can set a
    quorum of `0` or `101`, or a negative, and `start_agm`/`close_agm` never bounds it.
-8. **`api/billplz/*` and `api/hitpay/*` on Vercel still write to PocketBase**
-   (`api/billplz/_shared.js:117`, `api/hitpay/_shared.js:119` — the default URL is
-   `http://127.0.0.1:8090`). Adding gateway keys does **not** make these routes work;
-   the working path is `money-flow/payment/intent`. A stale `sw.js:150` comment about
-   `api/hitpay/create-payment.js` mirrors this and was cleaned.
+8. **`api/billplz/*` and `api/hitpay/*` were retired** — they wrote to PocketBase
+   (`http://127.0.0.1:8090`) and are replaced by Supabase Edge Functions: checkout
+   calls `API.payInvoice(invoice.number, { method })` and settlement lands via the
+   `money-flow` webhook RPCs. Gateway keys (Billplz/HitPay) are server-side only and
+   never ship to the browser. There is no `api/hitpay/create-payment.js` anymore.
 9. **`money-flow` defaults to sandbox endpoints** (`BILLPLZ_API_URL` → billplz-sandbox,
    `HITPAY_API_URL` → api.sandbox.hit-pay.com). With production keys but unset URLs it
    would send a real payer to a sandbox bill.
