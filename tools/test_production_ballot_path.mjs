@@ -28,7 +28,7 @@
 import { execFileSync } from 'node:child_process';
 
 function query(sqlText) {
-  const out = execFileSync('supabase', ['db', 'query', '--linked', '--output-format', 'json', sqlText],
+  const out = execFileSync('supabase', ['db', 'query', '--linked', '--read-only', '--output-format', 'json', sqlText],
     { encoding: 'utf8', timeout: 240_000, stdio: ['ignore', 'pipe', 'pipe'] });
   const start = out.indexOf('[');
   if (start === -1) throw new Error('no JSON in supabase db query output');
