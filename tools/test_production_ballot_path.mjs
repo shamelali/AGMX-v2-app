@@ -27,12 +27,23 @@
 // ============================================================
 import { execFileSync } from 'node:child_process';
 
-function query(sqlText) {
-  const out = execFileSync('supabase', ['db', 'query', '--linked', '--read-only', '--output-format', 'json', sqlText],
+function run(flags, sqlText) {
+  const out = execFileSync('supabase', ['db', 'query', '--linked', ...flags, '--output-format', 'json', sqlText],
     { encoding: 'utf8', timeout: 240_000, stdio: ['ignore', 'pipe', 'pipe'] });
   const start = out.indexOf('[');
   if (start === -1) throw new Error('no JSON in supabase db query output');
   return JSON.parse(out.slice(start));
+}
+
+function query(sqlText) {
+  return run(['--read-only'], sqlText);
+}
+
+// --read-only runs as supabase_read_only_user, which is not granted EXECUTE on
+// cast_vote, so the probe needs --yes. It stays write-free: the random motion id
+// hits the function's first guard, and the counts around it prove no row appeared.
+function call(sqlText) {
+  return run(['--yes'], sqlText);
 }
 
 const CENSUS = 'select (select count(*) from public.votes) as votes, '
@@ -77,7 +88,7 @@ let before, report, guard, after;
 try {
   before = query(CENSUS)[0];
   report = query(ASSERTIONS)[0].report;
-  guard = query("select public.cast_vote(gen_random_uuid(), gen_random_uuid(), 'yea') as r")[0].r;
+  guard = call("select public.cast_vote(gen_random_uuid(), gen_random_uuid(), 'yea') as r")[0].r;
   after = query(CENSUS)[0];
 } catch (e) {
   console.log(`could not read the linked project: ${String(e.message ?? e).split('\n')[0]}`);
