@@ -28,6 +28,7 @@ class El {
   }
   get className() { return this._attrs.class || ""; }
   set className(v) { this._attrs.class = String(v); }
+  get children() { return this.childNodes.filter((c) => c.nodeType === 1); }
   get textContent() {
     return this._text + this.childNodes.map((c) => c.textContent || "").join("");
   }
@@ -63,6 +64,15 @@ class El {
   remove() {
     const siblings = this.parentElement && this.parentElement.childNodes;
     if (siblings) this.parentElement.childNodes = siblings.filter((c) => c !== this);
+  }
+  replaceWith(node) {
+    const siblings = this.parentElement && this.parentElement.childNodes;
+    if (siblings) {
+      const at = siblings.indexOf(this);
+      if (at >= 0) siblings.splice(at, 1, node);
+    }
+    node.parentElement = this.parentElement;
+    return node;
   }
   insertBefore(node, reference) {
     node.parentElement = this;

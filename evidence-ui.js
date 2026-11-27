@@ -287,7 +287,7 @@ const I18N = {
   // ------------------------------------------------------------
   // Evidence list table
   // ------------------------------------------------------------
-  function evidenceTable(evidence, api, agmId, ctx, rerender) {
+  function evidenceTable(evidence, api, agmId, ctx, isAdmin, rerender) {
     const tbody = node("tbody", "");
     evidence.forEach((item) => {
       const tr = node("tr", "");
@@ -298,12 +298,14 @@ const I18N = {
         node("td", "", text(item.sha256, "—")),
         node("td", "", fmtDateTime(item.created_at || item.registered_at)),
       ]);
-      const actions = node("td", "");
-      actions.appendChild(button(t("Export"), "btn btn-secondary btn-sm", (ev) =>
-        runAction(ev, ctx, () => api.evidencePackage(agmId, "export", item.storagePath, item.sha256 || null), rerender)));
-      actions.appendChild(button(t("Verify package"), "btn btn-secondary btn-sm", (ev) =>
-        runAction(ev, ctx, () => api.evidencePackage(agmId, "verify", item.storagePath, item.sha256 || null), rerender)));
-      tr.appendChild(actions);
+      if (isAdmin) {
+        const actions = node("td", "");
+        actions.appendChild(button(t("Export"), "btn btn-secondary btn-sm", (ev) =>
+          runAction(ev, ctx, () => api.evidencePackage(agmId, "export", item.storagePath, item.sha256 || null), rerender)));
+        actions.appendChild(button(t("Verify package"), "btn btn-secondary btn-sm", (ev) =>
+          runAction(ev, ctx, () => api.evidencePackage(agmId, "verify", item.storagePath, item.sha256 || null), rerender)));
+        tr.appendChild(actions);
+      }
       tbody.appendChild(tr);
     });
     return node("table", "agmx-members-table agmx-report-table", [
@@ -428,7 +430,7 @@ const I18N = {
 
     // Evidence list
     container.appendChild(card(t("Evidence"), "", [
-      evidence.length ? evidenceTable(evidence, api, agm.id, ctx, () => renderEvidence(container, ctx))
+      evidence.length ? evidenceTable(evidence, api, agm.id, ctx, isAdmin, () => renderEvidence(container, ctx))
         : node("p", "agmx-empty", t("No evidence yet.")),
     ]));
 
