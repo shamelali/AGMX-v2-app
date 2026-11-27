@@ -775,13 +775,27 @@ async function handleRecordDelivery(req: Request, ctx: any) {
 
 async function handleRegistration(req: Request, ctx: any) {
   const { agmId, memberId, status = "rsvp", channel = "portal" } = await req.json()
-  if (!agmId || !memberId) return err("Missing agmId or memberId")
+  if (!agmId) return err("Missing agmId")
+
+  let targetMemberId = memberId || null
+  if (!ctx.isOperator) {
+    const { data: link } = await supabase
+      .from("organization_members")
+      .select("member_id")
+      .eq("user_id", ctx.user.id)
+      .eq("organization_id", ctx.profile.organization_id)
+      .maybeSingle()
+    if (!link?.member_id) return err("No member record linked to your account", 403)
+    targetMemberId = link.member_id
+  }
+  if (!targetMemberId) return err("Missing memberId")
+
   const agm = await loadAgmOrg(agmId, ctx)
   if (!agm) return err("AGM not found", 404)
 
   const { data, error } = await supabase.rpc("register_member", {
     p_agm_id: agmId,
-    p_member_id: memberId,
+    p_member_id: targetMemberId,
     p_status: status,
     p_channel: channel,
     p_operator_org: ctx.profile.organization_id,
@@ -793,13 +807,27 @@ async function handleRegistration(req: Request, ctx: any) {
 
 async function handlePresence(req: Request, ctx: any) {
   const { agmId, memberId, method = "portal", channel = "physical" } = await req.json()
-  if (!agmId || !memberId) return err("Missing agmId or memberId")
+  if (!agmId) return err("Missing agmId")
+
+  let targetMemberId = memberId || null
+  if (!ctx.isOperator) {
+    const { data: link } = await supabase
+      .from("organization_members")
+      .select("member_id")
+      .eq("user_id", ctx.user.id)
+      .eq("organization_id", ctx.profile.organization_id)
+      .maybeSingle()
+    if (!link?.member_id) return err("No member record linked to your account", 403)
+    targetMemberId = link.member_id
+  }
+  if (!targetMemberId) return err("Missing memberId")
+
   const agm = await loadAgmOrg(agmId, ctx)
   if (!agm) return err("AGM not found", 404)
 
   const { data, error } = await supabase.rpc("check_in_member", {
     p_agm_id: agmId,
-    p_member_id: memberId,
+    p_member_id: targetMemberId,
     p_method: method,
     p_channel: channel,
     p_operator_org: ctx.profile.organization_id,
