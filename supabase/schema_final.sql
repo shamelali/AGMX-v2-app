@@ -40,6 +40,7 @@
 --   20261113083423_auto_provision_user.sql  (50 lines)
 --   20261113140833_white_label_storage.sql  (119 lines)
 --   20261119151200_restrict_ballot_writes.sql  (6 lines)
+--   20261122021312_secure_auth_user_provisioning.sql  (61 lines)
 --   20261124184934_public_intake_idempotency.sql  (22 lines)
 -- ============================================================
 
@@ -6361,6 +6362,72 @@ drop policy if exists votes_insert on public.votes;
 create policy votes_insert on public.votes as restrictive for insert with check (false);
 revoke insert on table public.votes from public, anon, authenticated;
 revoke execute on function public.cast_vote(uuid, uuid, text) from public, anon, authenticated;
+
+
+-- ============================================================
+-- 20261122021312_secure_auth_user_provisioning.sql
+-- ============================================================
+-- The auth service inserts auth.users as supabase_auth_admin. The original
+-- trigger function ran as that caller, which cannot insert into the tenant
+-- tables, so OAuth signup rolled back with SQLSTATE 42501.
+--
+-- This function must be SECURITY DEFINER because it provisions records before
+-- the new user has a session. Keep every object schema-qualified, pin the
+-- search path, and revoke direct execution so the trigger is its only entry
+-- point.
+
+create or replace function public.auto_provision_user_on_signup()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_org_id uuid;
+  v_email_prefix text;
+begin
+  v_email_prefix := lower(split_part(new.email, '@', 1));
+
+  insert into public.organizations (slug, name, type, plan, status, settings)
+  values (
+    v_email_prefix || '-' || substr(gen_random_uuid()::text, 1, 8),
+    v_email_prefix || 's Organization',
+    'cooperative',
+    'starter',
+    'active',
+    '{}'::jsonb
+  )
+  returning id into v_org_id;
+
+  insert into public.profiles (
+    id, organization_id, full_name, role, phone, language,
+    senior_mode, theme, created_at
+  )
+  values (
+    new.id,
+    v_org_id,
+    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    'member',
+    new.raw_user_meta_data->>'phone',
+    'BM',
+    false,
+    'default',
+    now()
+  );
+
+  insert into public.organization_members (
+    organization_id, user_id, member_id, role, permissions
+  )
+  values (v_org_id, new.id, null, 'admin', '{}'::text[])
+  on conflict (organization_id, user_id) do nothing;
+
+  return new;
+end
+$function$;
+
+revoke all on function public.auto_provision_user_on_signup() from public;
+revoke all on function public.auto_provision_user_on_signup() from anon;
+revoke all on function public.auto_provision_user_on_signup() from authenticated;
 
 
 -- ============================================================
