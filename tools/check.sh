@@ -1793,7 +1793,32 @@ else
 fi
 
 # ----------------------------------------------------------------
-head_ "21. SQL deploy bundle is generated, complete and rerun-safe"
+head_ "21. Governance registration and presence bind to the caller's session"
+# ----------------------------------------------------------------
+# /registration and /presence must bind memberId to the session-linked member
+# resolved from organization_members via the caller's JWT: a non-operator that
+# omits memberId is bound to its own row, an injected memberId is ignored, an
+# operator may pass memberId explicitly, and an unlinked login is refused 403.
+# This runs the real governance/index.ts handlers in a Deno-compatible harness
+# against real Postgres via PGlite. Nothing touches the network.
+if [ -f tools/test_registration_presence_session_binding.mjs ]; then
+  if OUT=$(node tools/test_registration_presence_session_binding.mjs 2>&1); then
+    COUNT=$(printf '%s' "$OUT" | grep -oE '[0-9]+ assertions passed' | grep -oE '[0-9]+')
+    if [ -z "$COUNT" ]; then
+      bad "tools/test_registration_presence_session_binding.mjs exited 0 but printed no assertion total — the run cannot be trusted"
+    else
+      ok "tools/test_registration_presence_session_binding.mjs — session-bound registration and presence (${COUNT} assertions)"
+    fi
+  else
+    bad "tools/test_registration_presence_session_binding.mjs failed — session binding in the governance handlers is broken"
+    printf '%s\n' "$OUT" | grep -E '^  ✗|^FAILED|Error' | head -10 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_registration_presence_session_binding.mjs not found"
+fi
+
+# ----------------------------------------------------------------
+head_ "22. SQL deploy bundle is generated, complete and rerun-safe"
 # ----------------------------------------------------------------
 # DEPLOY.md, deploy.sh and VERCEL_ENV.md all send an operator to one SQL file.
 # When that file was hand-maintained it silently lost 15 of the 23 RPCs, so a
@@ -1946,7 +1971,7 @@ rm -f "$BUNDLE_OUT"
 [ "$BUNDLE_RC" -le 1 ] || bad "pass 21 could not complete (python exit $BUNDLE_RC)"
 
 # ----------------------------------------------------------------
-head_ "22. Rate card, i18n keys and error states cannot drift apart"
+head_ "23. Rate card, i18n keys and error states cannot drift apart"
 # ----------------------------------------------------------------
 # Every rule below is a bug this repo actually shipped: four price books
 # disagreeing by up to 15x, MAP keys containing <code> that no text node could
@@ -2256,7 +2281,7 @@ rm -f "$GUARD_OUT"
 [ "$GUARD_RC" -le 1 ] || bad "pass 22 could not complete (python exit $GUARD_RC)"
 
 # ----------------------------------------------------------------
-head_ "23. The deployed surface and the published numbers"
+head_ "24. The deployed surface and the published numbers"
 # ----------------------------------------------------------------
 # Everything above is a true statement about this tree. None of it can notice
 # that the tree is not what users receive: production served sw.js v31 and
@@ -2614,7 +2639,7 @@ if [ -n "$LIVE_HOST" ] && [ "${AGMX_SKIP_NET:-0}" != "1" ] && command -v supabas
 fi
 
 # ----------------------------------------------------------------
-head_ "24. The MVP acceptance journey runs on real Postgres"
+head_ "25. The MVP acceptance journey runs on real Postgres"
 # ----------------------------------------------------------------
 # AGMX_V2_PLAN.md §9 names one test that nothing else in this suite can
 # substitute for: assessment → payment → AGM scheduled → meeting run → minutes
@@ -2666,7 +2691,7 @@ else
 fi
 
 # ----------------------------------------------------------------
-head_ "25. A fresh deploy bundle replays clean and writes the audit trail"
+head_ "26. A fresh deploy bundle replays clean and writes the audit trail"
 # ----------------------------------------------------------------
 # Pass 24 proves the journey works; this proves the *file* works, twice.
 # DEPLOY.md and supabase/deploy.sh both send an operator to
@@ -2703,7 +2728,7 @@ else
 fi
 
 # ----------------------------------------------------------------
-head_ "26. The linked project still runs the SQL in this repository"
+head_ "27. The linked project still runs the SQL in this repository"
 # ----------------------------------------------------------------
 # Passes 21, 24 and 25 all read files, so they agree with one another no matter what
 # a live database holds. And `supabase db push` compares *version numbers*, not
@@ -2752,7 +2777,7 @@ else
 fi
 
 # ----------------------------------------------------------------
-head_ "27. The live ballot path is the repaired one, proven write-free"
+head_ "28. The live ballot path is the repaired one, proven write-free"
 # ----------------------------------------------------------------
 # Supabase branching answers 402 entitlement_required — "Branching is supported only
 # on the Pro plan or above" — so the journey cannot be replayed on a copy of
@@ -2791,7 +2816,7 @@ else
 fi
 
 # ----------------------------------------------------------------
-head_ "28. No Edge Function can fail to load"
+head_ "29. No Edge Function can fail to load"
 # ----------------------------------------------------------------
 # knowledge-query and knowledge-ingest answered HTTP 500
 # {"code":"WORKER_ERROR","message":"Function exited due to an error (please check
@@ -2891,7 +2916,7 @@ rm -f "$DENO_ENV_OUT" "$SECRETS_TXT"
 [ "$DENOENV_RC" -eq 0 ] || bad "pass 28 could not complete (python exit $DENOENV_RC)"
 
 # ----------------------------------------------------------------
-head_ "29. Payment copy names only the rails checkout can actually reach"
+head_ "30. Payment copy names only the rails checkout can actually reach"
 
 # The landing page and checkout promised "HitPay (FPX, card, e-wallet)" while
 # checkout.html offered two radio values, card and bank_transfer. A Malaysian
@@ -2990,7 +3015,7 @@ rm -f "$PAYCOPY_OUT"
 [ "$PAYCOPY_RC" -eq 0 ] || bad "pass 29 could not complete (python exit $PAYCOPY_RC)"
 
 # ----------------------------------------------------------------
-head_ "30. No file carries an unresolved merge conflict"
+head_ "31. No file carries an unresolved merge conflict"
 # ----------------------------------------------------------------
 # 2375b2e shipped index.html and checkout.html with their conflict markers
 # still in place, and www.agmx.my served them to customers: the landing page
