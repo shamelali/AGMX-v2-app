@@ -3071,6 +3071,43 @@ rm -f "$MARKER_OUT"
 [ "$MARKER_RC" -eq 0 ] || bad "pass 30 could not complete (python exit $MARKER_RC)"
 
 # ----------------------------------------------------------------
+head_ "32. The minutes view harness runs offline"
+# ----------------------------------------------------------------
+# The minutes screen (minutes-ui.js) is a static view module: its contract with
+# the governance Edge Function (registerMinutes payload keys, fetchMinutes /
+# fetchMinutesPackages call shapes) and its role gating (member sees the log,
+# secretary sees the controls) are checked by the offline harness rather than by
+# reading source, because source can look right while the rendered payload drifts.
+if [ -f tools/test_minutes_ui.js ]; then
+  if OUT=$(node tools/test_minutes_ui.js 2>&1); then
+    ok "tools/test_minutes_ui.js (all assertions passed)"
+  else
+    bad "tools/test_minutes_ui.js failed — the minutes view no longer honors the Edge Function contract"
+    printf '%s\n' "$OUT" | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_minutes_ui.js not found"
+fi
+
+# ----------------------------------------------------------------
+head_ "33. The evidence view harness runs offline"
+# ----------------------------------------------------------------
+# Same contract check for the evidence screen (evidence-ui.js): registerEvidence /
+# evidencePackage / recordIncident payload keys, Export and Verify gated to
+# operators, incidents' refs split on commas, refused reads degrading to an empty
+# register instead of fabricated rows.
+if [ -f tools/test_evidence_ui.js ]; then
+  if OUT=$(node tools/test_evidence_ui.js 2>&1); then
+    ok "tools/test_evidence_ui.js (all assertions passed)"
+  else
+    bad "tools/test_evidence_ui.js failed — the evidence view no longer honors the Edge Function contract"
+    printf '%s\n' "$OUT" | head -8 | sed 's/^/      /'
+  fi
+else
+  warn "tools/test_evidence_ui.js not found"
+fi
+
+# ----------------------------------------------------------------
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
 
 if [ "$FAIL" -gt 0 ]; then

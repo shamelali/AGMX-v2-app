@@ -153,7 +153,7 @@
 
   function detailRow(label, value) {
     const row = node("div", "agmx-detail-row");
-    append(row, [node("dt", "", label), node("dd", "", text(value))]);
+    append(row, [node("dt", "", label), node("dd", "", value)]);
     return row;
   }
 

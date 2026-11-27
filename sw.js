@@ -175,7 +175,10 @@
 // Communication Log screens (Sprint 4), and index.html restates the bundle's
 // published counts as 46 tables holding 63 policies — installed clients
 // serving the old copy would miss the new routes and advertise stale numbers.
-const CACHE = "agmx-www-agmx-my-v25";
+// Bumped to v43: minutes-ui.js renders detail values as text (never HTML) and
+// evidence-ui.js gates Export / Verify behind isAdmin — both are precached,
+// so an installed client keeps the old copy until this number moves.
+const CACHE = "agmx-www-agmx-my-v43";
 const PRECACHE = [
   "/",
   "/index.html",
