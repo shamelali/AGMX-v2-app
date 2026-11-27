@@ -37,12 +37,12 @@ printf '  %-40s ' "sitemap entries on this host"; M=$(printf '%s\n' "$LOCS" | gr
 
 echo "── 3. metadata ──"
 IDX=$(curl -sS --max-time 25 "$B/" 2>/dev/null)
-echo "$IDX" | grep -qiE "<link[^>]+rel=\"canonical\"[^>]*href=\"$B/?" && ok "canonical = $B/" || no "canonical wrong"
-echo "$IDX" | grep -qiE "property=\"og:url\"[^>]*content=\"$B/?" && ok "og:url = $B/" || no "og:url wrong"
-echo "$IDX" | grep -qi '<meta name="description"' && ok "meta description present" || wn "no meta description"
+echo "$IDX" | grep -iE "<link[^>]+rel=\"canonical\"[^>]*href=\"$B/?" >/dev/null && ok "canonical = $B/" || no "canonical wrong"
+echo "$IDX" | grep -iE "property=\"og:url\"[^>]*content=\"$B/?" >/dev/null && ok "og:url = $B/" || no "og:url wrong"
+echo "$IDX" | grep -i '<meta name="description"' >/dev/null && ok "meta description present" || wn "no meta description"
 OG=$(echo "$IDX" | grep -oE 'property="og:image"[^>]*content="[^"]*' | grep -oE 'https?://[^"]*' | head -1)
 if [ -n "$OG" ]; then C=$(code "$OG"); [ "$C" = 200 ] && ok "og:image 200" || no "og:image -> $C ($OG)"; else wn "no og:image"; fi
-echo "$IDX" | grep -qiE '<title>[^<]+</title>' && ok "title: $(echo "$IDX" | grep -oiE '<title>[^<]*' | sed 's/<title>//' | head -1 | cut -c1-48)" || no "no title"
+echo "$IDX" | grep -iE '<title>[^<]+</title>' >/dev/null && ok "title: $(echo "$IDX" | grep -oiE '<title>[^<]*' | sed 's/<title>//' | head -1 | cut -c1-48)" || no "no title"
 
 echo "── 4. assets referenced by the homepage ──"
 ASSETS=$(echo "$IDX" | grep -oE '(src|href)="[^"]+"' | sed 's/.*="//;s/"$//' \
@@ -108,9 +108,9 @@ done
 
 echo "── 10. api config sanity ──"
 CFG=$(curl -sS --max-time 25 "$B/api/config" 2>/dev/null)
-printf '%s' "$CFG" | grep -q "\"appUrl\": *\"$B\"" && ok "appUrl = $B" || no "appUrl wrong: $(printf '%s' "$CFG" | grep -oE '\"appUrl\"[^,]*')"
-printf '%s' "$CFG" | grep -q '"demoMode": *false' && ok "demoMode false" || wn "demoMode not false"
-printf '%s' "$CFG" | grep -q '"mode": *"supabase"' && ok "mode = supabase" || wn "mode not supabase"
+printf '%s' "$CFG" | grep "\"appUrl\": *\"$B\"" >/dev/null && ok "appUrl = $B" || no "appUrl wrong: $(printf '%s' "$CFG" | grep -oE '\"appUrl\"[^,]*')"
+printf '%s' "$CFG" | grep '"demoMode": *false' >/dev/null && ok "demoMode false" || wn "demoMode not false"
+printf '%s' "$CFG" | grep '"mode": *"supabase"' >/dev/null && ok "mode = supabase" || wn "mode not supabase"
 
 echo
 printf '  RESULT: %d passed, %d failed, %d warnings\n' "$P" "$F" "$W"
