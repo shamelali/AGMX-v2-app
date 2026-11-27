@@ -178,7 +178,10 @@
 // Bumped to v43: minutes-ui.js renders detail values as text (never HTML) and
 // evidence-ui.js gates Export / Verify behind isAdmin — both are precached,
 // so an installed client keeps the old copy until this number moves.
-const CACHE = "agmx-www-agmx-my-v43";
+// Bumped to v44: Sprint 14 WCAG hardening edited precached pages —
+// assessment.html, checkout.html, index.html, leads.html, status.html.
+// Installed clients must re-install the worker to pick up the markup fixes.
+const CACHE = "agmx-www-agmx-my-v44";
 const PRECACHE = [
   "/",
   "/index.html",

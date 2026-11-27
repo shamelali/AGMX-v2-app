@@ -98,7 +98,7 @@
       <div style="background:#fff;border-radius:12px;padding:1.5rem;min-width:400px;max-width:90vw;max-height:90vh;overflow-y:auto;">
         <h3 style="margin:0 0 1rem;font-size:1.125rem;">Impor Ahli (JSON)</h3>
         <p style="font-size:0.875rem;color:#666;margin-bottom:1rem;">Paste JSON array of members. Each object: {member_no, name, ic?, phone?, region?, shares?, status?, arrears?, eligible?, age?, joined_at?, contact_channels?}</p>
-        <textarea id="importJson" style="width:100%;height:160px;font-family:monospace;font-size:0.8rem;padding:0.75rem;border:1px solid #d1d5db;border-radius:6px;margin-bottom:1rem;" placeholder='[{"member_no":"M001","name":"Ahmad","region":"Selangor"}]'></textarea>
+        <textarea id="importJson" aria-label="Impor ahli (JSON)" style="width:100%;height:160px;font-family:monospace;font-size:0.8rem;padding:0.75rem;border:1px solid #d1d5db;border-radius:6px;margin-bottom:1rem;" placeholder='[{"member_no":"M001","name":"Ahmad","region":"Selangor"}]'></textarea>
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
           <button onclick="closeImportModal()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Batal</button>
           <button onclick="doImport()" style="padding:0.5rem 1rem;border:1px solid #2563EB;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Impor</button>
@@ -111,9 +111,9 @@
       <div style="background:#fff;border-radius:12px;padding:1.5rem;min-width:360px;max-width:90vw;">
         <h3 style="margin:0 0 1rem;font-size:1.125rem;">Sejukkan Roll Undian</h3>
         <p style="font-size:0.875rem;color:#666;margin-bottom:1rem;">Pilih AGM dan sebab penjukukan.</p>
-        <label style="display:block;font-size:0.875rem;color:#374151;margin-bottom:0.5rem;">AGM</label>
+        <label for="freezeAgmId" style="display:block;font-size:0.875rem;color:#374151;margin-bottom:0.5rem;">AGM</label>
         <select id="freezeAgmId" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;margin-bottom:1rem;"></select>
-        <label style="display:block;font-size:0.875rem;color:#374151;margin-bottom:0.5rem;">Sebab</label>
+        <label for="freezeReasonCode" style="display:block;font-size:0.875rem;color:#374151;margin-bottom:0.5rem;">Sebab</label>
         <select id="freezeReasonCode" style="width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;margin-bottom:1rem;">
           <option value="election_opened">Pemilihan Dibuka</option>
           <option value="audit_required">Audit Diperlukan</option>
@@ -206,13 +206,13 @@
       entryTable.innerHTML = '';
       for (const e of entries) {
         const tr = document.createElement('tr');
-        const cb = (checked, disabled) => `<input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleEligibility('${e.id}', 'attend_eligible', this.checked)">`;
+        const cb = (checked, disabled) => `<input type="checkbox" aria-label="Hadir" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="toggleEligibility('${e.id}', 'attend_eligible', this.checked)">`;
         tr.innerHTML = `
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;font-weight:500;color:#374151;">${escapeHtml(e.member_no || '-')}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(e.name || '-')}</td>
-          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><input type="checkbox" ${e.attend_eligible ? 'checked' : ''} onchange="toggleEligibility('${escapeHtml(e.id)}', 'attend_eligible', this.checked)"></td>
-          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><input type="checkbox" ${e.vote_eligible ? 'checked' : ''} onchange="toggleEligibility('${escapeHtml(e.id)}', 'vote_eligible', this.checked)"></td>
-          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><input type="checkbox" ${e.candidate_eligible ? 'checked' : ''} onchange="toggleEligibility('${escapeHtml(e.id)}', 'candidate_eligible', this.checked)"></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><input type="checkbox" aria-label="Hadir" ${e.attend_eligible ? 'checked' : ''} onchange="toggleEligibility('${escapeHtml(e.id)}', 'attend_eligible', this.checked)"></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><input type="checkbox" aria-label="Undi" ${e.vote_eligible ? 'checked' : ''} onchange="toggleEligibility('${escapeHtml(e.id)}', 'vote_eligible', this.checked)"></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;"><input type="checkbox" aria-label="Calon" ${e.candidate_eligible ? 'checked' : ''} onchange="toggleEligibility('${escapeHtml(e.id)}', 'candidate_eligible', this.checked)"></td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;color:#374151;">${escapeHtml(e.ineligibility_reason || '-')}</td>
           <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;">
             <button onclick="editEntryReason('${escapeHtml(e.id)}', '${escapeHtml(e.member_no)}')" style="font-size:0.75rem;padding:0.25rem 0.5rem;border:1px solid #d1d5db;border-radius:4px;background:#fff;color:#2563EB;cursor:pointer;">Edit</button>

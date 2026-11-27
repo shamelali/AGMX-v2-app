@@ -3107,13 +3107,319 @@ else
   warn "tools/test_evidence_ui.js not found"
 fi
 
-# ----------------------------------------------------------------
-printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
+	# ----------------------------------------------------------------
+	head_ "34. Every served page keeps WCAG-reachable markup"
+	# ----------------------------------------------------------------
+	# Behaviour tests cannot see an image without alt, an input without a
+	# label, a link with no name, heading levels that jump, or a page with
+	# no language. These are mechanical checks of the HTML each page ships:
+	# a regression gate on what the markup itself says, not a substitute for
+	# an axe run against a rendered page.
+	WCAG_OUT=$(mktemp /tmp/agmx-wcag-XXXXXX.txt)
+	python3 - "$WCAG_OUT" <<'PYEOF'
+import pathlib, re, sys
 
-if [ "$FAIL" -gt 0 ]; then
-  printf '\033[31m✗\033[0m  %d passed · %d warning(s) · \033[31m%d failed\033[0m\n' "$PASS" "$WARN" "$FAIL"
-  exit 1
-else
-  printf '\033[32m✓ all checks passed\033[0m  (%d passed · %d warning(s))\n' "$PASS" "$WARN"
-  exit 0
-fi
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+pages = sorted(p for p in pathlib.Path(".").glob("*.html") if p.is_file())
+if not pages:
+    emit("WARN", "no *.html page found — WCAG markup checks did not run")
+    out.close(); sys.exit(0)
+
+LANG = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
+
+def strip(text):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text or "")).strip()
+
+bad = 0
+for page in pages:
+    src = page.read_text(errors="replace").replace("\r", "")
+    problems = []
+
+    m = re.search(r"<html\b[^>]*>", src, re.I)
+    if not m:
+        problems.append("<html> element missing")
+    else:
+        lm = re.search(r'\blang\s*=\s*["\']([^"\']+)["\']', m.group(0), re.I)
+        if not lm or not LANG.match(lm.group(1)):
+            problems.append("html has no valid lang attribute (%s)" % (lm.group(1) if lm else "none"))
+
+    tm = re.search(r"<title>(.*?)</title>", src, re.I | re.S)
+    if not tm or not strip(tm.group(1)):
+        problems.append("<title> missing or empty")
+
+    for im in re.finditer(r"<img\b[^>]*?>", src, re.I):
+        if re.search(r'\balt\s*=', im.group(0), re.I) is None:
+            problems.append("img without alt: %s" % strip(im.group(0))[:60])
+
+    labelled = set()
+    for lm2 in re.finditer(r"<label\b[^>]*>(.*?)</label>", src, re.I | re.S):
+        fm = re.search(r'\bfor\s*=\s*["\']([^"\']+)["\']', lm2.group(0), re.I)
+        if fm:
+            labelled.add(fm.group(1))
+    for ctrl in re.finditer(r"<(?:input|select|textarea)\b[^>]*?>", src, re.I):
+        tag = ctrl.group(0)
+        idm = re.search(r'\bid\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+        typm = re.search(r'\btype\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+        typ = typm.group(1).lower() if typm else ""
+        if typ in ("hidden", "submit", "button", "image", "file"):
+            continue
+        named = bool(idm and idm.group(1) in labelled) or re.search(r'\b(?:aria-label|aria-labelledby)\s*=', tag, re.I)
+        wrapped = re.search(r"<label\b[^>]*>", tag, re.I) is not None
+        if not (named or wrapped):
+            problems.append("input/select/textarea without accessible name (%s %s)" % (typ, strip(tag)[:50]))
+
+    for am2 in re.finditer(r"<a\b[^>]*?>", src, re.I):
+        tag = am2.group(0)
+        close = src.find("</a>", am2.end())
+        end = src.find(">", am2.end())
+        inner = src[am2.end():close] if close != -1 and close < end else ""
+        if not strip(inner) and not re.search(r'\b(?:aria-label|aria-labelledby)\s*=', tag, re.I):
+            problems.append("link without accessible name (%s)" % strip(tag)[:50])
+
+    ids = re.findall(r'\bid\s*=\s*["\']([^"\']+)["\']', src)
+    for dup in [i for i in set(ids) if ids.count(i) > 1]:
+        problems.append("duplicate id %r" % dup)
+
+    prev = None
+    for hm in re.finditer(r"<h([1-6])\b", src, re.I):
+        level = int(hm.group(1))
+        if prev is not None and level > prev + 1:
+            problems.append("heading jumps from h%d to h%d on %s" % (prev, level, page))
+            break
+        prev = level
+
+    if problems:
+        bad += 1
+        emit("BAD", "%s: %s" % (page, "; ".join(problems)))
+
+if bad:
+    emit("BAD", "%d of %d page(s) fail a WCAG markup check (lang, title, alt text, labelled controls, named links, unique ids, heading order)" % (bad, len(pages)))
+else:
+    emit("OK", "all %d page(s): lang, title, alt text, labelled controls, named links, unique ids, heading order" % len(pages))
+out.close()
+PYEOF
+WCAG_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 34 emitted an unrecognised result line: $kind";;
+  esac
+done < "$WCAG_OUT"
+rm -f "$WCAG_OUT"
+[ "$WCAG_RC" -eq 0 ] || bad "pass 34 could not complete (python exit $WCAG_RC)"
+
+	# ----------------------------------------------------------------
+	head_ "35. The append-only event history is enforced in SQL"
+	# ----------------------------------------------------------------
+	# Minutes, votes, ballots, evidence items and incidents are governed by
+	# "append-only after registration": once a row exists it can never be
+	# updated or deleted, so an operator cannot rewrite what an AGM decided.
+	# This pass asserts the enforcement lives in the generated bundle itself
+	# (triggers + RLS + least-privilege RPC grants), not in a migration file
+	# that nobody re-applies.
+	APPEND_OUT=$(mktemp /tmp/agmx-append-XXXXXX.txt)
+	python3 - "$APPEND_OUT" <<'PYEOF'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+src = pathlib.Path("supabase/schema_final.sql").read_text()
+blocks = re.split(r'\$\$;', src)
+
+def has(fn_name, pattern):
+    for b in blocks:
+        if re.search(r'create or replace function public\.%s\(' % fn_name, b):
+            return re.search(pattern, b) is not None
+    return False
+
+problems = []
+
+# audit_events: table exists, RLS on, append-only trigger, log_audit writer exists
+for table in ("audit_events",):
+    if not re.search(r'create table (?:if not exists )?public\.%s\s*\(' % table, src):
+        problems.append("table public.%s missing" % table)
+    if not re.search(r'alter table public\.%s\s+enable row level security;' % table, src):
+        problems.append("public.%s is not RLS-enabled" % table)
+if not re.search(r'raise_append_only\(\)', src) or not re.search(r'on public\.audit_events', src):
+    problems.append("audit_events is not guarded by raise_append_only")
+if not re.search(r'create or replace function public\.log_audit\(', src):
+    problems.append("log_audit() is missing")
+
+# Every mutating RPC must be security-definer, revoked from public/anon/authenticated,
+# and granted to service_role only (never to authenticated).
+rpct = [
+    ("evidence_register", r'raise exception', None),
+    ("evidence_package_create", None, None),
+    ("evidence_package_close", None, None),
+    ("incident_record", None, None),
+    ("minutes_create", None, None),
+    ("minutes_edit", None, None),
+    ("minutes_submit_review", None, None),
+    ("minutes_verify", None, None),
+    ("minutes_approve", None, None),
+    ("minutes_lock", None, None),
+    ("election_configure", None, None),
+    ("election_open", None, None),
+    ("election_suspend", None, None),
+    ("election_close", None, None),
+    ("cast_ballot", None, None),
+    ("election_verify", None, None),
+    ("election_publish", None, None),
+    ("election_tally", None, None),
+    ("nomination_submit", None, None),
+    ("nomination_review", None, None),
+    ("candidates_snapshot", None, None),
+    ("atomic_settlement", None, None),
+    ("start_agm", None, None),
+    ("close_agm", None, None),
+    ("record_attendance", None, None),
+    ("create_motion", None, None),
+    ("open_motion_voting", None, None),
+    ("cast_vote", None, None),
+    ("record_resolution", None, None),
+    ("create_action", None, None),
+    ("run_compliance_checks", None, None),
+    ("register_document", None, None),
+    ("compose_notice", None, None),
+    ("schedule_notice", None, None),
+    ("deliver_notice", None, None),
+    ("acknowledge_notice", None, None),
+    ("register_pack_document", None, None),
+    ("replace_pack_document", None, None),
+    ("log_document_access", None, None),
+    ("send_communication", None, None),
+    ("record_delivery", None, None),
+    ("register_member", None, None),
+    ("check_in_member", None, None),
+    ("speaker_join", None, None),
+    ("speaker_leave", None, None),
+    ("question_submit", None, None),
+    ("question_answer", None, None),
+    ("question_dismiss", None, None),
+]
+for fn, _, _ in rpct:
+    block = None
+    for b in blocks:
+        if re.search(r'create or replace function public\.%s\(' % fn, b):
+            block = b; break
+    if block is None:
+        problems.append("RPC public.%s() missing from the bundle" % fn)
+        continue
+    if "security definer" not in block:
+        problems.append("public.%s() is not security definer" % fn)
+    if not re.search(r'revoke execute on function public\.%s\b' % fn, src):
+        problems.append("public.%s() is not revoked from public/anon/authenticated" % fn)
+    grants = re.findall(r'grant execute on function public\.%s\b.*' % fn, src)
+    if not grants or not all("to service_role" in g and "to authenticated" not in g for g in grants):
+        problems.append("public.%s() is not granted to service_role only" % fn)
+
+# Append-only tables carry their triggers.
+append_only_tables = {
+    "evidence_items": r"evidence_items_append_only",
+    "evidence_packages": r"evidence_packages_append_only",
+    "incidents": r"incidents_append_only",
+    "minutes": r"minutes_append_only",
+    "minute_versions": r"minute_versions_append_only",
+    "ballots": r"ballots_append_only",
+    "ballot_selections": r"ballot_selections_append_only",
+}
+for table, trigger in append_only_tables.items():
+    if not re.search(r'create trigger %s' % trigger, src):
+        problems.append("trigger %s on public.%s missing" % (trigger, table))
+
+if problems:
+    emit("BAD", "append-only history gaps: %s" % "; ".join(problems[:10]))
+else:
+    emit("OK", "audit_events RLS + append-only trigger + log_audit; %d mutating RPCs security-definer/service_role-only; %d append-only triggers" % (len(rpct), len(append_only_tables)))
+out.close()
+PYEOF
+APPEND_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 35 emitted an unrecognised result line: $kind";;
+  esac
+done < "$APPEND_OUT"
+rm -f "$APPEND_OUT"
+[ "$APPEND_RC" -eq 0 ] || bad "pass 35 could not complete (python exit $APPEND_RC)"
+
+	# ----------------------------------------------------------------
+	head_ "36. RBAC is least-privilege: no public grants, RLS on every table"
+	# ----------------------------------------------------------------
+	# No function may be executable by public or anon: reads go through
+	# RLS-scoped SELECT grants to authenticated, mutations through
+	# service_role-only security-definer RPCs. Every table created in the
+	# bundle must be RLS-enabled, so a new table never lands wide open.
+	RBAC_OUT=$(mktemp /tmp/agmx-rbac-XXXXXX.txt)
+	python3 - "$RBAC_OUT" <<'PYEOF'
+import pathlib, re, sys
+
+out = open(sys.argv[1], "w")
+def emit(kind, text):
+    out.write("%s\t%s\n" % (kind, " ".join(str(text).split())))
+
+src = pathlib.Path("supabase/schema_final.sql").read_text()
+blocks = re.split(r'\$\$;', src)
+problems = []
+
+# 1. Every table created in the bundle is RLS-enabled.
+created = re.findall(r'create table (?:if not exists )?public\.([a-z_]+)\s*\(', src)
+rlsed = set(re.findall(r'alter table public\.([a-z_]+)\s+enable row level security;', src))
+missing = [t for t in dict.fromkeys(created) if t not in rlsed]
+for t in missing:
+    problems.append("public.%s has no row level security" % t)
+
+# 2. No function grant reaches public or anon.
+for m in re.finditer(r'grant execute on function public\.[a-z_]+\([^)]*\)\s+(to [^\n]+)', src):
+    grantees = m.group(1)
+    if re.search(r'\b(public|anon)\b', grantees):
+        problems.append("function grant reaches %s" % grantees.strip())
+
+# 3. Every RPC (returns jsonb, operator-org gated) is security definer.
+for b in blocks:
+    if re.search(r'create or replace function public\.([a-z_]+)\(', b) \
+       and ("returns jsonb" in b or "p_operator_org" in b) \
+       and "security definer" not in b:
+        name = re.search(r'create or replace function public\.([a-z_]+)\(', b).group(1)
+        problems.append("RPC public.%s() is not security definer" % name)
+
+if problems:
+    emit("BAD", "least-privilege gaps: %s" % "; ".join(problems[:10]))
+else:
+    emit("OK", "%d tables created, all RLS-enabled; no function grant to public/anon; every RPC security definer" % len(dict.fromkeys(created)))
+out.close()
+PYEOF
+RBAC_RC=$?
+while IFS=$'\t' read -r kind text; do
+  [ -n "${kind:-}" ] || continue
+  case "$kind" in
+    BAD)  bad "$text";;
+    WARN) warn "$text";;
+    OK)   ok "$text";;
+    *)    bad "pass 36 emitted an unrecognised result line: $kind";;
+  esac
+done < "$RBAC_OUT"
+rm -f "$RBAC_OUT"
+[ "$RBAC_RC" -eq 0 ] || bad "pass 36 could not complete (python exit $RBAC_RC)"
+
+	# ----------------------------------------------------------------
+	printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────"
+
+	if [ "$FAIL" -gt 0 ]; then
+	  printf '\033[31m✗\033[0m  %d passed · %d warning(s) · \033[31m%d failed\033[0m\n' "$PASS" "$WARN" "$FAIL"
+	  exit 1
+	else
+	  printf '\033[32m✓ all checks passed\033[0m  (%d passed · %d warning(s))\n' "$PASS" "$WARN"
+	  exit 0
+	fi

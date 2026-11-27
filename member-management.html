@@ -46,7 +46,7 @@
     <div style="border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
       <div style="padding:1rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-weight:600;color:#374151;">Daftar Ahli</span>
-        <input type="text" id="memberSearch" placeholder="Cari nama atau ID ahli..." style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;min-width:220px;">
+        <input type="text" id="memberSearch" placeholder="Cari nama atau ID ahli..." aria-label="Cari anggota" style="padding:0.4rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.875rem;min-width:220px;">
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
         <thead>
@@ -143,9 +143,9 @@
     <!-- Import modal -->
     <div id="importModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:50;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:12px;padding:1.5rem;min-width:400px;max-width:90vw;max-height:90vh;overflow-y:auto;">
-        <h3 style="margin:0 0 1rem;font-size:1.125rem;">Impor Ahli (JSON)</h3>
+        <h2 style="margin:0 0 1rem;font-size:1.125rem;">Impor Ahli (JSON)</h2>
         <p style="font-size:0.875rem;color:#666;margin-bottom:1rem;">Paste JSON array of members. Each object: {member_no, name, ic?, phone?, region?, shares?, status?, arrears?, eligible?, age?, joined_at?, contact_channels?}</p>
-        <textarea id="importJson" style="width:100%;height:160px;font-family:monospace;font-size:0.8rem;padding:0.75rem;border:1px solid #d1d5db;border-radius:6px;margin-bottom:1rem;" placeholder='[{"member_no":"M001","name":"Ahmad","region":"Selangor"}]'></textarea>
+        <textarea id="importJson" aria-label="Impor ahli (JSON)" style="width:100%;height:160px;font-family:monospace;font-size:0.8rem;padding:0.75rem;border:1px solid #d1d5db;border-radius:6px;margin-bottom:1rem;" placeholder='[{"member_no":"M001","name":"Ahmad","region":"Selangor"}]'></textarea>
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
           <button onclick="closeImportModal()" style="padding:0.5rem 1rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:0.875rem;cursor:pointer;">Batal</button>
           <button onclick="doImport()" style="padding:0.5rem 1rem;border:1px solid #2563EB;border-radius:6px;background:#2563EB;color:#fff;font-size:0.875rem;cursor:pointer;">Impor</button>
